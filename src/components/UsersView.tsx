@@ -19,7 +19,10 @@ import {
   Crown,
   Key,
   MessageCircle,
-  Check
+  Check,
+  Lock,
+  Eye,
+  EyeOff
 } from "lucide-react";
 import { User, UserRole } from "../types";
 import { getUserRoleConfig, createWhatsAppUrl } from "../lib/utils";
@@ -46,11 +49,15 @@ export const UsersView: React.FC<UsersViewProps> = ({
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [showFormPassword, setShowFormPassword] = useState(false);
+  const [visiblePasswordUserId, setVisiblePasswordUserId] = useState<string | null>(null);
 
   // Form state
   const [formData, setFormData] = useState<Partial<User>>({
     name: "",
     username: "",
+    password: "",
+    pin: "",
     role: "technician",
     phone: "",
     email: "",
@@ -74,9 +81,12 @@ export const UsersView: React.FC<UsersViewProps> = ({
 
   const openCreateModal = () => {
     setEditingUserId(null);
+    setShowFormPassword(false);
     setFormData({
       name: "",
       username: "",
+      password: "password123",
+      pin: "123456",
       role: "technician",
       phone: "",
       email: "",
@@ -89,9 +99,12 @@ export const UsersView: React.FC<UsersViewProps> = ({
 
   const openEditModal = (user: User) => {
     setEditingUserId(user.id);
+    setShowFormPassword(false);
     setFormData({
       name: user.name,
       username: user.username,
+      password: user.password || user.pin || "password123",
+      pin: user.pin || user.password || "123456",
       role: user.role,
       phone: user.phone,
       email: user.email || "",
@@ -104,13 +117,19 @@ export const UsersView: React.FC<UsersViewProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const dataToSave = {
+      ...formData,
+      password: formData.password || formData.pin || "password123",
+      pin: formData.pin || formData.password || "123456"
+    };
+
     if (editingUserId) {
-      onUpdateUser(editingUserId, formData);
+      onUpdateUser(editingUserId, dataToSave);
       if (currentUser.id === editingUserId) {
-        setCurrentUser({ ...currentUser, ...formData } as User);
+        setCurrentUser({ ...currentUser, ...dataToSave } as User);
       }
     } else {
-      onCreateUser(formData);
+      onCreateUser(dataToSave);
     }
     setIsModalOpen(false);
   };
@@ -358,6 +377,37 @@ export const UsersView: React.FC<UsersViewProps> = ({
                         </span>
                       </div>
                     )}
+
+                    {/* Password & PIN Display with View Toggle */}
+                    <div className="flex items-center justify-between py-1 px-2 rounded-lg bg-muted/50 border border-border/60">
+                      <span className="flex items-center gap-1.5 font-medium text-foreground">
+                        <Lock className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                        <span>PIN / Password:</span>
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-mono font-bold text-foreground tracking-wider">
+                          {visiblePasswordUserId === user.id
+                            ? user.password || user.pin || "123456"
+                            : "••••••"}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setVisiblePasswordUserId(
+                              visiblePasswordUserId === user.id ? null : user.id
+                            )
+                          }
+                          className="p-1 text-muted-foreground hover:text-foreground rounded-md hover:bg-muted"
+                          title={visiblePasswordUserId === user.id ? "Sembunyikan PIN" : "Lihat PIN"}
+                        >
+                          {visiblePasswordUserId === user.id ? (
+                            <EyeOff className="h-3 w-3" />
+                          ) : (
+                            <Eye className="h-3 w-3" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
 
                     <div className="flex items-center justify-between">
                       <span>Status Akun:</span>
@@ -614,6 +664,50 @@ export const UsersView: React.FC<UsersViewProps> = ({
                     className="w-full px-3 py-2 bg-muted/40 border border-input rounded-xl text-sm"
                   />
                 </div>
+              </div>
+
+              {/* Password / PIN Akses Input Field */}
+              <div className="p-3 bg-blue-50/40 dark:bg-blue-950/20 border border-blue-200/60 dark:border-blue-900/40 rounded-xl space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="block font-semibold text-foreground flex items-center gap-1.5">
+                    <Lock className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                    <span>Password / PIN Akses Login Pengguna *</span>
+                  </label>
+                  <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium">
+                    (PIN / Sandi Pengguna)
+                  </span>
+                </div>
+                <div className="relative">
+                  <input
+                    type={showFormPassword ? "text" : "password"}
+                    required
+                    placeholder="Masukkan Password atau PIN (Contoh: 123456 / pass2025)"
+                    value={formData.password || formData.pin || ""}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        password: e.target.value,
+                        pin: e.target.value
+                      })
+                    }
+                    className="w-full pl-3 pr-10 py-2 bg-card border border-input rounded-xl text-sm font-mono focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowFormPassword(!showFormPassword)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-muted-foreground hover:text-foreground"
+                    title={showFormPassword ? "Sembunyikan" : "Tampilkan"}
+                  >
+                    {showFormPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Password/PIN ini wajib diisi dan akan digunakan oleh pengguna untuk login ke sistem kasir & servis.
+                </p>
               </div>
 
               <div>

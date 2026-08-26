@@ -126,6 +126,8 @@ export interface User {
   id: string;
   name: string;
   username: string;
+  password?: string;
+  pin?: string;
   role: UserRole;
   phone: string;
   email?: string;
@@ -141,6 +143,8 @@ let users: User[] = [
     id: "usr-1",
     name: "H. Suwandi",
     username: "owner",
+    password: "password123",
+    pin: "123456",
     role: "owner",
     phone: "081234567890",
     email: "suwandi@servisku.com",
@@ -152,6 +156,8 @@ let users: User[] = [
     id: "usr-2",
     name: "Bambang Kurniawan",
     username: "admin",
+    password: "password123",
+    pin: "123456",
     role: "admin",
     phone: "085611223344",
     email: "bambang@servisku.com",
@@ -163,6 +169,8 @@ let users: User[] = [
     id: "usr-3",
     name: "Rian Prasetyo",
     username: "rian_tech",
+    password: "password123",
+    pin: "123456",
     role: "technician",
     phone: "087799887766",
     email: "rian@servisku.com",
@@ -174,6 +182,8 @@ let users: User[] = [
     id: "usr-4",
     name: "Agus Pratama",
     username: "agus_tech",
+    password: "password123",
+    pin: "123456",
     role: "technician",
     phone: "089655443322",
     email: "agus@servisku.com",
@@ -185,6 +195,8 @@ let users: User[] = [
     id: "usr-5",
     name: "Maya Anggraini",
     username: "maya_kasir",
+    password: "password123",
+    pin: "123456",
     role: "cashier",
     phone: "081322334455",
     email: "maya@servisku.com",
@@ -605,6 +617,8 @@ app.post("/api/users", (req: Request, res: Response) => {
     id: `usr-${Date.now()}`,
     name: req.body.name,
     username: req.body.username || req.body.name.toLowerCase().replace(/\s+/g, "_"),
+    password: req.body.password || req.body.pin || "123456",
+    pin: req.body.pin || req.body.password || "123456",
     role: req.body.role || "technician",
     phone: req.body.phone || "-",
     email: req.body.email || "",

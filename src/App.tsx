@@ -188,6 +188,8 @@ export function App() {
       id: `usr-${Date.now()}`,
       name: userData.name || "Staf Baru",
       username: userData.username || (userData.name || "user").toLowerCase().replace(/\s+/g, "_"),
+      password: userData.password || userData.pin || "123456",
+      pin: userData.pin || userData.password || "123456",
       role: userData.role || "technician",
       phone: userData.phone || "-",
       email: userData.email || "",
@@ -202,7 +204,7 @@ export function App() {
     toast.success(`Pengguna "${newUser.name}" berhasil didaftarkan!`);
 
     try {
-      await axios.post("/api/users", userData);
+      await axios.post("/api/users", newUser);
     } catch (e) {
       // Offline fallback
     }
