@@ -41,6 +41,7 @@ interface POSViewProps {
   recentTransactions: Transaction[];
   preloadedTicket?: ServiceTicket | null;
   onClearPreloadedTicket?: () => void;
+  onNavigateToHistory?: () => void;
 }
 
 export const POSView: React.FC<POSViewProps> = ({
@@ -50,7 +51,8 @@ export const POSView: React.FC<POSViewProps> = ({
   onPrintTransaction,
   recentTransactions,
   preloadedTicket,
-  onClearPreloadedTicket
+  onClearPreloadedTicket,
+  onNavigateToHistory
 }) => {
   const [activeCategory, setActiveCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -232,11 +234,17 @@ export const POSView: React.FC<POSViewProps> = ({
         </div>
 
         <button
-          onClick={() => setShowHistoryModal(true)}
-          className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-card border border-border text-xs font-semibold text-foreground hover:bg-muted transition-colors"
+          onClick={() => {
+            if (onNavigateToHistory) {
+              onNavigateToHistory();
+            } else {
+              setShowHistoryModal(true);
+            }
+          }}
+          className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-card border border-border text-xs font-semibold text-foreground hover:bg-muted transition-colors shadow-2xs"
         >
-          <FileText className="h-4 w-4 text-muted-foreground" />
-          <span>Riwayat Transaksi</span>
+          <FileText className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+          <span>Lihat Riwayat Transaksi</span>
         </button>
       </div>
 

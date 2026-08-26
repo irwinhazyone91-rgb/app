@@ -3,6 +3,7 @@ import {
   LayoutDashboard,
   Wrench,
   ShoppingCart,
+  ReceiptText,
   Package,
   Search,
   Settings,
@@ -82,6 +83,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
           icon: ShoppingCart,
           badge: readyTicketsCount > 0 ? readyTicketsCount : undefined,
           badgeColor: "bg-emerald-600 text-white",
+        },
+        {
+          id: "transactions",
+          label: "Riwayat Transaksi",
+          subtitle: "Nota & Koreksi Transaksi",
+          icon: ReceiptText,
         },
         {
           id: "inventory",

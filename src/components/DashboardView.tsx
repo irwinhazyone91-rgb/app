@@ -82,7 +82,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       {/* KPI Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Revenue */}
-        <div className="bg-card border border-border rounded-xl p-5 shadow-xs relative overflow-hidden">
+        <div 
+          onClick={() => onNavigate("transactions")}
+          className="bg-card border border-border rounded-xl p-5 shadow-xs relative overflow-hidden cursor-pointer hover:border-emerald-500/50 transition-colors"
+        >
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               Total Omset Kasir & Servis
@@ -95,9 +98,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <div className="text-2xl font-bold text-foreground">
               {stats ? formatRupiah(stats.totalRevenue) : "Rp 0"}
             </div>
-            <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1 flex items-center font-medium">
-              <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5"></span>
-              POS & Pelunasan Servis
+            <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1 flex items-center justify-between font-medium">
+              <span className="flex items-center">
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5"></span>
+                Lihat Riwayat Transaksi
+              </span>
+              <ChevronRight className="h-3.5 w-3.5" />
             </p>
           </div>
         </div>

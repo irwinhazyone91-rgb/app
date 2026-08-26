@@ -908,6 +908,37 @@ app.post("/api/transactions", (req: Request, res: Response) => {
   res.status(201).json(newTx);
 });
 
+app.delete("/api/transactions/:id", (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { restoreStock, restoreTicket } = req.query;
+  const tx = transactions.find((t) => t.id === id || t.invoiceNumber === id);
+  if (!tx) {
+    return res.status(404).json({ error: "Transaksi tidak ditemukan" });
+  }
+
+  // Restore inventory stock
+  if (restoreStock !== "false") {
+    for (const item of tx.items) {
+      if (item.productId) {
+        const pIndex = products.findIndex((p) => p.id === item.productId);
+        if (pIndex !== -1 && products[pIndex].category !== "jasa") {
+          products[pIndex].stock += (item.qty || 1);
+        }
+      }
+      if (restoreTicket !== "false" && item.isService && item.serviceTicketId) {
+        const sIndex = serviceTickets.findIndex((s) => s.id === item.serviceTicketId || s.ticketNumber === item.serviceTicketId);
+        if (sIndex !== -1 && serviceTickets[sIndex].status === "completed") {
+          serviceTickets[sIndex].status = "ready";
+        }
+      }
+    }
+  }
+
+  transactions = transactions.filter((t) => t.id !== id && t.invoiceNumber !== id);
+  saveToDisk();
+  res.json({ success: true, message: "Transaksi berhasil dihapus" });
+});
+
 // Analytics & Dashboard Stats
 app.get("/api/stats", (req: Request, res: Response) => {
   const totalRevenue = transactions.reduce((acc, t) => acc + t.total, 0);

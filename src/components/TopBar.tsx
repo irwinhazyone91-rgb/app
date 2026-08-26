@@ -5,6 +5,7 @@ import {
   Search,
   Wrench,
   ShoppingCart,
+  ReceiptText,
   Package,
   LayoutDashboard,
   Settings,
@@ -64,6 +65,12 @@ export const TopBar: React.FC<TopBarProps> = ({
           title: "Kasir POS & Penjualan",
           subtitle: "Transaksi sparepart, jasa servis, dan pelunasan nota",
           icon: ShoppingCart
+        };
+      case "transactions":
+        return {
+          title: "Riwayat Transaksi & Nota",
+          subtitle: "Arsip seluruh penjualan kasir, pelunasan servis, serta pembatalan nota khusus Pemilik Toko",
+          icon: ReceiptText
         };
       case "inventory":
         return {

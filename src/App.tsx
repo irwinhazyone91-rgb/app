@@ -31,6 +31,7 @@ import { TopBar } from "./components/TopBar";
 import { DashboardView } from "./components/DashboardView";
 import { ServiceManagementView } from "./components/ServiceManagementView";
 import { POSView } from "./components/POSView";
+import { TransactionHistoryView } from "./components/TransactionHistoryView";
 import { InventoryView } from "./components/InventoryView";
 import { CustomerLandingPage } from "./components/CustomerLandingPage";
 import { SettingsView } from "./components/SettingsView";
@@ -654,6 +655,87 @@ export function App() {
     return newTx;
   };
 
+  // Delete / Void Transaction (Owner & Admin only with inventory & ticket restoration)
+  const handleDeleteTransaction = async (
+    txId: string,
+    options?: { restoreStock?: boolean; restoreServiceTicket?: boolean }
+  ) => {
+    const { restoreStock = true, restoreServiceTicket = true } = options || {};
+    const txToDelete = transactions.find((t) => t.id === txId || t.invoiceNumber === txId);
+    if (!txToDelete) return;
+
+    const modifiedProducts: Product[] = [];
+    let updatedProducts = [...products];
+
+    // If restoreStock is true, add back the quantities for product items
+    if (restoreStock) {
+      for (const item of txToDelete.items) {
+        if (item.productId) {
+          const pIndex = updatedProducts.findIndex((p) => p.id === item.productId);
+          if (pIndex !== -1 && updatedProducts[pIndex].category !== "jasa") {
+            updatedProducts[pIndex] = {
+              ...updatedProducts[pIndex],
+              stock: updatedProducts[pIndex].stock + (item.qty || 1),
+            };
+            modifiedProducts.push(updatedProducts[pIndex]);
+          }
+        }
+      }
+    }
+
+    // If restoreServiceTicket is true, revert completed service tickets back to "ready"
+    const restoredTickets: ServiceTicket[] = [];
+    let updatedTickets = [...tickets];
+    if (restoreServiceTicket) {
+      for (const item of txToDelete.items) {
+        if (item.isService && item.serviceTicketId) {
+          updatedTickets = updatedTickets.map((t) => {
+            if ((t.id === item.serviceTicketId || t.ticketNumber === item.serviceTicketId) && t.status === "completed") {
+              const reverted: ServiceTicket = {
+                ...t,
+                status: "ready" as const,
+                completedAt: undefined,
+                warrantyUntil: undefined,
+                updatedAt: new Date().toISOString(),
+              };
+              restoredTickets.push(reverted);
+              return reverted;
+            }
+            return t;
+          });
+        }
+      }
+    }
+
+    const updatedTx = transactions.filter((t) => t.id !== txId && t.invoiceNumber !== txId);
+    setTransactions(updatedTx);
+    savePersistentTransactions(updatedTx);
+
+    if (restoreStock && modifiedProducts.length > 0) {
+      setProducts(updatedProducts);
+      savePersistentProducts(updatedProducts);
+    }
+
+    if (restoreServiceTicket && restoredTickets.length > 0) {
+      setTickets(updatedTickets);
+      savePersistentTickets(updatedTickets);
+    }
+
+    refreshStats(updatedTickets, updatedProducts, updatedTx);
+    toast.success(`Transaksi ${txToDelete.invoiceNumber} berhasil dihapus/dibatalkan.`);
+
+    try {
+      await Promise.all([
+        axios.delete(`/api/transactions/${txId}?restoreStock=${restoreStock}&restoreTicket=${restoreServiceTicket}`).catch(() => null),
+        firestoreService.deleteTransaction(txToDelete.id).catch(() => null),
+        ...modifiedProducts.map((p) => firestoreService.saveProduct(p).catch(() => null)),
+        ...restoredTickets.map((t) => firestoreService.saveTicket(t).catch(() => null)),
+      ]);
+    } catch (e) {
+      // Fallback
+    }
+  };
+
   // Settings Save
   const handleSaveSettings = async (newSettings: StoreSettings) => {
     setSettings(newSettings);
@@ -926,6 +1008,28 @@ export function App() {
               recentTransactions={transactions}
               preloadedTicket={preloadedTicketForPOS}
               onClearPreloadedTicket={() => setPreloadedTicketForPOS(null)}
+              onNavigateToHistory={() => setCurrentTab("transactions")}
+            />
+          )}
+
+          {currentTab === "transactions" && (
+            <TransactionHistoryView
+              transactions={transactions}
+              tickets={tickets}
+              products={products}
+              currentUser={currentUser}
+              settings={settings}
+              onDeleteTransaction={handleDeleteTransaction}
+              onPrintTransaction={(tx) => {
+                setReceiptModal({
+                  isOpen: true,
+                  mode: "pos_transaction",
+                  transaction: tx,
+                  ticket: null,
+                  defaultFormat: "thermal"
+                });
+              }}
+              onNavigateToPOS={() => setCurrentTab("pos")}
             />
           )}
 

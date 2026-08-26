@@ -188,6 +188,15 @@ export const firestoreService = {
     }
   },
 
+  async deleteTransaction(transactionId: string): Promise<void> {
+    const path = `${COLLECTIONS.TRANSACTIONS}/${transactionId}`;
+    try {
+      await deleteDoc(doc(db, COLLECTIONS.TRANSACTIONS, transactionId));
+    } catch (err) {
+      console.warn("Firestore deleteTransaction error:", err);
+    }
+  },
+
   // Sync Store Settings
   async saveSettings(settings: StoreSettings): Promise<void> {
     const path = `${COLLECTIONS.SETTINGS}/store_config`;
