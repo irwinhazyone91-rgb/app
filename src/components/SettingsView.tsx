@@ -1,18 +1,49 @@
-import React, { useState } from "react";
-import { Settings, Store, Phone, MessageSquare, Shield, Save, CheckCircle } from "lucide-react";
+import React, { useState, useRef } from "react";
+import { 
+  Settings, 
+  Store, 
+  Phone, 
+  Shield, 
+  Save, 
+  CheckCircle, 
+  Database, 
+  Download, 
+  Upload, 
+  RefreshCw, 
+  Globe, 
+  Server, 
+  HardDrive,
+  Info,
+  Check
+} from "lucide-react";
 import { StoreSettings } from "../types";
+import { exportDatabaseBackup } from "../lib/storage";
+import { toast } from "sonner";
 
 interface SettingsViewProps {
   settings: StoreSettings;
   onSaveSettings: (settings: StoreSettings) => void;
+  onRestoreBackup?: (jsonString: string) => boolean;
+  onResetDefaultData?: () => void;
+  counts?: {
+    tickets: number;
+    products: number;
+    transactions: number;
+    users: number;
+  };
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
   settings,
-  onSaveSettings
+  onSaveSettings,
+  onRestoreBackup,
+  onResetDefaultData,
+  counts = { tickets: 0, products: 0, transactions: 0, users: 0 }
 }) => {
   const [formData, setFormData] = useState<StoreSettings>(settings);
   const [isSaved, setIsSaved] = useState(false);
+  const [showVercelGuide, setShowVercelGuide] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,16 +52,166 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setTimeout(() => setIsSaved(false), 3000);
   };
 
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      if (content && onRestoreBackup) {
+        const success = onRestoreBackup(content);
+        if (success) {
+          toast.success("Database berhasil dipulihkan dari file backup!");
+        } else {
+          toast.error("Format file backup tidak valid!");
+        }
+      }
+    };
+    reader.readAsText(file);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-          <Settings className="h-6 w-6 text-blue-600" />
-          <span>Pengaturan Profil Toko & Format Nota</span>
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Konfigurasi identitas toko, nomor WhatsApp notifikasi, dan syarat garansi pada nota fisik.
-        </p>
+    <div className="max-w-4xl mx-auto space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
+            <Settings className="h-6 w-6 text-blue-600" />
+            <span>Pengaturan Aplikasi & Database</span>
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Kelola profil toko, format nota, penyimpanan data persisten, dan konfigurasi online Vercel.
+          </p>
+        </div>
+
+        <button
+          onClick={() => setShowVercelGuide(!showVercelGuide)}
+          className="inline-flex items-center space-x-2 px-3.5 py-2 bg-gradient-to-r from-slate-900 to-slate-800 dark:from-slate-800 dark:to-slate-700 text-white rounded-xl text-xs font-bold shadow-sm hover:opacity-90 transition-all cursor-pointer"
+        >
+          <Globe className="h-4 w-4 text-emerald-400" />
+          <span>{showVercelGuide ? "Tutup Panduan Vercel" : "🚀 Panduan Online Vercel"}</span>
+        </button>
+      </div>
+
+      {/* Vercel Deployment Guide Banner */}
+      {showVercelGuide && (
+        <div className="bg-slate-950 text-slate-100 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4 text-xs">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+            <div className="flex items-center space-x-2">
+              <div className="h-7 w-7 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">
+                ▲
+              </div>
+              <span className="font-bold text-sm text-white">Panduan Deploy Aplikasi ke Vercel (Online 24 Jam Gratis)</span>
+            </div>
+            <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono text-[10px]">
+              Ready for Vercel
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="bg-slate-900/90 p-3.5 rounded-xl border border-slate-800/80 space-y-1.5">
+              <div className="font-bold text-emerald-400 flex items-center gap-1.5">
+                <span className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center text-xs">1</span>
+                <span>Export / Push ke GitHub</span>
+              </div>
+              <p className="text-slate-300 text-[11px] leading-relaxed">
+                Download project atau push kode repositori ini ke akun GitHub Anda.
+              </p>
+            </div>
+
+            <div className="bg-slate-900/90 p-3.5 rounded-xl border border-slate-800/80 space-y-1.5">
+              <div className="font-bold text-emerald-400 flex items-center gap-1.5">
+                <span className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center text-xs">2</span>
+                <span>Import di Vercel.com</span>
+              </div>
+              <p className="text-slate-300 text-[11px] leading-relaxed">
+                Buka <strong className="text-white">vercel.com</strong>, klik <em>Add New Project</em> ➔ Import repo GitHub Anda. Konfigurasi <code className="bg-slate-800 px-1 py-0.5 rounded text-amber-300">vercel.json</code> sudah otomatis siap pakai!
+              </p>
+            </div>
+
+            <div className="bg-slate-900/90 p-3.5 rounded-xl border border-slate-800/80 space-y-1.5">
+              <div className="font-bold text-emerald-400 flex items-center gap-1.5">
+                <span className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center text-xs">3</span>
+                <span>Langsung Online & Siap Pakai</span>
+              </div>
+              <p className="text-slate-300 text-[11px] leading-relaxed">
+                Klik tombol <strong className="text-white">Deploy</strong>. Dalam 1 menit, domain online (misal: <em>servisku.vercel.app</em>) sudah aktif dengan penyimpanan persisten anti-hilang!
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Database & Data Persistence Status */}
+      <div className="bg-card border border-border rounded-2xl p-5 shadow-xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border">
+          <div className="flex items-center space-x-3">
+            <div className="h-10 w-10 rounded-xl bg-blue-500/10 text-blue-600 flex items-center justify-center font-bold">
+              <HardDrive className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="font-bold text-foreground text-sm flex items-center gap-2">
+                <span>Penyimpanan Data Persisten (Anti-Hilang)</span>
+                <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 text-[11px] font-semibold flex items-center gap-1">
+                  <Check className="h-3 w-3" /> Auto-Save Aktif
+                </span>
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                Data tiket servis, inventaris sparepart, kasir POS, dan akun staf tersimpan aman di sistem dan tidak akan hilang saat logout atau ditutup.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={() => {
+                exportDatabaseBackup();
+                toast.success("File cadangan database berhasil diunduh!");
+              }}
+              className="flex items-center space-x-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-xs transition-all active:scale-95 cursor-pointer"
+            >
+              <Download className="h-3.5 w-3.5" />
+              <span>Ekspor Backup (.JSON)</span>
+            </button>
+
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileUpload}
+              accept=".json"
+              className="hidden"
+            />
+
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="flex items-center space-x-1.5 px-3 py-1.5 bg-muted hover:bg-muted/80 text-foreground border border-border rounded-xl text-xs font-semibold transition-all active:scale-95 cursor-pointer"
+            >
+              <Upload className="h-3.5 w-3.5 text-blue-600" />
+              <span>Impor / Pulihkan</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Database Records Counters */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1 text-xs">
+          <div className="bg-muted/40 p-3 rounded-xl border border-border">
+            <span className="text-muted-foreground block text-[11px]">Tiket Servis Tersimpan</span>
+            <span className="text-lg font-bold text-foreground font-mono">{counts.tickets} Tiket</span>
+          </div>
+          <div className="bg-muted/40 p-3 rounded-xl border border-border">
+            <span className="text-muted-foreground block text-[11px]">Item Produk & Sparepart</span>
+            <span className="text-lg font-bold text-foreground font-mono">{counts.products} Item</span>
+          </div>
+          <div className="bg-muted/40 p-3 rounded-xl border border-border">
+            <span className="text-muted-foreground block text-[11px]">Transaksi Kasir POS</span>
+            <span className="text-lg font-bold text-foreground font-mono">{counts.transactions} Transaksi</span>
+          </div>
+          <div className="bg-muted/40 p-3 rounded-xl border border-border">
+            <span className="text-muted-foreground block text-[11px]">Akun Staf & Teknisi</span>
+            <span className="text-lg font-bold text-foreground font-mono">{counts.users} Akun</span>
+          </div>
+        </div>
       </div>
 
       <form onSubmit={handleSubmit} className="bg-card border border-border rounded-2xl p-6 shadow-xs space-y-5 text-sm">
@@ -119,7 +300,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         <div className="space-y-4 pt-4 border-t border-border">
           <h3 className="font-bold text-foreground text-xs uppercase tracking-wider flex items-center gap-1.5 text-blue-600">
             <Shield className="h-4 w-4" />
-            <span>Catatan Kaki Struk & Ketentuan Garansi</span>
+            <span>Catatan Kaki Struk & Ketentuan Garansi (Nota 21cm x 15cm)</span>
           </h3>
 
           <div>
@@ -136,7 +317,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
           <div>
             <label className="block text-xs font-semibold text-foreground mb-1">
-              Syarat & Ketentuan Garansi Servis (Tercetak di Nota)
+              Syarat & Ketentuan Garansi Servis (Tercetak di Nota 21x15cm)
             </label>
             <textarea
               rows={3}
@@ -159,7 +340,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
           <button
             type="submit"
-            className="flex items-center space-x-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-sm shadow-md transition-all active:scale-95"
+            className="flex items-center space-x-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-sm shadow-md transition-all active:scale-95 cursor-pointer"
           >
             <Save className="h-4 w-4" />
             <span>Simpan Pengaturan</span>

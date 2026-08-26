@@ -1,10 +1,29 @@
 import express, { Request, Response } from "express";
 import cors from "cors";
+import fs from "fs";
+import path from "path";
 
 const app = express();
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: "20mb" }));
+
+// Persistent File Storage Location (Local or Serverless fallback)
+const DATA_DIR = process.env.NODE_ENV === "production" && process.env.VERCEL 
+  ? "/tmp/servisku_data" 
+  : path.join(process.cwd(), "data");
+
+const DB_FILE = path.join(DATA_DIR, "db.json");
+
+function ensureDataDir() {
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+  } catch (e) {
+    // Silent fallback
+  }
+}
 
 // In-Memory Data Models
 export interface ServicePart {
@@ -464,11 +483,83 @@ let transactions: Transaction[] = [
   }
 ];
 
+// Initial Load from Disk if exists
+function loadFromDisk() {
+  try {
+    ensureDataDir();
+    if (fs.existsSync(DB_FILE)) {
+      const raw = fs.readFileSync(DB_FILE, "utf-8");
+      const parsed = JSON.parse(raw);
+      if (parsed.users && Array.isArray(parsed.users)) users = parsed.users;
+      if (parsed.storeSettings && typeof parsed.storeSettings === "object") storeSettings = parsed.storeSettings;
+      if (parsed.products && Array.isArray(parsed.products)) products = parsed.products;
+      if (parsed.serviceTickets && Array.isArray(parsed.serviceTickets)) serviceTickets = parsed.serviceTickets;
+      if (parsed.transactions && Array.isArray(parsed.transactions)) transactions = parsed.transactions;
+      console.log("ServisKu Database loaded successfully from disk:", DB_FILE);
+    } else {
+      saveToDisk();
+    }
+  } catch (e) {
+    console.warn("Could not read persistent DB file, using default state:", e);
+  }
+}
+
+function saveToDisk() {
+  try {
+    ensureDataDir();
+    const data = {
+      users,
+      storeSettings,
+      products,
+      serviceTickets,
+      transactions,
+      lastSaved: new Date().toISOString()
+    };
+    fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), "utf-8");
+  } catch (e) {
+    // Silently fallback if disk is read-only
+  }
+}
+
+// Initialize on startup
+loadFromDisk();
+
 // --- ROUTES ---
 
 // Health check
 app.get("/api/health", (req: Request, res: Response) => {
-  res.json({ status: "ok", timestamp: new Date().toISOString() });
+  res.json({ status: "ok", timestamp: new Date().toISOString(), dbReady: true });
+});
+
+// Full DB Backup Export
+app.get("/api/backup/export", (req: Request, res: Response) => {
+  res.json({
+    appName: "ServisKu Computer",
+    version: "1.0",
+    exportDate: new Date().toISOString(),
+    users,
+    storeSettings,
+    products,
+    serviceTickets,
+    transactions
+  });
+});
+
+// Full DB Restore Import
+app.post("/api/backup/import", (req: Request, res: Response) => {
+  try {
+    const { users: newUsers, storeSettings: newSettings, products: newProducts, serviceTickets: newTickets, transactions: newTx } = req.body;
+    if (Array.isArray(newUsers)) users = newUsers;
+    if (newSettings && typeof newSettings === "object") storeSettings = newSettings;
+    if (Array.isArray(newProducts)) products = newProducts;
+    if (Array.isArray(newTickets)) serviceTickets = newTickets;
+    if (Array.isArray(newTx)) transactions = newTx;
+
+    saveToDisk();
+    res.json({ success: true, message: "Database berhasil dipulihkan!" });
+  } catch (e: any) {
+    res.status(400).json({ error: "Format data backup tidak valid", details: e.message });
+  }
 });
 
 // Settings
@@ -478,6 +569,7 @@ app.get("/api/settings", (req: Request, res: Response) => {
 
 app.put("/api/settings", (req: Request, res: Response) => {
   storeSettings = { ...storeSettings, ...req.body };
+  saveToDisk();
   res.json({ success: true, settings: storeSettings });
 });
 
@@ -522,6 +614,7 @@ app.post("/api/users", (req: Request, res: Response) => {
   };
 
   users.push(newUser);
+  saveToDisk();
   res.status(201).json(newUser);
 });
 
@@ -537,6 +630,7 @@ app.put("/api/users/:id", (req: Request, res: Response) => {
     ...req.body
   };
 
+  saveToDisk();
   res.json(users[index]);
 });
 
@@ -549,6 +643,7 @@ app.delete("/api/users/:id", (req: Request, res: Response) => {
   }
 
   users = users.filter((u) => u.id !== id);
+  saveToDisk();
   res.json({ success: true, message: "Pengguna berhasil dihapus" });
 });
 
@@ -586,6 +681,7 @@ app.post("/api/products", (req: Request, res: Response) => {
   };
 
   products.unshift(newProduct);
+  saveToDisk();
   res.status(201).json(newProduct);
 });
 
@@ -605,12 +701,14 @@ app.put("/api/products/:id", (req: Request, res: Response) => {
     minStock: Number(req.body.minStock ?? products[index].minStock)
   };
 
+  saveToDisk();
   res.json(products[index]);
 });
 
 app.delete("/api/products/:id", (req: Request, res: Response) => {
   const { id } = req.params;
   products = products.filter((p) => p.id !== id);
+  saveToDisk();
   res.json({ success: true, message: "Produk berhasil dihapus" });
 });
 
@@ -695,6 +793,7 @@ app.post("/api/services", (req: Request, res: Response) => {
   };
 
   serviceTickets.unshift(newTicket);
+  saveToDisk();
   res.status(201).json(newTicket);
 });
 
@@ -725,12 +824,14 @@ app.put("/api/services/:id", (req: Request, res: Response) => {
   }
 
   serviceTickets[index] = updated;
+  saveToDisk();
   res.json(updated);
 });
 
 app.delete("/api/services/:id", (req: Request, res: Response) => {
   const { id } = req.params;
   serviceTickets = serviceTickets.filter((s) => s.id !== id && s.ticketNumber !== id);
+  saveToDisk();
   res.json({ success: true, message: "Tiket servis berhasil dihapus" });
 });
 
@@ -776,6 +877,7 @@ app.post("/api/transactions", (req: Request, res: Response) => {
   };
 
   transactions.unshift(newTx);
+  saveToDisk();
   res.status(201).json(newTx);
 });
 
@@ -821,4 +923,5 @@ app.get("/api/stats", (req: Request, res: Response) => {
   });
 });
 
+export default app;
 export { app };

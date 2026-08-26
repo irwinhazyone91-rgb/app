@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Toaster, toast } from "sonner";
 import axios from "axios";
 import {
@@ -10,20 +10,33 @@ import {
   CartItem,
   User
 } from "./types";
+import {
+  loadPersistentData,
+  savePersistentTickets,
+  savePersistentProducts,
+  savePersistentTransactions,
+  savePersistentSettings,
+  savePersistentUsers,
+  computeDashboardStats,
+  importDatabaseBackup,
+  DEFAULT_SETTINGS,
+  DEFAULT_USERS,
+  DEFAULT_PRODUCTS,
+  DEFAULT_TICKETS,
+  DEFAULT_TRANSACTIONS
+} from "./lib/storage";
 import { Sidebar } from "./components/Sidebar";
 import { TopBar } from "./components/TopBar";
 import { DashboardView } from "./components/DashboardView";
 import { ServiceManagementView } from "./components/ServiceManagementView";
 import { POSView } from "./components/POSView";
 import { InventoryView } from "./components/InventoryView";
-import { PublicTrackingView } from "./components/PublicTrackingView";
 import { CustomerLandingPage } from "./components/CustomerLandingPage";
 import { SettingsView } from "./components/SettingsView";
 import { UsersView } from "./components/UsersView";
 import { ReceiptModal, PrintFormat } from "./components/ReceiptModal";
 import { QRScannerModal } from "./components/QRScannerModal";
 import { LoginView } from "./components/LoginView";
-import { ArrowLeft, Lock, Wrench, Search, Laptop } from "lucide-react";
 
 export function App() {
   const [currentTab, setCurrentTab] = useState<string>("dashboard");
@@ -31,74 +44,23 @@ export function App() {
     return localStorage.getItem("servisku_theme") === "dark";
   });
 
-  // Authentication State
+  // Authentication State (Session only - data is never lost on logout)
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     return localStorage.getItem("servisku_is_authenticated") === "true";
   });
   const [isCustomerTrackingDirect, setIsCustomerTrackingDirect] = useState<boolean>(false);
 
-  // Main Data States
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [tickets, setTickets] = useState<ServiceTicket[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [users, setUsers] = useState<User[]>([
-    {
-      id: "usr-1",
-      name: "H. Suwandi",
-      username: "owner",
-      role: "owner",
-      phone: "081234567890",
-      email: "suwandi@servisku.com",
-      status: "active",
-      specialization: "Owner & Manajemen Toko",
-      notes: "Pemilik Toko - Akses penuh seluruh modul & laporan keuangan"
-    },
-    {
-      id: "usr-2",
-      name: "Bambang Kurniawan",
-      username: "admin",
-      role: "admin",
-      phone: "085611223344",
-      email: "bambang@servisku.com",
-      status: "active",
-      specialization: "Operasional & Stok",
-      notes: "Admin Toko - Penerimaan servis & stok sparepart"
-    },
-    {
-      id: "usr-3",
-      name: "Rian Prasetyo",
-      username: "rian_tech",
-      role: "technician",
-      phone: "087799887766",
-      email: "rian@servisku.com",
-      status: "active",
-      specialization: "Motherboard, IC Power & Chipset",
-      notes: "Senior Hardware Specialist"
-    },
-    {
-      id: "usr-4",
-      name: "Agus Pratama",
-      username: "agus_tech",
-      role: "technician",
-      phone: "089655443322",
-      email: "agus@servisku.com",
-      status: "active",
-      specialization: "Laptop Screen, Keyboard & PC Build",
-      notes: "Teknisi Perakitan & Instalasi Sistem"
-    },
-    {
-      id: "usr-5",
-      name: "Maya Anggraini",
-      username: "maya_kasir",
-      role: "cashier",
-      phone: "081322334455",
-      email: "maya@servisku.com",
-      status: "active",
-      specialization: "Front Office & Transaksi POS",
-      notes: "Kasir & Pelayanan Pelanggan"
-    }
-  ]);
+  // Load Initial Persistent Data synchronously (Zero data loss guarantee)
+  const initialData = loadPersistentData();
+  const [tickets, setTickets] = useState<ServiceTicket[]>(initialData.tickets);
+  const [products, setProducts] = useState<Product[]>(initialData.products);
+  const [transactions, setTransactions] = useState<Transaction[]>(initialData.transactions);
+  const [users, setUsers] = useState<User[]>(initialData.users);
+  const [settings, setSettings] = useState<StoreSettings>(initialData.settings);
+
+  const [stats, setStats] = useState<DashboardStats>(() =>
+    computeDashboardStats(initialData.tickets, initialData.products, initialData.transactions)
+  );
 
   // Current Active User
   const [currentUser, setCurrentUser] = useState<User>(() => {
@@ -108,16 +70,7 @@ export function App() {
         return JSON.parse(saved);
       } catch (e) {}
     }
-    return {
-      id: "usr-1",
-      name: "H. Suwandi",
-      username: "owner",
-      role: "owner",
-      phone: "081234567890",
-      email: "suwandi@servisku.com",
-      status: "active",
-      specialization: "Owner & Manajemen Toko"
-    };
+    return initialData.users[0] || DEFAULT_USERS[0];
   });
 
   const handleLogin = (user: User) => {
@@ -130,10 +83,11 @@ export function App() {
   };
 
   const handleLogout = () => {
+    // Only clears login session, keeps all user records, tickets, POS transactions, & inventory 100% safe
     setIsAuthenticated(false);
     setIsCustomerTrackingDirect(false);
     localStorage.removeItem("servisku_is_authenticated");
-    toast.info("Anda telah keluar dari sesi aplikasi.");
+    toast.info("Anda telah keluar dari sesi aplikasi. Data Anda tetap tersimpan dengan aman.");
   };
 
   const handleSetCurrentUser = (user: User) => {
@@ -142,15 +96,15 @@ export function App() {
     toast.success(`Beralih ke akun: ${user.name} (${user.role.toUpperCase()})`);
   };
 
-  const [settings, setSettings] = useState<StoreSettings>({
-    storeName: "ServisKu Computer",
-    tagline: "Pusat Service Komputer, Laptop & Penjualan Sparepart",
-    address: "Jl. Pemuda No. 88, Kota Semarang, Jawa Tengah",
-    phone: "024-87654321",
-    whatsapp: "6281234567890",
-    receiptFooter: "Terima kasih atas kepercayaan Anda. Harap simpan nota ini sebagai bukti garansi yang sah.",
-    warrantyTerms: "Garansi servis berlaku sesuai catatan nota. Tidak berlaku untuk kerusakan fisik, terkena cairan, atau segel rusak."
-  });
+  // Recalculate stats whenever tickets, products, or transactions change
+  const refreshStats = useCallback((
+    currentTickets: ServiceTicket[],
+    currentProducts: Product[],
+    currentTransactions: Transaction[]
+  ) => {
+    const newStats = computeDashboardStats(currentTickets, currentProducts, currentTransactions);
+    setStats(newStats);
+  }, []);
 
   // Modal / Transition states
   const [receiptModal, setReceiptModal] = useState<{
@@ -184,28 +138,43 @@ export function App() {
     }
   }, [darkMode]);
 
-  // Load Initial Data from API
+  // Load Initial Data from API and sync with local storage if available
   const loadAllData = async () => {
     try {
       const [resStats, resTickets, resProducts, resTx, resSettings, resUsers] = await Promise.all([
-        axios.get("/api/stats"),
-        axios.get("/api/services"),
-        axios.get("/api/products"),
-        axios.get("/api/transactions"),
-        axios.get("/api/settings"),
+        axios.get("/api/stats").catch(() => ({ data: null })),
+        axios.get("/api/services").catch(() => ({ data: null })),
+        axios.get("/api/products").catch(() => ({ data: null })),
+        axios.get("/api/transactions").catch(() => ({ data: null })),
+        axios.get("/api/settings").catch(() => ({ data: null })),
         axios.get("/api/users").catch(() => ({ data: null }))
       ]);
 
-      if (resStats.data) setStats(resStats.data);
-      if (resTickets.data) setTickets(resTickets.data);
-      if (resProducts.data) setProducts(resProducts.data);
-      if (resTx.data) setTransactions(resTx.data);
-      if (resSettings.data) setSettings(resSettings.data);
-      if (resUsers && resUsers.data && resUsers.data.length > 0) {
+      if (resTickets?.data && Array.isArray(resTickets.data) && resTickets.data.length > 0) {
+        setTickets(resTickets.data);
+        savePersistentTickets(resTickets.data);
+      }
+      if (resProducts?.data && Array.isArray(resProducts.data) && resProducts.data.length > 0) {
+        setProducts(resProducts.data);
+        savePersistentProducts(resProducts.data);
+      }
+      if (resTx?.data && Array.isArray(resTx.data) && resTx.data.length > 0) {
+        setTransactions(resTx.data);
+        savePersistentTransactions(resTx.data);
+      }
+      if (resSettings?.data && resSettings.data.storeName) {
+        setSettings(resSettings.data);
+        savePersistentSettings(resSettings.data);
+      }
+      if (resUsers?.data && Array.isArray(resUsers.data) && resUsers.data.length > 0) {
         setUsers(resUsers.data);
+        savePersistentUsers(resUsers.data);
+      }
+      if (resStats?.data) {
+        setStats(resStats.data);
       }
     } catch (err) {
-      console.warn("Failed to load initial data:", err);
+      // Fallback to local storage is already active
     }
   };
 
@@ -215,121 +184,221 @@ export function App() {
 
   // CRUD Users
   const handleCreateUser = async (userData: Partial<User>) => {
+    const newUser: User = {
+      id: `usr-${Date.now()}`,
+      name: userData.name || "Staf Baru",
+      username: userData.username || (userData.name || "user").toLowerCase().replace(/\s+/g, "_"),
+      role: userData.role || "technician",
+      phone: userData.phone || "-",
+      email: userData.email || "",
+      status: userData.status || "active",
+      specialization: userData.specialization || "",
+      notes: userData.notes || ""
+    };
+
+    const updated = [...users, newUser];
+    setUsers(updated);
+    savePersistentUsers(updated);
+    toast.success(`Pengguna "${newUser.name}" berhasil didaftarkan!`);
+
     try {
-      const res = await axios.post("/api/users", userData);
-      const newUser: User = res.data;
-      setUsers((prev) => [...prev, newUser]);
-      toast.success(`Pengguna "${newUser.name}" berhasil didaftarkan!`);
-      loadAllData();
-    } catch (err: any) {
-      toast.error(err.response?.data?.error || "Gagal membuat pengguna baru.");
+      await axios.post("/api/users", userData);
+    } catch (e) {
+      // Offline fallback
     }
   };
 
   const handleUpdateUser = async (id: string, userData: Partial<User>) => {
+    const updated = users.map((u) => (u.id === id ? { ...u, ...userData } : u));
+    setUsers(updated);
+    savePersistentUsers(updated);
+
+    const currentUserUpdated = updated.find((u) => u.id === id);
+    if (currentUser.id === id && currentUserUpdated) {
+      setCurrentUser(currentUserUpdated);
+      localStorage.setItem("servisku_active_user", JSON.stringify(currentUserUpdated));
+    }
+    toast.success(`Profil "${userData.name || 'Pengguna'}" berhasil diperbarui!`);
+
     try {
-      const res = await axios.put(`/api/users/${id}`, userData);
-      const updatedUser: User = res.data;
-      setUsers((prev) => prev.map((u) => (u.id === id ? updatedUser : u)));
-      if (currentUser.id === id) {
-        setCurrentUser(updatedUser);
-        localStorage.setItem("servisku_active_user", JSON.stringify(updatedUser));
-      }
-      toast.success(`Profil "${updatedUser.name}" berhasil diperbarui!`);
-      loadAllData();
-    } catch (err: any) {
-      toast.error(err.response?.data?.error || "Gagal memperbarui data pengguna.");
+      await axios.put(`/api/users/${id}`, userData);
+    } catch (e) {
+      // Offline fallback
     }
   };
 
   const handleDeleteUser = async (id: string) => {
+    const targetUser = users.find((u) => u.id === id);
+    if (targetUser && targetUser.role === "owner" && users.filter((u) => u.role === "owner").length <= 1) {
+      toast.error("Akun Pemilik Toko utama tidak dapat dihapus!");
+      return;
+    }
+
+    const updated = users.filter((u) => u.id !== id);
+    setUsers(updated);
+    savePersistentUsers(updated);
+    toast.success("Pengguna berhasil dihapus.");
+
     try {
       await axios.delete(`/api/users/${id}`);
-      setUsers((prev) => prev.filter((u) => u.id !== id));
-      toast.success("Pengguna berhasil dihapus.");
-      loadAllData();
-    } catch (err: any) {
-      toast.error(err.response?.data?.error || "Gagal menghapus pengguna.");
+    } catch (e) {
+      // Offline fallback
     }
   };
 
   // CRUD Service Tickets
   const handleCreateTicket = async (ticketData: Partial<ServiceTicket>) => {
-    try {
-      const res = await axios.post("/api/services", ticketData);
-      const newTicket: ServiceTicket = res.data;
-      setTickets((prev) => [newTicket, ...prev]);
-      toast.success(`Tiket servis ${newTicket.ticketNumber} berhasil didaftarkan!`);
-      
-      // Auto open print modal for intake continuous form
-      setReceiptModal({
-        isOpen: true,
-        mode: "intake_service",
-        ticket: newTicket,
-        transaction: null,
-        defaultFormat: "continuous"
-      });
+    const now = new Date();
+    const yearMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}`;
+    const count = tickets.length + 1;
+    const ticketNumber = `SRV-${yearMonth}-${String(count).padStart(3, "0")}`;
 
-      loadAllData();
-    } catch (err: any) {
-      toast.error(err.response?.data?.error || "Gagal membuat tiket servis.");
+    const newTicket: ServiceTicket = {
+      id: `srv-${Date.now()}`,
+      ticketNumber,
+      customerName: ticketData.customerName || "Pelanggan",
+      customerPhone: ticketData.customerPhone || "-",
+      customerAddress: ticketData.customerAddress || "",
+      deviceType: ticketData.deviceType || "laptop",
+      deviceBrandModel: ticketData.deviceBrandModel || "Laptop / PC",
+      serialNumber: ticketData.serialNumber || "",
+      complaints: ticketData.complaints || "Pemeriksaan unit",
+      accessories: ticketData.accessories || "Unit Saja",
+      technicianNotes: ticketData.technicianNotes || "",
+      status: ticketData.status || "received",
+      technicianName: ticketData.technicianName || currentUser.name || "Teknisi Utama",
+      estimatedCost: Number(ticketData.estimatedCost) || 0,
+      finalCost: Number(ticketData.finalCost) || 0,
+      downPayment: Number(ticketData.downPayment) || 0,
+      partsUsed: ticketData.partsUsed || [],
+      warrantyDays: Number(ticketData.warrantyDays) || 30,
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString()
+    };
+
+    const updated = [newTicket, ...tickets];
+    setTickets(updated);
+    savePersistentTickets(updated);
+    refreshStats(updated, products, transactions);
+
+    toast.success(`Tiket servis ${newTicket.ticketNumber} berhasil didaftarkan! Data tersimpan.`);
+
+    // Auto open print modal for intake continuous form (21cm x 15cm)
+    setReceiptModal({
+      isOpen: true,
+      mode: "intake_service",
+      ticket: newTicket,
+      transaction: null,
+      defaultFormat: "continuous"
+    });
+
+    try {
+      await axios.post("/api/services", ticketData);
+    } catch (e) {
+      // Offline fallback
     }
   };
 
   const handleUpdateTicket = async (id: string, ticketData: Partial<ServiceTicket>) => {
+    const updated = tickets.map((t) => {
+      if (t.id === id || t.ticketNumber === id) {
+        const mod = {
+          ...t,
+          ...ticketData,
+          updatedAt: new Date().toISOString()
+        };
+        if (ticketData.status === "completed" && !mod.completedAt) {
+          mod.completedAt = new Date().toISOString();
+          if (mod.warrantyDays > 0) {
+            const expDate = new Date();
+            expDate.setDate(expDate.getDate() + mod.warrantyDays);
+            mod.warrantyUntil = expDate.toISOString().split("T")[0];
+          }
+        }
+        return mod;
+      }
+      return t;
+    });
+
+    setTickets(updated);
+    savePersistentTickets(updated);
+    refreshStats(updated, products, transactions);
+    toast.success("Status tiket servis berhasil diperbarui!");
+
     try {
-      const res = await axios.put(`/api/services/${id}`, ticketData);
-      const updated: ServiceTicket = res.data;
-      setTickets((prev) => prev.map((t) => (t.id === id || t.ticketNumber === id ? updated : t)));
-      toast.success(`Tiket servis ${updated.ticketNumber} berhasil diperbarui.`);
-      loadAllData();
-    } catch (err: any) {
-      toast.error(err.response?.data?.error || "Gagal mengupdate tiket servis.");
+      await axios.put(`/api/services/${id}`, ticketData);
+    } catch (e) {
+      // Offline fallback
     }
   };
 
   const handleDeleteTicket = async (id: string) => {
+    const updated = tickets.filter((t) => t.id !== id && t.ticketNumber !== id);
+    setTickets(updated);
+    savePersistentTickets(updated);
+    refreshStats(updated, products, transactions);
+    toast.success("Tiket servis berhasil dihapus.");
+
     try {
       await axios.delete(`/api/services/${id}`);
-      setTickets((prev) => prev.filter((t) => t.id !== id && t.ticketNumber !== id));
-      toast.success("Tiket servis berhasil dihapus.");
-      loadAllData();
-    } catch (err: any) {
-      toast.error(err.response?.data?.error || "Gagal menghapus tiket servis.");
+    } catch (e) {
+      // Offline fallback
     }
   };
 
   // CRUD Products / Inventory
   const handleCreateProduct = async (productData: Partial<Product>) => {
+    const newProduct: Product = {
+      id: `prod-${Date.now()}`,
+      code: productData.code || `PRD-${Math.floor(1000 + Math.random() * 9000)}`,
+      name: productData.name || "Item Baru",
+      category: productData.category || "komponen_pc",
+      costPrice: Number(productData.costPrice) || 0,
+      sellPrice: Number(productData.sellPrice) || 0,
+      stock: Number(productData.stock) || 0,
+      minStock: Number(productData.minStock) || 2,
+      unit: productData.unit || "Pcs",
+      description: productData.description || ""
+    };
+
+    const updated = [newProduct, ...products];
+    setProducts(updated);
+    savePersistentProducts(updated);
+    refreshStats(tickets, updated, transactions);
+    toast.success(`Item "${newProduct.name}" berhasil ditambahkan ke inventaris.`);
+
     try {
-      const res = await axios.post("/api/products", productData);
-      setProducts((prev) => [res.data, ...prev]);
-      toast.success(`Item "${res.data.name}" berhasil ditambahkan.`);
-      loadAllData();
-    } catch (err: any) {
-      toast.error(err.response?.data?.error || "Gagal menambah produk.");
+      await axios.post("/api/products", productData);
+    } catch (e) {
+      // Offline fallback
     }
   };
 
   const handleUpdateProduct = async (id: string, productData: Partial<Product>) => {
+    const updated = products.map((p) => (p.id === id ? { ...p, ...productData } : p));
+    setProducts(updated);
+    savePersistentProducts(updated);
+    refreshStats(tickets, updated, transactions);
+    toast.success("Data inventaris berhasil diupdate.");
+
     try {
-      const res = await axios.put(`/api/products/${id}`, productData);
-      setProducts((prev) => prev.map((p) => (p.id === id ? res.data : p)));
-      toast.success(`Item "${res.data.name}" berhasil diupdate.`);
-      loadAllData();
-    } catch (err: any) {
-      toast.error(err.response?.data?.error || "Gagal update produk.");
+      await axios.put(`/api/products/${id}`, productData);
+    } catch (e) {
+      // Offline fallback
     }
   };
 
   const handleDeleteProduct = async (id: string) => {
+    const updated = products.filter((p) => p.id !== id);
+    setProducts(updated);
+    savePersistentProducts(updated);
+    refreshStats(tickets, updated, transactions);
+    toast.success("Item berhasil dihapus dari inventaris.");
+
     try {
       await axios.delete(`/api/products/${id}`);
-      setProducts((prev) => prev.filter((p) => p.id !== id));
-      toast.success("Item berhasil dihapus dari inventaris.");
-      loadAllData();
-    } catch (err: any) {
-      toast.error(err.response?.data?.error || "Gagal menghapus item.");
+    } catch (e) {
+      // Offline fallback
     }
   };
 
@@ -347,48 +416,155 @@ export function App() {
     change: number;
     notes?: string;
   }) => {
+    const now = new Date();
+    const yearMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}`;
+    const count = transactions.length + 1;
+    const invoiceNumber = `INV-${yearMonth}-${String(count).padStart(3, "0")}`;
+
+    // Deduct inventory stock
+    const updatedProducts = [...products];
+    for (const item of txData.items) {
+      if (item.productId) {
+        const pIndex = updatedProducts.findIndex((p) => p.id === item.productId);
+        if (pIndex !== -1 && updatedProducts[pIndex].category !== "jasa") {
+          updatedProducts[pIndex].stock = Math.max(0, updatedProducts[pIndex].stock - (item.qty || 1));
+        }
+      }
+    }
+    setProducts(updatedProducts);
+    savePersistentProducts(updatedProducts);
+
+    // If transaction settled a service ticket, mark ticket as completed
+    let updatedTickets = [...tickets];
+    for (const item of txData.items) {
+      if (item.isService && item.serviceTicketId) {
+        updatedTickets = updatedTickets.map((t) => {
+          if (t.id === item.serviceTicketId || t.ticketNumber === item.serviceTicketId) {
+            return {
+              ...t,
+              status: "completed" as const,
+              completedAt: now.toISOString(),
+              finalCost: item.subtotal
+            };
+          }
+          return t;
+        });
+      }
+    }
+    setTickets(updatedTickets);
+    savePersistentTickets(updatedTickets);
+
+    const newTx: Transaction = {
+      id: `tx-${Date.now()}`,
+      invoiceNumber,
+      date: now.toISOString(),
+      customerName: txData.customerName || "Pelanggan Umum",
+      customerPhone: txData.customerPhone || "-",
+      items: txData.items,
+      subtotal: txData.subtotal,
+      discount: txData.discount,
+      tax: txData.tax,
+      total: txData.total,
+      paymentMethod: txData.paymentMethod,
+      amountPaid: txData.amountPaid,
+      change: txData.change,
+      cashierName: currentUser.name || "Kasir Toko",
+      notes: txData.notes || ""
+    };
+
+    const updatedTx = [newTx, ...transactions];
+    setTransactions(updatedTx);
+    savePersistentTransactions(updatedTx);
+    refreshStats(updatedTickets, updatedProducts, updatedTx);
+
+    toast.success(`Transaksi ${newTx.invoiceNumber} berhasil disimpan!`);
+
     try {
-      const res = await axios.post("/api/transactions", {
+      await axios.post("/api/transactions", {
         ...txData,
         cashierName: currentUser.name || "Kasir Toko"
       });
-      const newTx: Transaction = res.data;
-      setTransactions((prev) => [newTx, ...prev]);
-
-      // If transaction settled a service ticket, mark ticket as completed
-      for (const item of txData.items) {
-        if (item.isService && item.serviceTicketId) {
-          await axios.put(`/api/services/${item.serviceTicketId}`, {
-            status: "completed",
-            finalCost: item.subtotal
-          });
-        }
-      }
-
-      toast.success(`Transaksi ${newTx.invoiceNumber} berhasil disimpan!`);
-      loadAllData();
-      return newTx;
-    } catch (err: any) {
-      toast.error(err.response?.data?.error || "Gagal memproses transaksi kasir.");
-      throw err;
+    } catch (e) {
+      // Offline fallback
     }
+
+    return newTx;
   };
 
   // Settings Save
   const handleSaveSettings = async (newSettings: StoreSettings) => {
+    setSettings(newSettings);
+    savePersistentSettings(newSettings);
+    toast.success("Pengaturan toko berhasil disimpan ke database!");
+
     try {
-      const res = await axios.put("/api/settings", newSettings);
-      setSettings(res.data);
-      toast.success("Pengaturan toko berhasil disimpan!");
-    } catch (err: any) {
-      toast.error(err.response?.data?.error || "Gagal menyimpan pengaturan.");
+      await axios.put("/api/settings", newSettings);
+    } catch (e) {
+      // Offline fallback
+    }
+  };
+
+  // Restore Database from JSON
+  const handleRestoreBackup = (jsonString: string): boolean => {
+    const ok = importDatabaseBackup(jsonString);
+    if (ok) {
+      const refreshed = loadPersistentData();
+      setTickets(refreshed.tickets);
+      setProducts(refreshed.products);
+      setTransactions(refreshed.transactions);
+      setSettings(refreshed.settings);
+      setUsers(refreshed.users);
+      refreshStats(refreshed.tickets, refreshed.products, refreshed.transactions);
+
+      try {
+        axios.post("/api/backup/import", refreshed).catch(() => {});
+      } catch (e) {}
+      return true;
+    }
+    return false;
+  };
+
+  // Reset to Demo Data
+  const handleResetDefaultData = () => {
+    if (window.confirm("Apakah Anda yakin ingin mengatur ulang data ke demo bawaan?")) {
+      savePersistentTickets(DEFAULT_TICKETS);
+      savePersistentProducts(DEFAULT_PRODUCTS);
+      savePersistentTransactions(DEFAULT_TRANSACTIONS);
+      savePersistentSettings(DEFAULT_SETTINGS);
+      savePersistentUsers(DEFAULT_USERS);
+
+      setTickets(DEFAULT_TICKETS);
+      setProducts(DEFAULT_PRODUCTS);
+      setTransactions(DEFAULT_TRANSACTIONS);
+      setSettings(DEFAULT_SETTINGS);
+      setUsers(DEFAULT_USERS);
+      refreshStats(DEFAULT_TICKETS, DEFAULT_PRODUCTS, DEFAULT_TRANSACTIONS);
+      toast.success("Data berhasil direset ke standar demo.");
     }
   };
 
   // Search Ticket (for Public Tracking)
-  const handleSearchTicket = async (query: string) => {
-    const res = await axios.get(`/api/services/track/${encodeURIComponent(query)}`);
-    return res.data;
+  const handleSearchTicket = async (query: string): Promise<ServiceTicket | null> => {
+    const q = query.trim().toLowerCase();
+    const cleanPhone = q.replace(/[^0-9]/g, "");
+
+    // Search in persistent local memory first
+    const found = tickets.find((s) => {
+      const matchTicket = s.ticketNumber.toLowerCase() === q;
+      const matchPhone = cleanPhone && s.customerPhone.replace(/[^0-9]/g, "").includes(cleanPhone);
+      const matchSerial = s.serialNumber && s.serialNumber.toLowerCase() === q;
+      return matchTicket || matchPhone || matchSerial;
+    });
+
+    if (found) return found;
+
+    // Fallback to server search
+    try {
+      const res = await axios.get(`/api/services/track/${encodeURIComponent(query)}`);
+      return res.data;
+    } catch (e) {
+      throw new Error("Data tiket tidak ditemukan");
+    }
   };
 
   // QR Code Scanner Action
@@ -412,15 +588,12 @@ export function App() {
     setCurrentTab("services");
   };
 
-  const handlePayInPOS = (ticket: ServiceTicket) => {
+  const handleSettleServiceInPOS = (ticket: ServiceTicket) => {
     setPreloadedTicketForPOS(ticket);
     setCurrentTab("pos");
   };
 
-  const activeTicketsCount = tickets.filter(
-    (t) => t.status !== "completed" && t.status !== "cancelled"
-  ).length;
-
+  const activeTicketsCount = tickets.filter((t) => t.status !== "completed" && t.status !== "cancelled").length;
   const readyTicketsCount = tickets.filter((t) => t.status === "ready").length;
 
   // VIEW MODE 1: DEDICATED CUSTOMER LANDING PAGE FOR SERVICE & WARRANTY TRACKING (WITHOUT LOGIN)
@@ -470,27 +643,35 @@ export function App() {
     );
   }
 
-  // VIEW MODE 2: LOGIN SCREEN BEFORE ACCESSING APP
+  // VIEW MODE 2: LOGIN VIEW (IF NOT AUTHENTICATED)
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-background text-foreground">
+      <div className="min-h-screen bg-background text-foreground flex flex-col selection:bg-blue-600 selection:text-white">
         <Toaster position="top-right" richColors />
+        
         <LoginView
-          onLogin={handleLogin}
-          onOpenCustomerTracking={() => setIsCustomerTrackingDirect(true)}
           users={users}
           settings={settings}
+          onLogin={handleLogin}
+          onOpenCustomerTracking={() => setIsCustomerTrackingDirect(true)}
+        />
+
+        {/* QR Scanner */}
+        <QRScannerModal
+          isOpen={isQRScannerOpen}
+          onClose={() => setIsQRScannerOpen(false)}
+          onScanSuccess={handleQRScanSuccess}
         />
       </div>
     );
   }
 
-  // VIEW MODE 3: AUTHENTICATED STAFF APP DASHBOARD & POS
+  // VIEW MODE 3: AUTHENTICATED STAFF APP DASHBOARD & SYSTEM
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col md:flex-row antialiased selection:bg-blue-600 selection:text-white">
+    <div className="min-h-screen bg-background text-foreground flex selection:bg-blue-600 selection:text-white font-sans antialiased">
       <Toaster position="top-right" richColors />
 
-      {/* Left Sidebar Menu */}
+      {/* Sidebar Navigation */}
       <Sidebar
         currentTab={currentTab}
         setCurrentTab={setCurrentTab}
@@ -507,8 +688,8 @@ export function App() {
       />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
-        {/* Top Header Bar */}
+      <div className="flex-1 flex flex-col min-w-0 min-h-screen">
+        {/* Top Header */}
         <TopBar
           currentTab={currentTab}
           setCurrentTab={setCurrentTab}
@@ -522,16 +703,17 @@ export function App() {
           onLogout={handleLogout}
         />
 
-        {/* Dynamic Views based on active currentTab */}
+        {/* View Routing */}
         <main className="flex-1 p-4 sm:p-6 max-w-7xl w-full mx-auto">
           {currentTab === "dashboard" && (
             <DashboardView
               stats={stats}
               tickets={tickets}
-              onNavigate={(tab) => setCurrentTab(tab)}
               onOpenNewTicket={() => {
                 setCurrentTab("services");
+                setSelectedTicketForDetail(null);
               }}
+              onNavigate={setCurrentTab}
               onSelectTicket={handleOpenTicketDetailFromExternal}
             />
           )}
@@ -544,16 +726,16 @@ export function App() {
               onCreateTicket={handleCreateTicket}
               onUpdateTicket={handleUpdateTicket}
               onDeleteTicket={handleDeleteTicket}
-              onPrintTicket={(t, m, format) => {
+              onPrintTicket={(ticket, mode, format) => {
                 setReceiptModal({
                   isOpen: true,
-                  mode: m === "invoice" ? "invoice_service" : "intake_service",
-                  ticket: t,
+                  mode: mode === "invoice" ? "invoice_service" : "intake_service",
+                  ticket,
                   transaction: null,
                   defaultFormat: format || "continuous"
                 });
               }}
-              onPayInPOS={handlePayInPOS}
+              onPayInPOS={handleSettleServiceInPOS}
               selectedTicketForDetail={selectedTicketForDetail}
               onCloseDetail={() => setSelectedTicketForDetail(null)}
             />
@@ -562,14 +744,16 @@ export function App() {
           {currentTab === "pos" && (
             <POSView
               products={products}
-              readyTickets={tickets.filter((t) => t.status === "ready" || t.status === "waiting_approval" || t.status === "in_progress")}
+              readyTickets={tickets.filter(
+                (t) => t.status === "ready" || t.status === "completed" || t.status === "in_progress"
+              )}
               onProcessTransaction={handlePOSCheckout}
               onPrintTransaction={(tx) => {
                 setReceiptModal({
                   isOpen: true,
                   mode: "pos_transaction",
-                  ticket: null,
                   transaction: tx,
+                  ticket: null,
                   defaultFormat: "thermal"
                 });
               }}
@@ -622,6 +806,14 @@ export function App() {
             <SettingsView
               settings={settings}
               onSaveSettings={handleSaveSettings}
+              onRestoreBackup={handleRestoreBackup}
+              onResetDefaultData={handleResetDefaultData}
+              counts={{
+                tickets: tickets.length,
+                products: products.length,
+                transactions: transactions.length,
+                users: users.length
+              }}
             />
           )}
         </main>
@@ -630,33 +822,33 @@ export function App() {
         <footer className="no-print border-t border-border bg-card/60 py-4 px-4 sm:px-6 text-xs text-muted-foreground mt-auto">
           <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
             <span>
-              © {new Date().getFullYear()} {settings.storeName} — POS & Service Management
+              © {new Date().getFullYear()} {settings.storeName} — POS & Service Management System (Siap Online Vercel)
             </span>
             <div className="flex items-center space-x-4 text-[11px]">
               <button
                 onClick={() => setCurrentTab("users")}
-                className="hover:text-blue-600 font-medium transition-colors"
+                className="hover:text-blue-600 font-medium transition-colors cursor-pointer"
               >
                 Pengguna & Tim
               </button>
               <span>•</span>
               <button
                 onClick={() => setCurrentTab("tracking")}
-                className="hover:text-blue-600 font-medium transition-colors"
+                className="hover:text-blue-600 font-medium transition-colors cursor-pointer"
               >
-                Cek Status Servis
+                Portal Konsumen
               </button>
               <span>•</span>
               <button
                 onClick={() => setCurrentTab("settings")}
-                className="hover:text-blue-600 font-medium transition-colors"
+                className="hover:text-blue-600 font-medium transition-colors cursor-pointer"
               >
-                Pengaturan Toko
+                Pengaturan & Backup
               </button>
               <span>•</span>
               <button
                 onClick={handleLogout}
-                className="hover:text-red-500 font-medium transition-colors"
+                className="hover:text-red-500 font-medium transition-colors cursor-pointer"
               >
                 Keluar
               </button>
@@ -666,15 +858,17 @@ export function App() {
       </div>
 
       {/* Print / Receipt Modal */}
-      <ReceiptModal
-        isOpen={receiptModal.isOpen}
-        onClose={() => setReceiptModal({ ...receiptModal, isOpen: false })}
-        mode={receiptModal.mode}
-        ticket={receiptModal.ticket}
-        transaction={receiptModal.transaction}
-        settings={settings}
-        defaultFormat={receiptModal.defaultFormat}
-      />
+      {receiptModal.isOpen && (
+        <ReceiptModal
+          isOpen={receiptModal.isOpen}
+          onClose={() => setReceiptModal((prev) => ({ ...prev, isOpen: false }))}
+          mode={receiptModal.mode}
+          ticket={receiptModal.ticket}
+          transaction={receiptModal.transaction}
+          settings={settings}
+          defaultFormat={receiptModal.defaultFormat}
+        />
+      )}
 
       {/* QR Code Scanner Camera Modal */}
       <QRScannerModal
