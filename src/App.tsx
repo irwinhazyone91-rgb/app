@@ -80,6 +80,8 @@ export function App() {
     localStorage.setItem("servisku_active_user", JSON.stringify(user));
     localStorage.setItem("servisku_is_authenticated", "true");
     toast.success(`Selamat datang, ${user.name}! Masuk sebagai ${user.role.toUpperCase()}`);
+    // Sync latest database records immediately on login
+    loadAllData();
   };
 
   const handleLogout = () => {
@@ -150,15 +152,22 @@ export function App() {
         axios.get("/api/users").catch(() => ({ data: null }))
       ]);
 
-      if (resTickets?.data && Array.isArray(resTickets.data) && resTickets.data.length > 0) {
+      let currentT = tickets;
+      let currentP = products;
+      let currentTx = transactions;
+
+      if (resTickets?.data && Array.isArray(resTickets.data)) {
+        currentT = resTickets.data;
         setTickets(resTickets.data);
         savePersistentTickets(resTickets.data);
       }
-      if (resProducts?.data && Array.isArray(resProducts.data) && resProducts.data.length > 0) {
+      if (resProducts?.data && Array.isArray(resProducts.data)) {
+        currentP = resProducts.data;
         setProducts(resProducts.data);
         savePersistentProducts(resProducts.data);
       }
-      if (resTx?.data && Array.isArray(resTx.data) && resTx.data.length > 0) {
+      if (resTx?.data && Array.isArray(resTx.data)) {
+        currentTx = resTx.data;
         setTransactions(resTx.data);
         savePersistentTransactions(resTx.data);
       }
@@ -172,6 +181,8 @@ export function App() {
       }
       if (resStats?.data) {
         setStats(resStats.data);
+      } else {
+        refreshStats(currentT, currentP, currentTx);
       }
     } catch (err) {
       // Fallback to local storage is already active
@@ -179,7 +190,29 @@ export function App() {
   };
 
   useEffect(() => {
+    // Initial fetch on app start
     loadAllData();
+
+    // Auto-sync whenever user switches back to this tab or window
+    const handleSyncEvent = () => {
+      loadAllData();
+    };
+
+    window.addEventListener("focus", handleSyncEvent);
+    window.addEventListener("online", handleSyncEvent);
+    document.addEventListener("visibilitychange", handleSyncEvent);
+
+    // Periodic background sync every 10 seconds for real-time multi-device collaboration
+    const interval = setInterval(() => {
+      loadAllData();
+    }, 10000);
+
+    return () => {
+      window.removeEventListener("focus", handleSyncEvent);
+      window.removeEventListener("online", handleSyncEvent);
+      document.removeEventListener("visibilitychange", handleSyncEvent);
+      clearInterval(interval);
+    };
   }, []);
 
   // CRUD Users
@@ -295,7 +328,7 @@ export function App() {
     });
 
     try {
-      await axios.post("/api/services", ticketData);
+      await axios.post("/api/services", newTicket);
     } catch (e) {
       // Offline fallback
     }
@@ -370,7 +403,7 @@ export function App() {
     toast.success(`Item "${newProduct.name}" berhasil ditambahkan ke inventaris.`);
 
     try {
-      await axios.post("/api/products", productData);
+      await axios.post("/api/products", newProduct);
     } catch (e) {
       // Offline fallback
     }
@@ -482,10 +515,7 @@ export function App() {
     toast.success(`Transaksi ${newTx.invoiceNumber} berhasil disimpan!`);
 
     try {
-      await axios.post("/api/transactions", {
-        ...txData,
-        cashierName: currentUser.name || "Kasir Toko"
-      });
+      await axios.post("/api/transactions", newTx);
     } catch (e) {
       // Offline fallback
     }

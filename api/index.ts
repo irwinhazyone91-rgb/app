@@ -682,7 +682,7 @@ app.get("/api/products", (req: Request, res: Response) => {
 
 app.post("/api/products", (req: Request, res: Response) => {
   const newProduct: Product = {
-    id: `prod-${Date.now()}`,
+    id: req.body.id || `prod-${Date.now()}`,
     code: req.body.code || `PRD-${Math.floor(1000 + Math.random() * 9000)}`,
     name: req.body.name,
     category: req.body.category || "komponen_pc",
@@ -781,10 +781,10 @@ app.post("/api/services", (req: Request, res: Response) => {
   const now = new Date();
   const yearMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}`;
   const count = serviceTickets.length + 1;
-  const ticketNumber = `SRV-${yearMonth}-${String(count).padStart(3, "0")}`;
+  const ticketNumber = req.body.ticketNumber || `SRV-${yearMonth}-${String(count).padStart(3, "0")}`;
 
   const newTicket: ServiceTicket = {
-    id: `srv-${Date.now()}`,
+    id: req.body.id || `srv-${Date.now()}`,
     ticketNumber,
     customerName: req.body.customerName,
     customerPhone: req.body.customerPhone,
@@ -802,8 +802,8 @@ app.post("/api/services", (req: Request, res: Response) => {
     downPayment: Number(req.body.downPayment) || 0,
     partsUsed: req.body.partsUsed || [],
     warrantyDays: Number(req.body.warrantyDays) || 30,
-    createdAt: now.toISOString(),
-    updatedAt: now.toISOString()
+    createdAt: req.body.createdAt || now.toISOString(),
+    updatedAt: req.body.updatedAt || now.toISOString()
   };
 
   serviceTickets.unshift(newTicket);
@@ -858,11 +858,11 @@ app.post("/api/transactions", (req: Request, res: Response) => {
   const now = new Date();
   const yearMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}`;
   const count = transactions.length + 1;
-  const invoiceNumber = `INV-${yearMonth}-${String(count).padStart(3, "0")}`;
+  const invoiceNumber = req.body.invoiceNumber || `INV-${yearMonth}-${String(count).padStart(3, "0")}`;
 
   const items: TransactionItem[] = req.body.items || [];
   
-  // Deduct inventory stock for product items
+  // Deduct inventory stock for product items and complete service tickets if applicable
   for (const item of items) {
     if (item.productId) {
       const pIndex = products.findIndex((p) => p.id === item.productId);
@@ -870,12 +870,25 @@ app.post("/api/transactions", (req: Request, res: Response) => {
         products[pIndex].stock = Math.max(0, products[pIndex].stock - (item.qty || 1));
       }
     }
+    if (item.isService && item.serviceTicketId) {
+      const sIndex = serviceTickets.findIndex((s) => s.id === item.serviceTicketId || s.ticketNumber === item.serviceTicketId);
+      if (sIndex !== -1) {
+        serviceTickets[sIndex].status = "completed";
+        serviceTickets[sIndex].completedAt = now.toISOString();
+        serviceTickets[sIndex].finalCost = item.subtotal;
+        if (serviceTickets[sIndex].warrantyDays > 0) {
+          const expDate = new Date();
+          expDate.setDate(expDate.getDate() + serviceTickets[sIndex].warrantyDays);
+          serviceTickets[sIndex].warrantyUntil = expDate.toISOString().split("T")[0];
+        }
+      }
+    }
   }
 
   const newTx: Transaction = {
-    id: `tx-${Date.now()}`,
+    id: req.body.id || `tx-${Date.now()}`,
     invoiceNumber,
-    date: now.toISOString(),
+    date: req.body.date || now.toISOString(),
     customerName: req.body.customerName || "Pelanggan Umum",
     customerPhone: req.body.customerPhone || "-",
     items,

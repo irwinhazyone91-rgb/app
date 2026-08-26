@@ -1,0 +1,385 @@
+{
+  "users": [
+    {
+      "id": "usr-1",
+      "name": "H. Suwandi",
+      "username": "owner",
+      "password": "password123",
+      "pin": "123456",
+      "role": "owner",
+      "phone": "081234567890",
+      "email": "suwandi@servisku.com",
+      "status": "active",
+      "specialization": "Owner & Manajemen Utama",
+      "notes": "Pemilik Toko - Akses penuh seluruh modul & laporan keuangan"
+    },
+    {
+      "id": "usr-2",
+      "name": "Bambang Kurniawan",
+      "username": "admin",
+      "password": "password123",
+      "pin": "123456",
+      "role": "admin",
+      "phone": "085611223344",
+      "email": "bambang@servisku.com",
+      "status": "active",
+      "specialization": "Operasional & Stok",
+      "notes": "Admin Toko - Penerimaan servis, stok sparepart & operasional harian"
+    },
+    {
+      "id": "usr-3",
+      "name": "Rian Prasetyo",
+      "username": "rian_tech",
+      "password": "password123",
+      "pin": "123456",
+      "role": "technician",
+      "phone": "087799887766",
+      "email": "rian@servisku.com",
+      "status": "active",
+      "specialization": "Motherboard, IC Power & Chipset",
+      "notes": "Senior Hardware Specialist"
+    },
+    {
+      "id": "usr-4",
+      "name": "Agus Pratama",
+      "username": "agus_tech",
+      "password": "password123",
+      "pin": "123456",
+      "role": "technician",
+      "phone": "089655443322",
+      "email": "agus@servisku.com",
+      "status": "active",
+      "specialization": "Laptop Screen, Keyboard & PC Build",
+      "notes": "Teknisi Perakitan & Instalasi Sistem"
+    },
+    {
+      "id": "usr-5",
+      "name": "Maya Anggraini",
+      "username": "maya_kasir",
+      "password": "password123",
+      "pin": "123456",
+      "role": "cashier",
+      "phone": "081322334455",
+      "email": "maya@servisku.com",
+      "status": "active",
+      "specialization": "Front Office & Transaksi POS",
+      "notes": "Kasir & Pelayanan Pelanggan"
+    }
+  ],
+  "storeSettings": {
+    "storeName": "ServisKu Computer",
+    "tagline": "Pusat Service Komputer, Laptop & Penjualan Sparepart",
+    "address": "Jl. Pemuda No. 88, Kota Semarang, Jawa Tengah",
+    "phone": "024-87654321",
+    "whatsapp": "6281234567890",
+    "receiptFooter": "Terima kasih atas kepercayaan Anda. Harap simpan nota ini sebagai bukti garansi yang sah.",
+    "warrantyTerms": "Garansi servis berlaku sesuai catatan nota. Tidak berlaku untuk kerusakan fisik, terkena cairan, atau segel rusak."
+  },
+  "products": [
+    {
+      "id": "prod-1",
+      "code": "SSD-NVME-512",
+      "name": "SSD NVMe M.2 512GB Kingston NV2 Gen4",
+      "category": "komponen_pc",
+      "costPrice": 420000,
+      "sellPrice": 550000,
+      "stock": 12,
+      "minStock": 3,
+      "unit": "Unit",
+      "description": "Read speed up to 3500MB/s, garansi resmi 3 tahun"
+    },
+    {
+      "id": "prod-2",
+      "code": "RAM-DDR4-8GB-NB",
+      "name": "RAM Sodimm DDR4 8GB 3200MHz Kingston / Samsung",
+      "category": "part_laptop",
+      "costPrice": 210000,
+      "sellPrice": 300000,
+      "stock": 15,
+      "minStock": 4,
+      "unit": "Keping",
+      "description": "Untuk upgrade laptop DDR4 standard 1.2V"
+    },
+    {
+      "id": "prod-3",
+      "code": "LCD-14-SLIM-30",
+      "name": "LED Laptop 14.0 Slim 30 Pin FHD IPS",
+      "category": "part_laptop",
+      "costPrice": 580000,
+      "sellPrice": 750000,
+      "stock": 4,
+      "minStock": 2,
+      "unit": "Pcs",
+      "description": "Resolusi 1920x1080 FHD, connector 30 pin tanpa kuping"
+    },
+    {
+      "id": "prod-4",
+      "code": "THM-TF7",
+      "name": "Thermal Paste Thermalright TF7 2g",
+      "category": "komponen_pc",
+      "costPrice": 45000,
+      "sellPrice": 75000,
+      "stock": 20,
+      "minStock": 5,
+      "unit": "Tube",
+      "description": "Thermal conductivity 12.8 W/m.k"
+    },
+    {
+      "id": "prod-5",
+      "code": "KB-ASUS-X441",
+      "name": "Keyboard Laptop Asus X441 X441U X441N",
+      "category": "part_laptop",
+      "costPrice": 85000,
+      "sellPrice": 150000,
+      "stock": 6,
+      "minStock": 2,
+      "unit": "Pcs",
+      "description": "Layout US standard black"
+    },
+    {
+      "id": "prod-6",
+      "code": "CHG-TYPEC-65W",
+      "name": "Charger Adaptor Laptop Universal Type-C 65W GaN",
+      "category": "aksesoris",
+      "costPrice": 130000,
+      "sellPrice": 220000,
+      "stock": 8,
+      "minStock": 2,
+      "unit": "Pcs",
+      "description": "Support Power Delivery 3.0 Lenovo/HP/Asus/MacBook"
+    },
+    {
+      "id": "prod-7",
+      "code": "SRV-INST-WIN",
+      "name": "Jasa Install Ulang Windows 10/11 + Full App Office & Utility",
+      "category": "jasa",
+      "costPrice": 0,
+      "sellPrice": 75000,
+      "stock": 999,
+      "minStock": 0,
+      "unit": "Jasa",
+      "description": "Termasuk driver terbaru, aktivasi & backup data sistem"
+    },
+    {
+      "id": "prod-8",
+      "code": "SRV-CLN-REP",
+      "name": "Jasa Deep Cleaning Fan Heatsink + Repaste Thermal Pasta Laptop/PC",
+      "category": "jasa",
+      "costPrice": 10000,
+      "sellPrice": 100000,
+      "stock": 999,
+      "minStock": 0,
+      "unit": "Jasa",
+      "description": "Mengatasi panas berlebih/overheating & kipas berisik"
+    },
+    {
+      "id": "prod-9",
+      "code": "SRV-MB-REP",
+      "name": "Jasa Servis Motherboard / IC Power / Mati Total",
+      "category": "jasa",
+      "costPrice": 50000,
+      "sellPrice": 350000,
+      "stock": 999,
+      "minStock": 0,
+      "unit": "Jasa",
+      "description": "Pengerjaan tracing short, reballing/ganti IC charging/IO"
+    }
+  ],
+  "serviceTickets": [
+    {
+      "id": "srv-001",
+      "ticketNumber": "SRV-202508-001",
+      "customerName": "Budi Santoso",
+      "customerPhone": "081234567890",
+      "customerAddress": "Jl. Gajahmungkur Barat No. 12",
+      "deviceType": "laptop",
+      "deviceBrandModel": "Asus Vivobook 14 A412DA",
+      "serialNumber": "SN-AS412-99812",
+      "complaints": "Layar blank hitam saat dinyalakan, lampu indikator power nyala. Kipas berputar kencang.",
+      "accessories": "Unit Laptop, Adaptor Original 45W, Softcase",
+      "technicianNotes": "Sudah dicek RAM kotor, setelah dibersihkan dan re-flash BIOS unit kembali normal nyala normal. Perlu repaste.",
+      "status": "ready",
+      "technicianName": "Rian (Senior Tech)",
+      "estimatedCost": 200000,
+      "finalCost": 175000,
+      "downPayment": 50000,
+      "partsUsed": [
+        {
+          "id": "part-1",
+          "name": "Jasa Flash BIOS & Maintenance Internal",
+          "price": 100000,
+          "qty": 1
+        },
+        {
+          "id": "part-2",
+          "name": "Thermal Paste Thermalright TF7",
+          "price": 75000,
+          "qty": 1
+        }
+      ],
+      "warrantyDays": 30,
+      "warrantyUntil": "2026-09-24",
+      "createdAt": "2026-08-20T10:30:00.000Z",
+      "updatedAt": "2026-08-24T14:15:00.000Z"
+    },
+    {
+      "id": "srv-002",
+      "ticketNumber": "SRV-202508-002",
+      "customerName": "Dewi Anggraini",
+      "customerPhone": "085698712345",
+      "customerAddress": "Perumahan Banyumanik Indah B-4",
+      "deviceType": "laptop",
+      "deviceBrandModel": "Lenovo Ideapad Slim 3 14ALC6",
+      "serialNumber": "SN-LN882190",
+      "complaints": "Keyboard beberapa tombol huruf (A, S, D, Space) macet tidak berfungsi setelah ketumpahan air sedikit.",
+      "accessories": "Unit Laptop, Charger Lenovo 65W",
+      "technicianNotes": "Jalur keyboard korosi. Rekomendasi ganti 1 set keyboard internal.",
+      "status": "in_progress",
+      "technicianName": "Agus Pratama",
+      "estimatedCost": 350000,
+      "finalCost": 350000,
+      "downPayment": 100000,
+      "partsUsed": [
+        {
+          "id": "part-3",
+          "name": "Keyboard Lenovo Slim 3 Original",
+          "price": 250000,
+          "qty": 1
+        },
+        {
+          "id": "part-4",
+          "name": "Jasa Pasang & Pembersihan Jalur Korosi",
+          "price": 100000,
+          "qty": 1
+        }
+      ],
+      "warrantyDays": 60,
+      "createdAt": "2026-08-22T09:10:00.000Z",
+      "updatedAt": "2026-08-25T11:00:00.000Z"
+    },
+    {
+      "id": "srv-003",
+      "ticketNumber": "SRV-202508-003",
+      "customerName": "Ahmad Rizky",
+      "customerPhone": "087812903456",
+      "customerAddress": "Jl. Pandanaran No. 45 Semarang",
+      "deviceType": "pc",
+      "deviceBrandModel": "PC Gaming Core i5 12400F + RTX 3060",
+      "serialNumber": "CUSTOM-DESKTOP",
+      "complaints": "Sering restart sendiri saat main game berat (Cyberpunk / Valorant). Suhu prosesor tembus 95 derajat.",
+      "accessories": "Hanya CPU Tower (tanpa kabel)",
+      "technicianNotes": "Sedang proses stress test dan pembersihan AIO Liquid Cooler.",
+      "status": "diagnosing",
+      "technicianName": "Rian (Senior Tech)",
+      "estimatedCost": 150000,
+      "finalCost": 0,
+      "downPayment": 0,
+      "partsUsed": [],
+      "warrantyDays": 30,
+      "createdAt": "2026-08-25T08:20:00.000Z",
+      "updatedAt": "2026-08-25T13:45:00.000Z"
+    },
+    {
+      "id": "srv-004",
+      "ticketNumber": "SRV-202508-004",
+      "customerName": "Siti Rahmawati",
+      "customerPhone": "081399887766",
+      "customerAddress": "Jl. MT Haryono No. 102",
+      "deviceType": "laptop",
+      "deviceBrandModel": "Acer Aspire 3 A314",
+      "serialNumber": "SN-ACER-10294",
+      "complaints": "Upgrade dari HDD lambat ke SSD NVMe 512GB + Install Windows 11 Full.",
+      "accessories": "Unit Laptop + Charger Acer",
+      "technicianNotes": "Sudah selesai dipasang Kingston NV2 512GB, install Windows 11 aktif, boot dalam 7 detik. Sudah diambil pelanggan.",
+      "status": "completed",
+      "technicianName": "Agus Pratama",
+      "estimatedCost": 625000,
+      "finalCost": 625000,
+      "downPayment": 200000,
+      "partsUsed": [
+        {
+          "id": "part-5",
+          "name": "SSD NVMe M.2 512GB Kingston NV2",
+          "price": 550000,
+          "qty": 1
+        },
+        {
+          "id": "part-6",
+          "name": "Jasa Install Windows & Migrasi Data",
+          "price": 75000,
+          "qty": 1
+        }
+      ],
+      "warrantyDays": 90,
+      "warrantyUntil": "2026-11-20",
+      "createdAt": "2026-08-18T11:00:00.000Z",
+      "updatedAt": "2026-08-19T16:30:00.000Z",
+      "completedAt": "2026-08-19T16:30:00.000Z",
+      "pickupDate": "2026-08-20T10:00:00.000Z"
+    }
+  ],
+  "transactions": [
+    {
+      "id": "tx-001",
+      "invoiceNumber": "INV-202608-001",
+      "date": "2026-08-24T15:20:00.000Z",
+      "customerName": "Hendro Wibowo",
+      "customerPhone": "081299988877",
+      "items": [
+        {
+          "id": "item-1",
+          "productId": "prod-6",
+          "name": "Charger Adaptor Laptop Universal Type-C 65W GaN",
+          "price": 220000,
+          "qty": 1,
+          "subtotal": 220000
+        },
+        {
+          "id": "item-2",
+          "productId": "prod-4",
+          "name": "Thermal Paste Thermalright TF7 2g",
+          "price": 75000,
+          "qty": 1,
+          "subtotal": 75000
+        }
+      ],
+      "subtotal": 295000,
+      "discount": 15000,
+      "tax": 0,
+      "total": 280000,
+      "paymentMethod": "qris",
+      "amountPaid": 280000,
+      "change": 0,
+      "cashierName": "Admin Kasir",
+      "notes": "Pembelian langsung aksesoris"
+    },
+    {
+      "id": "tx-002",
+      "invoiceNumber": "INV-202608-002",
+      "date": "2026-08-20T10:00:00.000Z",
+      "customerName": "Siti Rahmawati",
+      "customerPhone": "081399887766",
+      "items": [
+        {
+          "id": "item-3",
+          "serviceTicketId": "srv-004",
+          "name": "Pelunasan Servis SRV-202508-004 (Upgrade SSD + Install OS Acer Aspire 3)",
+          "price": 425000,
+          "qty": 1,
+          "subtotal": 425000,
+          "isService": true
+        }
+      ],
+      "subtotal": 425000,
+      "discount": 0,
+      "tax": 0,
+      "total": 425000,
+      "paymentMethod": "cash",
+      "amountPaid": 450000,
+      "change": 25000,
+      "cashierName": "Admin Kasir",
+      "notes": "Pelunasan sisa biaya servis setelah DP Rp 200.000"
+    }
+  ],
+  "lastSaved": "2026-08-26T05:44:12.044Z"
+}
