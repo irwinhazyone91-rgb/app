@@ -25,6 +25,7 @@ import {
   DEFAULT_TICKETS,
   DEFAULT_TRANSACTIONS
 } from "./lib/storage";
+import { firestoreService, testFirestoreConnection } from "./lib/firebase";
 import { Sidebar } from "./components/Sidebar";
 import { TopBar } from "./components/TopBar";
 import { DashboardView } from "./components/DashboardView";
@@ -193,6 +194,53 @@ export function App() {
     // Initial fetch on app start
     loadAllData();
 
+    // Verify Firestore connection & seed if needed
+    testFirestoreConnection().then(() => {
+      firestoreService.seedInitialDataIfEmpty(
+        initialData.tickets,
+        initialData.products,
+        initialData.transactions,
+        initialData.settings,
+        initialData.users
+      );
+    });
+
+    // Realtime subscriptions to Firestore collections
+    const unsubTickets = firestoreService.subscribeToTickets((cloudTickets) => {
+      if (cloudTickets && cloudTickets.length > 0) {
+        setTickets(cloudTickets);
+        savePersistentTickets(cloudTickets);
+      }
+    });
+
+    const unsubProducts = firestoreService.subscribeToProducts((cloudProducts) => {
+      if (cloudProducts && cloudProducts.length > 0) {
+        setProducts(cloudProducts);
+        savePersistentProducts(cloudProducts);
+      }
+    });
+
+    const unsubTx = firestoreService.subscribeToTransactions((cloudTx) => {
+      if (cloudTx && cloudTx.length > 0) {
+        setTransactions(cloudTx);
+        savePersistentTransactions(cloudTx);
+      }
+    });
+
+    const unsubSettings = firestoreService.subscribeToSettings((cloudSettings) => {
+      if (cloudSettings && cloudSettings.storeName) {
+        setSettings(cloudSettings);
+        savePersistentSettings(cloudSettings);
+      }
+    });
+
+    const unsubUsers = firestoreService.subscribeToUsers((cloudUsers) => {
+      if (cloudUsers && cloudUsers.length > 0) {
+        setUsers(cloudUsers);
+        savePersistentUsers(cloudUsers);
+      }
+    });
+
     // Auto-sync whenever user switches back to this tab or window
     const handleSyncEvent = () => {
       loadAllData();
@@ -208,6 +256,11 @@ export function App() {
     }, 10000);
 
     return () => {
+      unsubTickets();
+      unsubProducts();
+      unsubTx();
+      unsubSettings();
+      unsubUsers();
       window.removeEventListener("focus", handleSyncEvent);
       window.removeEventListener("online", handleSyncEvent);
       document.removeEventListener("visibilitychange", handleSyncEvent);
@@ -237,9 +290,12 @@ export function App() {
     toast.success(`Pengguna "${newUser.name}" berhasil didaftarkan!`);
 
     try {
-      await axios.post("/api/users", newUser);
+      await Promise.all([
+        axios.post("/api/users", newUser).catch(() => null),
+        firestoreService.saveUser(newUser).catch(() => null)
+      ]);
     } catch (e) {
-      // Offline fallback
+      // Fallback
     }
   };
 
@@ -255,10 +311,16 @@ export function App() {
     }
     toast.success(`Profil "${userData.name || 'Pengguna'}" berhasil diperbarui!`);
 
-    try {
-      await axios.put(`/api/users/${id}`, userData);
-    } catch (e) {
-      // Offline fallback
+    const userToSave = updated.find((u) => u.id === id);
+    if (userToSave) {
+      try {
+        await Promise.all([
+          axios.put(`/api/users/${id}`, userData).catch(() => null),
+          firestoreService.saveUser(userToSave).catch(() => null)
+        ]);
+      } catch (e) {
+        // Fallback
+      }
     }
   };
 
@@ -275,9 +337,12 @@ export function App() {
     toast.success("Pengguna berhasil dihapus.");
 
     try {
-      await axios.delete(`/api/users/${id}`);
+      await Promise.all([
+        axios.delete(`/api/users/${id}`).catch(() => null),
+        firestoreService.deleteUser(id).catch(() => null)
+      ]);
     } catch (e) {
-      // Offline fallback
+      // Fallback
     }
   };
 
@@ -328,13 +393,17 @@ export function App() {
     });
 
     try {
-      await axios.post("/api/services", newTicket);
+      await Promise.all([
+        axios.post("/api/services", newTicket).catch(() => null),
+        firestoreService.saveTicket(newTicket).catch(() => null)
+      ]);
     } catch (e) {
-      // Offline fallback
+      // Fallback
     }
   };
 
   const handleUpdateTicket = async (id: string, ticketData: Partial<ServiceTicket>) => {
+    let savedTicket: ServiceTicket | null = null;
     const updated = tickets.map((t) => {
       if (t.id === id || t.ticketNumber === id) {
         const mod = {
@@ -350,6 +419,7 @@ export function App() {
             mod.warrantyUntil = expDate.toISOString().split("T")[0];
           }
         }
+        savedTicket = mod;
         return mod;
       }
       return t;
@@ -360,10 +430,15 @@ export function App() {
     refreshStats(updated, products, transactions);
     toast.success("Status tiket servis berhasil diperbarui!");
 
-    try {
-      await axios.put(`/api/services/${id}`, ticketData);
-    } catch (e) {
-      // Offline fallback
+    if (savedTicket) {
+      try {
+        await Promise.all([
+          axios.put(`/api/services/${id}`, ticketData).catch(() => null),
+          firestoreService.saveTicket(savedTicket).catch(() => null)
+        ]);
+      } catch (e) {
+        // Fallback
+      }
     }
   };
 
@@ -375,9 +450,12 @@ export function App() {
     toast.success("Tiket servis berhasil dihapus.");
 
     try {
-      await axios.delete(`/api/services/${id}`);
+      await Promise.all([
+        axios.delete(`/api/services/${id}`).catch(() => null),
+        firestoreService.deleteTicket(id).catch(() => null)
+      ]);
     } catch (e) {
-      // Offline fallback
+      // Fallback
     }
   };
 
@@ -403,23 +481,40 @@ export function App() {
     toast.success(`Item "${newProduct.name}" berhasil ditambahkan ke inventaris.`);
 
     try {
-      await axios.post("/api/products", newProduct);
+      await Promise.all([
+        axios.post("/api/products", newProduct).catch(() => null),
+        firestoreService.saveProduct(newProduct).catch(() => null)
+      ]);
     } catch (e) {
-      // Offline fallback
+      // Fallback
     }
   };
 
   const handleUpdateProduct = async (id: string, productData: Partial<Product>) => {
-    const updated = products.map((p) => (p.id === id ? { ...p, ...productData } : p));
+    let savedProduct: Product | null = null;
+    const updated = products.map((p) => {
+      if (p.id === id) {
+        const mod = { ...p, ...productData };
+        savedProduct = mod;
+        return mod;
+      }
+      return p;
+    });
+
     setProducts(updated);
     savePersistentProducts(updated);
     refreshStats(tickets, updated, transactions);
     toast.success("Data inventaris berhasil diupdate.");
 
-    try {
-      await axios.put(`/api/products/${id}`, productData);
-    } catch (e) {
-      // Offline fallback
+    if (savedProduct) {
+      try {
+        await Promise.all([
+          axios.put(`/api/products/${id}`, productData).catch(() => null),
+          firestoreService.saveProduct(savedProduct).catch(() => null)
+        ]);
+      } catch (e) {
+        // Fallback
+      }
     }
   };
 
@@ -431,9 +526,12 @@ export function App() {
     toast.success("Item berhasil dihapus dari inventaris.");
 
     try {
-      await axios.delete(`/api/products/${id}`);
+      await Promise.all([
+        axios.delete(`/api/products/${id}`).catch(() => null),
+        firestoreService.deleteProduct(id).catch(() => null)
+      ]);
     } catch (e) {
-      // Offline fallback
+      // Fallback
     }
   };
 
@@ -458,11 +556,13 @@ export function App() {
 
     // Deduct inventory stock
     const updatedProducts = [...products];
+    const modifiedProducts: Product[] = [];
     for (const item of txData.items) {
       if (item.productId) {
         const pIndex = updatedProducts.findIndex((p) => p.id === item.productId);
         if (pIndex !== -1 && updatedProducts[pIndex].category !== "jasa") {
           updatedProducts[pIndex].stock = Math.max(0, updatedProducts[pIndex].stock - (item.qty || 1));
+          modifiedProducts.push(updatedProducts[pIndex]);
         }
       }
     }
@@ -471,16 +571,19 @@ export function App() {
 
     // If transaction settled a service ticket, mark ticket as completed
     let updatedTickets = [...tickets];
+    const completedTicketObjs: ServiceTicket[] = [];
     for (const item of txData.items) {
       if (item.isService && item.serviceTicketId) {
         updatedTickets = updatedTickets.map((t) => {
           if (t.id === item.serviceTicketId || t.ticketNumber === item.serviceTicketId) {
-            return {
+            const completed = {
               ...t,
               status: "completed" as const,
               completedAt: now.toISOString(),
               finalCost: item.subtotal
             };
+            completedTicketObjs.push(completed);
+            return completed;
           }
           return t;
         });
@@ -515,9 +618,14 @@ export function App() {
     toast.success(`Transaksi ${newTx.invoiceNumber} berhasil disimpan!`);
 
     try {
-      await axios.post("/api/transactions", newTx);
+      await Promise.all([
+        axios.post("/api/transactions", newTx).catch(() => null),
+        firestoreService.saveTransaction(newTx).catch(() => null),
+        ...modifiedProducts.map(p => firestoreService.saveProduct(p).catch(() => null)),
+        ...completedTicketObjs.map(t => firestoreService.saveTicket(t).catch(() => null))
+      ]);
     } catch (e) {
-      // Offline fallback
+      // Fallback
     }
 
     return newTx;
@@ -530,9 +638,12 @@ export function App() {
     toast.success("Pengaturan toko berhasil disimpan ke database!");
 
     try {
-      await axios.put("/api/settings", newSettings);
+      await Promise.all([
+        axios.put("/api/settings", newSettings).catch(() => null),
+        firestoreService.saveSettings(newSettings).catch(() => null)
+      ]);
     } catch (e) {
-      // Offline fallback
+      // Fallback
     }
   };
 

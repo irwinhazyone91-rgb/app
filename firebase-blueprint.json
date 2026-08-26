@@ -1,0 +1,133 @@
+{
+  "entities": {
+    "ServiceTicket": {
+      "title": "ServiceTicket",
+      "description": "Represents a computer/laptop repair service order ticket.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique ticket ID" },
+        "ticketNumber": { "type": "string", "description": "Official ticket format SRV-YYYYMM-XXX" },
+        "customerName": { "type": "string", "description": "Customer full name" },
+        "customerPhone": { "type": "string", "description": "Customer WhatsApp / contact number" },
+        "customerAddress": { "type": "string", "description": "Customer address" },
+        "deviceType": { "type": "string", "description": "Device type (laptop, pc, printer, monitor, other)" },
+        "deviceBrandModel": { "type": "string", "description": "Device brand and model specifications" },
+        "serialNumber": { "type": "string", "description": "Device serial number or identifier" },
+        "complaints": { "type": "string", "description": "Reported issues and defects" },
+        "accessories": { "type": "string", "description": "Included accessories (charger, bag, mouse, etc.)" },
+        "technicianNotes": { "type": "string", "description": "Technician diagnosis and inspection logs" },
+        "status": { "type": "string", "description": "Ticket progression status" },
+        "technicianName": { "type": "string", "description": "Assigned technician name" },
+        "estimatedCost": { "type": "number", "description": "Estimated repair price in IDR" },
+        "finalCost": { "type": "number", "description": "Final total repair price in IDR" },
+        "downPayment": { "type": "number", "description": "Initial down payment (DP)" },
+        "partsUsed": { "type": "array", "description": "Array of spare parts and components used" },
+        "warrantyDays": { "type": "number", "description": "Warranty duration in days" },
+        "warrantyUntil": { "type": "string", "description": "Warranty expiration date" },
+        "createdAt": { "type": "string", "description": "Creation timestamp" },
+        "updatedAt": { "type": "string", "description": "Last update timestamp" },
+        "completedAt": { "type": "string", "description": "Completion timestamp" },
+        "pickupDate": { "type": "string", "description": "Device pickup timestamp" }
+      },
+      "required": ["id", "ticketNumber", "customerName", "customerPhone", "deviceType", "deviceBrandModel", "complaints", "status", "createdAt", "updatedAt"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Represents an inventory spare part or merchandise item in stock.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Product unique ID" },
+        "code": { "type": "string", "description": "Product SKU or barcode" },
+        "name": { "type": "string", "description": "Product item title" },
+        "category": { "type": "string", "description": "Category classification" },
+        "costPrice": { "type": "number", "description": "Wholesale / purchase price" },
+        "sellPrice": { "type": "number", "description": "Retail selling price" },
+        "stock": { "type": "number", "description": "Current quantity in stock" },
+        "minStock": { "type": "number", "description": "Low stock warning threshold" },
+        "unit": { "type": "string", "description": "Unit of measurement (Pcs, Box, etc.)" },
+        "description": { "type": "string", "description": "Product specifications and notes" }
+      },
+      "required": ["id", "code", "name", "category", "costPrice", "sellPrice", "stock", "minStock", "unit"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "Represents a point-of-sale invoice transaction.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Transaction ID" },
+        "invoiceNumber": { "type": "string", "description": "Invoice number INV-YYYYMM-XXX" },
+        "date": { "type": "string", "description": "Transaction datetime string" },
+        "customerName": { "type": "string", "description": "Customer name" },
+        "customerPhone": { "type": "string", "description": "Customer phone" },
+        "items": { "type": "array", "description": "Purchased items list" },
+        "subtotal": { "type": "number", "description": "Gross subtotal" },
+        "discount": { "type": "number", "description": "Discount amount" },
+        "tax": { "type": "number", "description": "Tax amount" },
+        "total": { "type": "number", "description": "Net payable amount" },
+        "paymentMethod": { "type": "string", "description": "Payment method (cash, qris, transfer)" },
+        "amountPaid": { "type": "number", "description": "Amount tendered by customer" },
+        "change": { "type": "number", "description": "Change returned to customer" },
+        "cashierName": { "type": "string", "description": "Cashier staff name" },
+        "notes": { "type": "string", "description": "Transaction notes" }
+      },
+      "required": ["id", "invoiceNumber", "date", "customerName", "items", "total", "paymentMethod", "amountPaid", "cashierName"]
+    },
+    "StoreSettings": {
+      "title": "StoreSettings",
+      "description": "General workshop and store operational metadata.",
+      "type": "object",
+      "properties": {
+        "storeName": { "type": "string", "description": "Store shop name" },
+        "tagline": { "type": "string", "description": "Store slogan and tagline" },
+        "address": { "type": "string", "description": "Store physical location" },
+        "phone": { "type": "string", "description": "Store official telephone" },
+        "whatsapp": { "type": "string", "description": "Official WhatsApp bot number" },
+        "receiptFooter": { "type": "string", "description": "Custom text for thermal and SPK receipt bottom" },
+        "warrantyTerms": { "type": "string", "description": "Standard service warranty policy terms" }
+      },
+      "required": ["storeName", "address", "phone", "whatsapp"]
+    },
+    "User": {
+      "title": "User",
+      "description": "System staff, technician, cashier, or manager account.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "User identifier" },
+        "name": { "type": "string", "description": "Full staff name" },
+        "username": { "type": "string", "description": "Login username" },
+        "password": { "type": "string", "description": "Hashed or protected password" },
+        "pin": { "type": "string", "description": "Cashier POS pin" },
+        "role": { "type": "string", "description": "Account role (owner, admin, technician, cashier)" },
+        "phone": { "type": "string", "description": "Mobile contact" },
+        "email": { "type": "string", "description": "Staff email" },
+        "status": { "type": "string", "description": "Account status (active, inactive)" },
+        "avatar": { "type": "string", "description": "Profile picture URL" },
+        "specialization": { "type": "string", "description": "Specialist skill area" },
+        "notes": { "type": "string", "description": "Administrative notes" }
+      },
+      "required": ["id", "name", "username", "role", "phone", "status"]
+    }
+  },
+  "firestore": {
+    "/service_tickets/{ticketId}": {
+      "schema": { "$ref": "#/entities/ServiceTicket" },
+      "description": "Computer repair orders and status tracking documents"
+    },
+    "/products/{productId}": {
+      "schema": { "$ref": "#/entities/Product" },
+      "description": "Spare parts and retail product inventory catalog"
+    },
+    "/transactions/{transactionId}": {
+      "schema": { "$ref": "#/entities/Transaction" },
+      "description": "POS sales and completed service invoice receipts"
+    },
+    "/settings/{settingId}": {
+      "schema": { "$ref": "#/entities/StoreSettings" },
+      "description": "Store configuration and receipt branding"
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Staff and technician accounts"
+    }
+  }
+}
