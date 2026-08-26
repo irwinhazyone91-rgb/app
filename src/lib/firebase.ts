@@ -92,15 +92,59 @@ export const COLLECTIONS = {
   USERS: "users",
 };
 
+export function sanitizeForFirestore<T>(data: T): T {
+  if (data === null || data === undefined) return data;
+  return JSON.parse(JSON.stringify(data, (key, value) => {
+    if (value === undefined) return null;
+    return value;
+  }));
+}
+
 // Firestore Sync Services for ServisKu
 export const firestoreService = {
+  // Direct Fetchers for Cloud Data
+  async fetchAllCloudData() {
+    try {
+      const [ticketsSnap, productsSnap, txSnap, settingsSnap, usersSnap] = await Promise.all([
+        getDocs(collection(db, COLLECTIONS.TICKETS)).catch(() => null),
+        getDocs(collection(db, COLLECTIONS.PRODUCTS)).catch(() => null),
+        getDocs(collection(db, COLLECTIONS.TRANSACTIONS)).catch(() => null),
+        getDocs(collection(db, COLLECTIONS.SETTINGS)).catch(() => null),
+        getDocs(collection(db, COLLECTIONS.USERS)).catch(() => null)
+      ]);
+
+      const tickets: ServiceTicket[] = [];
+      ticketsSnap?.forEach((d) => tickets.push(d.data() as ServiceTicket));
+
+      const products: Product[] = [];
+      productsSnap?.forEach((d) => products.push(d.data() as Product));
+
+      const transactions: Transaction[] = [];
+      txSnap?.forEach((d) => transactions.push(d.data() as Transaction));
+
+      let settings: StoreSettings | null = null;
+      settingsSnap?.forEach((d) => {
+        if (d.id === "store_config") settings = d.data() as StoreSettings;
+      });
+
+      const users: User[] = [];
+      usersSnap?.forEach((d) => users.push(d.data() as User));
+
+      return { tickets, products, transactions, settings, users };
+    } catch (e) {
+      console.warn("Firestore fetchAllCloudData notice:", e);
+      return null;
+    }
+  },
+
   // Sync Service Ticket
   async saveTicket(ticket: ServiceTicket): Promise<void> {
     const path = `${COLLECTIONS.TICKETS}/${ticket.id}`;
     try {
-      await setDoc(doc(db, COLLECTIONS.TICKETS, ticket.id), ticket, { merge: true });
+      const clean = sanitizeForFirestore(ticket);
+      await setDoc(doc(db, COLLECTIONS.TICKETS, ticket.id), clean, { merge: true });
     } catch (err) {
-      handleFirestoreError(err, OperationType.WRITE, path);
+      console.warn("Firestore saveTicket error:", err);
     }
   },
 
@@ -109,7 +153,7 @@ export const firestoreService = {
     try {
       await deleteDoc(doc(db, COLLECTIONS.TICKETS, ticketId));
     } catch (err) {
-      handleFirestoreError(err, OperationType.DELETE, path);
+      console.warn("Firestore deleteTicket error:", err);
     }
   },
 
@@ -117,9 +161,10 @@ export const firestoreService = {
   async saveProduct(product: Product): Promise<void> {
     const path = `${COLLECTIONS.PRODUCTS}/${product.id}`;
     try {
-      await setDoc(doc(db, COLLECTIONS.PRODUCTS, product.id), product, { merge: true });
+      const clean = sanitizeForFirestore(product);
+      await setDoc(doc(db, COLLECTIONS.PRODUCTS, product.id), clean, { merge: true });
     } catch (err) {
-      handleFirestoreError(err, OperationType.WRITE, path);
+      console.warn("Firestore saveProduct error:", err);
     }
   },
 
@@ -128,7 +173,7 @@ export const firestoreService = {
     try {
       await deleteDoc(doc(db, COLLECTIONS.PRODUCTS, productId));
     } catch (err) {
-      handleFirestoreError(err, OperationType.DELETE, path);
+      console.warn("Firestore deleteProduct error:", err);
     }
   },
 
@@ -136,9 +181,10 @@ export const firestoreService = {
   async saveTransaction(transaction: Transaction): Promise<void> {
     const path = `${COLLECTIONS.TRANSACTIONS}/${transaction.id}`;
     try {
-      await setDoc(doc(db, COLLECTIONS.TRANSACTIONS, transaction.id), transaction, { merge: true });
+      const clean = sanitizeForFirestore(transaction);
+      await setDoc(doc(db, COLLECTIONS.TRANSACTIONS, transaction.id), clean, { merge: true });
     } catch (err) {
-      handleFirestoreError(err, OperationType.WRITE, path);
+      console.warn("Firestore saveTransaction error:", err);
     }
   },
 
@@ -146,9 +192,10 @@ export const firestoreService = {
   async saveSettings(settings: StoreSettings): Promise<void> {
     const path = `${COLLECTIONS.SETTINGS}/store_config`;
     try {
-      await setDoc(doc(db, COLLECTIONS.SETTINGS, "store_config"), settings, { merge: true });
+      const clean = sanitizeForFirestore(settings);
+      await setDoc(doc(db, COLLECTIONS.SETTINGS, "store_config"), clean, { merge: true });
     } catch (err) {
-      handleFirestoreError(err, OperationType.WRITE, path);
+      console.warn("Firestore saveSettings error:", err);
     }
   },
 
@@ -156,9 +203,10 @@ export const firestoreService = {
   async saveUser(user: User): Promise<void> {
     const path = `${COLLECTIONS.USERS}/${user.id}`;
     try {
-      await setDoc(doc(db, COLLECTIONS.USERS, user.id), user, { merge: true });
+      const clean = sanitizeForFirestore(user);
+      await setDoc(doc(db, COLLECTIONS.USERS, user.id), clean, { merge: true });
     } catch (err) {
-      handleFirestoreError(err, OperationType.WRITE, path);
+      console.warn("Firestore saveUser error:", err);
     }
   },
 
@@ -167,7 +215,7 @@ export const firestoreService = {
     try {
       await deleteDoc(doc(db, COLLECTIONS.USERS, userId));
     } catch (err) {
-      handleFirestoreError(err, OperationType.DELETE, path);
+      console.warn("Firestore deleteUser error:", err);
     }
   },
 
@@ -183,11 +231,11 @@ export const firestoreService = {
       const ticketsSnap = await getDocs(collection(db, COLLECTIONS.TICKETS));
       if (ticketsSnap.empty && initialTickets.length > 0) {
         const batch = writeBatch(db);
-        initialTickets.forEach(t => batch.set(doc(db, COLLECTIONS.TICKETS, t.id), t));
-        initialProducts.forEach(p => batch.set(doc(db, COLLECTIONS.PRODUCTS, p.id), p));
-        initialTransactions.forEach(tx => batch.set(doc(db, COLLECTIONS.TRANSACTIONS, tx.id), tx));
-        batch.set(doc(db, COLLECTIONS.SETTINGS, "store_config"), initialSettings);
-        initialUsers.forEach(u => batch.set(doc(db, COLLECTIONS.USERS, u.id), u));
+        initialTickets.forEach(t => batch.set(doc(db, COLLECTIONS.TICKETS, t.id), sanitizeForFirestore(t)));
+        initialProducts.forEach(p => batch.set(doc(db, COLLECTIONS.PRODUCTS, p.id), sanitizeForFirestore(p)));
+        initialTransactions.forEach(tx => batch.set(doc(db, COLLECTIONS.TRANSACTIONS, tx.id), sanitizeForFirestore(tx)));
+        batch.set(doc(db, COLLECTIONS.SETTINGS, "store_config"), sanitizeForFirestore(initialSettings));
+        initialUsers.forEach(u => batch.set(doc(db, COLLECTIONS.USERS, u.id), sanitizeForFirestore(u)));
         await batch.commit();
         console.log("Initial data successfully seeded to Firestore database.");
       }

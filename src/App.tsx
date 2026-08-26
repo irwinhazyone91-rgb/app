@@ -141,11 +141,51 @@ export function App() {
     }
   }, [darkMode]);
 
-  // Load Initial Data from API and sync with local storage if available
+  // Load Data prioritizing Firestore Cloud and local persistence
   const loadAllData = async () => {
     try {
-      const [resStats, resTickets, resProducts, resTx, resSettings, resUsers] = await Promise.all([
-        axios.get("/api/stats").catch(() => ({ data: null })),
+      // 1. Try to fetch from Firestore Cloud directly
+      const cloudData = await firestoreService.fetchAllCloudData();
+      if (cloudData) {
+        let hasAnyCloudData = false;
+        if (cloudData.tickets && cloudData.tickets.length > 0) {
+          setTickets(cloudData.tickets);
+          savePersistentTickets(cloudData.tickets);
+          hasAnyCloudData = true;
+        }
+        if (cloudData.products && cloudData.products.length > 0) {
+          setProducts(cloudData.products);
+          savePersistentProducts(cloudData.products);
+          hasAnyCloudData = true;
+        }
+        if (cloudData.transactions && cloudData.transactions.length > 0) {
+          setTransactions(cloudData.transactions);
+          savePersistentTransactions(cloudData.transactions);
+          hasAnyCloudData = true;
+        }
+        if (cloudData.settings && cloudData.settings.storeName) {
+          setSettings(cloudData.settings);
+          savePersistentSettings(cloudData.settings);
+          hasAnyCloudData = true;
+        }
+        if (cloudData.users && cloudData.users.length > 0) {
+          setUsers(cloudData.users);
+          savePersistentUsers(cloudData.users);
+          hasAnyCloudData = true;
+        }
+
+        if (hasAnyCloudData) {
+          refreshStats(
+            cloudData.tickets || tickets,
+            cloudData.products || products,
+            cloudData.transactions || transactions
+          );
+          return;
+        }
+      }
+
+      // 2. Fallback to API if Firestore was empty on first setup
+      const [resTickets, resProducts, resTx, resSettings, resUsers] = await Promise.all([
         axios.get("/api/services").catch(() => ({ data: null })),
         axios.get("/api/products").catch(() => ({ data: null })),
         axios.get("/api/transactions").catch(() => ({ data: null })),
@@ -153,40 +193,28 @@ export function App() {
         axios.get("/api/users").catch(() => ({ data: null }))
       ]);
 
-      let currentT = tickets;
-      let currentP = products;
-      let currentTx = transactions;
+      const persistent = loadPersistentData();
+      const currentT = (resTickets?.data && Array.isArray(resTickets.data)) ? resTickets.data : persistent.tickets;
+      const currentP = (resProducts?.data && Array.isArray(resProducts.data)) ? resProducts.data : persistent.products;
+      const currentTx = (resTx?.data && Array.isArray(resTx.data)) ? resTx.data : persistent.transactions;
+      const currentSettings = (resSettings?.data && resSettings.data.storeName) ? resSettings.data : persistent.settings;
+      const currentUsers = (resUsers?.data && Array.isArray(resUsers.data)) ? resUsers.data : persistent.users;
 
-      if (resTickets?.data && Array.isArray(resTickets.data)) {
-        currentT = resTickets.data;
-        setTickets(resTickets.data);
-        savePersistentTickets(resTickets.data);
-      }
-      if (resProducts?.data && Array.isArray(resProducts.data)) {
-        currentP = resProducts.data;
-        setProducts(resProducts.data);
-        savePersistentProducts(resProducts.data);
-      }
-      if (resTx?.data && Array.isArray(resTx.data)) {
-        currentTx = resTx.data;
-        setTransactions(resTx.data);
-        savePersistentTransactions(resTx.data);
-      }
-      if (resSettings?.data && resSettings.data.storeName) {
-        setSettings(resSettings.data);
-        savePersistentSettings(resSettings.data);
-      }
-      if (resUsers?.data && Array.isArray(resUsers.data) && resUsers.data.length > 0) {
-        setUsers(resUsers.data);
-        savePersistentUsers(resUsers.data);
-      }
-      if (resStats?.data) {
-        setStats(resStats.data);
-      } else {
-        refreshStats(currentT, currentP, currentTx);
-      }
+      setTickets(currentT);
+      setProducts(currentP);
+      setTransactions(currentTx);
+      setSettings(currentSettings);
+      setUsers(currentUsers);
+      refreshStats(currentT, currentP, currentTx);
     } catch (err) {
-      // Fallback to local storage is already active
+      // Fallback to local storage
+      const local = loadPersistentData();
+      setTickets(local.tickets);
+      setProducts(local.products);
+      setTransactions(local.transactions);
+      setSettings(local.settings);
+      setUsers(local.users);
+      refreshStats(local.tickets, local.products, local.transactions);
     }
   };
 
@@ -196,12 +224,13 @@ export function App() {
 
     // Verify Firestore connection & seed if needed
     testFirestoreConnection().then(() => {
+      const local = loadPersistentData();
       firestoreService.seedInitialDataIfEmpty(
-        initialData.tickets,
-        initialData.products,
-        initialData.transactions,
-        initialData.settings,
-        initialData.users
+        local.tickets,
+        local.products,
+        local.transactions,
+        local.settings,
+        local.users
       );
     });
 
@@ -250,11 +279,6 @@ export function App() {
     window.addEventListener("online", handleSyncEvent);
     document.addEventListener("visibilitychange", handleSyncEvent);
 
-    // Periodic background sync every 10 seconds for real-time multi-device collaboration
-    const interval = setInterval(() => {
-      loadAllData();
-    }, 10000);
-
     return () => {
       unsubTickets();
       unsubProducts();
@@ -264,7 +288,6 @@ export function App() {
       window.removeEventListener("focus", handleSyncEvent);
       window.removeEventListener("online", handleSyncEvent);
       document.removeEventListener("visibilitychange", handleSyncEvent);
-      clearInterval(interval);
     };
   }, []);
 

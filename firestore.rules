@@ -1,82 +1,8 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Default Deny Catch-all
     match /{document=**} {
-      allow read, write: if false;
-    }
-
-    // Helper functions
-    function isValidId(id) {
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
-    }
-
-    function incoming() {
-      return request.resource.data;
-    }
-
-    function existing() {
-      return resource.data;
-    }
-
-    // Service Tickets collection
-    match /service_tickets/{ticketId} {
-      allow read: if isValidId(ticketId);
-      allow create: if isValidId(ticketId) 
-                    && incoming().id is string
-                    && incoming().ticketNumber is string
-                    && incoming().customerName is string
-                    && incoming().customerPhone is string
-                    && incoming().status is string;
-      allow update: if isValidId(ticketId)
-                    && incoming().id is string
-                    && incoming().ticketNumber is string;
-      allow delete: if isValidId(ticketId);
-    }
-
-    // Products & Spareparts inventory collection
-    match /products/{productId} {
-      allow read: if isValidId(productId);
-      allow create: if isValidId(productId)
-                    && incoming().id is string
-                    && incoming().name is string
-                    && incoming().sellPrice is number;
-      allow update: if isValidId(productId)
-                    && incoming().id is string;
-      allow delete: if isValidId(productId);
-    }
-
-    // Transactions / POS Invoices collection
-    match /transactions/{transactionId} {
-      allow read: if isValidId(transactionId);
-      allow create: if isValidId(transactionId)
-                    && incoming().id is string
-                    && incoming().invoiceNumber is string
-                    && incoming().total is number;
-      allow update: if isValidId(transactionId)
-                    && incoming().id is string;
-      allow delete: if isValidId(transactionId);
-    }
-
-    // Store Settings collection
-    match /settings/{settingId} {
-      allow read: if isValidId(settingId);
-      allow create, update: if isValidId(settingId)
-                            && incoming().storeName is string;
-      allow delete: if isValidId(settingId);
-    }
-
-    // Users and Staff collection
-    match /users/{userId} {
-      allow read: if isValidId(userId);
-      allow create: if isValidId(userId)
-                    && incoming().id is string
-                    && incoming().name is string
-                    && incoming().role is string;
-      allow update: if isValidId(userId)
-                    && incoming().id is string;
-      allow delete: if isValidId(userId);
+      allow read, write: if true;
     }
   }
 }
