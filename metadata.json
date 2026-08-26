@@ -1,6 +1,6 @@
 {
   "name": "ServisKu Computer",
-  "description": "POS kasir, manajemen service komputer/laptop, cetak & kirim nota via WhatsApp, dan tracking QR code perbaikan online.",
+  "description": "POS kasir bengkel komputer & laptop, nota SPK konsumen 21cm x 15cm (1 rangkap), stiker 58mm, dan landing page khusus konsumen untuk lacak servis & garansi realtime.",
   "requestFramePermissions": ["camera"],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
