@@ -1,2 +1,1 @@
-# app
-kasir
+# Here are your Instructions
