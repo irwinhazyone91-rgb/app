@@ -57,17 +57,37 @@ export interface ServiceTicket {
   pickupDate?: string;
 }
 
+export type ProductCategory =
+  | "laptop_baru"
+  | "laptop_bekas"
+  | "komponen_pc"
+  | "part_laptop"
+  | "aksesoris"
+  | "jasa";
+
 export interface Product {
   id: string;
   code: string;
   name: string;
-  category: "komponen_pc" | "part_laptop" | "aksesoris" | "jasa";
+  category: ProductCategory;
   costPrice: number;
-  sellPrice: number;
+  sellPrice: number; // Harga Konsumen Biasa / Retail
+  resellerPrice?: number; // Harga Reseller / Grosir / Mitra Teknisi
+  warrantyDays: number; // Masa Garansi dalam Hari (0 = Tanpa Garansi, 7, 30, 90, 365, dll)
   stock: number;
   minStock: number;
   unit: string;
   description?: string;
+
+  // Spesifikasi Detail (Khusus Laptop Baru, Laptop Bekas & Komponen)
+  processor?: string;
+  ram?: string;
+  storage?: string;
+  graphics?: string;
+  screenSize?: string;
+  conditionGrade?: string; // misal: "Baru BNIB 100%", "Mulus Grade A 98%", "Grade B (Lecet Pemakaian)"
+  batteryHealth?: string; // misal: "Normal 100% / Awet 4-6 Jam"
+  includes?: string; // Kelengkapan: misal "Unit + Charger Original + Tas Laptop + Dus Box"
 }
 
 export interface CartItem {
@@ -75,10 +95,16 @@ export interface CartItem {
   productId?: string;
   name: string;
   price: number;
+  regularPrice?: number;
+  resellerPrice?: number;
+  priceType?: "regular" | "reseller";
   qty: number;
   subtotal: number;
   isService?: boolean;
   serviceTicketId?: string;
+  warrantyDays?: number;
+  specsSummary?: string;
+  conditionGrade?: string;
 }
 
 export interface Transaction {
@@ -87,6 +113,7 @@ export interface Transaction {
   date: string;
   customerName: string;
   customerPhone: string;
+  customerType?: "regular" | "reseller";
   items: CartItem[];
   subtotal: number;
   discount: number;

@@ -30,7 +30,9 @@ import { getUserRoleConfig, createWhatsAppUrl } from "../lib/utils";
 interface UsersViewProps {
   users: User[];
   currentUser: User;
-  setCurrentUser: (user: User) => void;
+  onOpenSwitchUserModal?: (targetUser?: User) => void;
+  onLogout?: () => void;
+  setCurrentUser?: (user: User) => void;
   onCreateUser: (userData: Partial<User>) => void;
   onUpdateUser: (id: string, updates: Partial<User>) => void;
   onDeleteUser: (id: string) => void;
@@ -39,6 +41,8 @@ interface UsersViewProps {
 export const UsersView: React.FC<UsersViewProps> = ({
   users,
   currentUser,
+  onOpenSwitchUserModal,
+  onLogout,
   setCurrentUser,
   onCreateUser,
   onUpdateUser,
@@ -194,7 +198,10 @@ export const UsersView: React.FC<UsersViewProps> = ({
           </div>
 
           <div className="flex items-center gap-2 self-start md:self-center">
-            <span className="text-xs text-muted-foreground hidden lg:inline">Ganti Pengguna:</span>
+            <span className="text-xs text-muted-foreground hidden lg:inline flex items-center gap-1">
+              <Lock className="h-3 w-3 text-blue-600" />
+              <span>Ganti Akun:</span>
+            </span>
             <div className="flex flex-wrap gap-1.5">
               {users.map((u) => {
                 const isCurrent = currentUser.id === u.id;
@@ -202,13 +209,20 @@ export const UsersView: React.FC<UsersViewProps> = ({
                 return (
                   <button
                     key={u.id}
-                    onClick={() => setCurrentUser(u)}
-                    className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                    onClick={() => {
+                      if (isCurrent) return;
+                      if (onOpenSwitchUserModal) {
+                        onOpenSwitchUserModal(u);
+                      }
+                    }}
+                    className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
                       isCurrent
                         ? "bg-blue-600 text-white shadow-sm ring-2 ring-blue-400/50"
                         : "bg-card hover:bg-muted text-foreground border border-border"
                     }`}
+                    title={isCurrent ? "Akun Anda saat ini" : `Beralih ke akun ${u.name} (wajib masukkan sandi)`}
                   >
+                    {!isCurrent && <Lock className="h-2.5 w-2.5 text-muted-foreground" />}
                     <span>{u.name.split(" ")[0]}</span>
                     <span className={`text-[10px] px-1.5 py-0.2 rounded-md ${isCurrent ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"}`}>
                       {roleCfg.label}
@@ -443,10 +457,16 @@ export const UsersView: React.FC<UsersViewProps> = ({
               <div className="mt-4 pt-3 border-t border-border flex items-center justify-between gap-1.5">
                 {!isCurrent ? (
                   <button
-                    onClick={() => setCurrentUser(user)}
-                    className="flex-1 py-1.5 px-2 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 font-semibold rounded-xl text-xs transition-colors"
+                    onClick={() => {
+                      if (onOpenSwitchUserModal) {
+                        onOpenSwitchUserModal(user);
+                      }
+                    }}
+                    className="flex-1 py-1.5 px-2 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 font-semibold rounded-xl text-xs transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                    title={`Beralih ke akun ${user.name} (perlu kata sandi)`}
                   >
-                    Gunakan Akun Ini
+                    <Lock className="h-3 w-3" />
+                    <span>Beralih ke Akun Ini</span>
                   </button>
                 ) : (
                   <span className="flex-1 py-1.5 px-2 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-bold rounded-xl text-xs text-center">

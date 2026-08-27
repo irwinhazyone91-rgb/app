@@ -20,10 +20,13 @@ import {
   Store,
   Sparkles,
   Users,
-  UserCheck
+  UserCheck,
+  Lock,
+  LogOut
 } from "lucide-react";
 import { StoreSettings, User } from "../types";
 import { createWhatsAppUrl, getUserRoleConfig } from "../lib/utils";
+import { isTabAllowedForRole } from "../lib/permissions";
 
 interface SidebarProps {
   currentTab: string;
@@ -37,7 +40,7 @@ interface SidebarProps {
   setIsOpenMobile: (open: boolean) => void;
   onOpenQRScanner: () => void;
   currentUser?: User;
-  onSwitchUserClick?: () => void;
+  onOpenSwitchUserModal?: () => void;
   onLogout?: () => void;
 }
 
@@ -53,12 +56,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
   setIsOpenMobile,
   onOpenQRScanner,
   currentUser,
-  onSwitchUserClick,
+  onOpenSwitchUserModal,
   onLogout
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
-  const navGroups = [
+  const rawNavGroups = [
     {
       group: "Menu Utama",
       items: [
@@ -128,6 +131,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
   ];
 
+  // Filter groups and items based on role permissions
+  const navGroups = rawNavGroups
+    .map((grp) => ({
+      ...grp,
+      items: grp.items.filter((item) => isTabAllowedForRole(item.id, currentUser?.role))
+    }))
+    .filter((grp) => grp.items.length > 0);
+
   const handleNavClick = (id: string) => {
     setCurrentTab(id);
     setIsOpenMobile(false);
@@ -138,8 +149,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* 1. Header Logo & Brand */}
       <div className={`p-4 border-b border-border flex items-center ${isCollapsed ? "justify-center" : "justify-between"}`}>
         <button
-          onClick={() => handleNavClick("dashboard")}
-          className="flex items-center space-x-3 text-left group focus:outline-hidden"
+          onClick={() => {
+            const firstAllowed = navGroups[0]?.items[0]?.id || "services";
+            handleNavClick(firstAllowed);
+          }}
+          className="flex items-center space-x-3 text-left group focus:outline-hidden cursor-pointer"
         >
           <div className="h-10 w-10 shrink-0 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20 group-hover:scale-105 transition-transform">
             <Laptop className="h-5 w-5" />
@@ -164,7 +178,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Mobile close button */}
         <button
           onClick={() => setIsOpenMobile(false)}
-          className="md:hidden p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted"
+          className="md:hidden p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer"
         >
           <X className="h-5 w-5" />
         </button>
@@ -175,7 +189,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="px-3 pt-3 pb-1">
           <button
             onClick={onOpenQRScanner}
-            className="w-full flex items-center justify-center space-x-2 px-3 py-2 bg-gradient-to-r from-blue-50/80 to-indigo-50/80 dark:from-blue-950/40 dark:to-indigo-950/40 text-blue-700 dark:text-blue-300 hover:from-blue-100 hover:to-indigo-100 dark:hover:from-blue-900/60 dark:hover:to-indigo-900/60 border border-blue-200/60 dark:border-blue-800/40 rounded-xl text-xs font-semibold shadow-2xs transition-all active:scale-98"
+            className="w-full flex items-center justify-center space-x-2 px-3 py-2 bg-gradient-to-r from-blue-50/80 to-indigo-50/80 dark:from-blue-950/40 dark:to-indigo-950/40 text-blue-700 dark:text-blue-300 hover:from-blue-100 hover:to-indigo-100 dark:hover:from-blue-900/60 dark:hover:to-indigo-900/60 border border-blue-200/60 dark:border-blue-800/40 rounded-xl text-xs font-semibold shadow-2xs transition-all active:scale-98 cursor-pointer"
             title="Scan QR Code Tiket Servis"
           >
             <QrCode className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
@@ -206,7 +220,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     title={isCollapsed ? item.label : undefined}
                     className={`w-full group relative flex items-center ${
                       isCollapsed ? "justify-center px-2" : "px-3"
-                    } py-2.5 rounded-xl text-sm font-medium transition-all ${
+                    } py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer ${
                       isActive
                         ? "bg-blue-600 text-white shadow-md shadow-blue-600/20 font-semibold"
                         : "text-muted-foreground hover:text-foreground hover:bg-muted/70"
@@ -263,9 +277,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {currentUser && !isCollapsed && (
           <div className="p-2.5 rounded-xl bg-card border border-border space-y-2">
             <div
-              onClick={() => handleNavClick("users")}
+              onClick={() => {
+                if (isTabAllowedForRole("users", currentUser.role)) {
+                  handleNavClick("users");
+                } else if (onOpenSwitchUserModal) {
+                  onOpenSwitchUserModal();
+                }
+              }}
               className="flex items-center justify-between cursor-pointer group"
-              title="Buka Manajemen Pengguna"
+              title="Info Pengguna & Hak Akses"
             >
               <div className="flex items-center space-x-2 min-w-0">
                 <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white font-bold text-xs shrink-0 shadow-xs">
@@ -290,33 +310,50 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </span>
             </div>
 
-            {onLogout && (
-              <div className="flex items-center justify-between pt-1 border-t border-border/60 text-[10px]">
-                <button
-                  type="button"
-                  onClick={() => handleNavClick("users")}
-                  className="text-blue-600 dark:text-blue-400 hover:underline font-semibold"
-                >
-                  Ganti User
-                </button>
+            <div className="flex items-center justify-between pt-1 border-t border-border/60 text-[10px]">
+              <button
+                type="button"
+                onClick={() => {
+                  if (onOpenSwitchUserModal) {
+                    onOpenSwitchUserModal();
+                  } else if (onLogout) {
+                    onLogout();
+                  }
+                }}
+                className="text-blue-600 dark:text-blue-400 hover:underline font-semibold flex items-center gap-1 cursor-pointer"
+                title="Ganti Pengguna dengan Password"
+              >
+                <Lock className="h-3 w-3" />
+                <span>Ganti User</span>
+              </button>
+
+              {onLogout && (
                 <button
                   type="button"
                   id="btn-sidebar-logout"
                   onClick={onLogout}
-                  className="text-red-500 hover:text-red-600 font-semibold"
+                  className="text-red-500 hover:text-red-600 font-semibold flex items-center gap-1 cursor-pointer"
+                  title="Keluar dari Aplikasi"
                 >
-                  🚪 Keluar
+                  <LogOut className="h-3 w-3" />
+                  <span>Keluar</span>
                 </button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         )}
 
         {currentUser && isCollapsed && (
           <button
-            onClick={() => handleNavClick("users")}
-            className="w-full flex justify-center py-1"
-            title={`${currentUser.name} (${getUserRoleConfig(currentUser.role).label})`}
+            onClick={() => {
+              if (onOpenSwitchUserModal) {
+                onOpenSwitchUserModal();
+              } else if (isTabAllowedForRole("users", currentUser.role)) {
+                handleNavClick("users");
+              }
+            }}
+            className="w-full flex justify-center py-1 cursor-pointer"
+            title={`${currentUser.name} (${getUserRoleConfig(currentUser.role).label}) - Klik untuk Ganti Akun`}
           >
             <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white font-bold text-xs shadow-xs">
               {currentUser.name.charAt(0).toUpperCase()}
@@ -329,7 +366,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <button
             id="sidebar-theme-toggle"
             onClick={() => setDarkMode(!darkMode)}
-            className={`flex items-center justify-center p-2 rounded-xl text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors ${
+            className={`flex items-center justify-center p-2 rounded-xl text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer ${
               isCollapsed ? "w-full" : "flex-1"
             }`}
             title="Ganti Tema Gelap / Terang"
@@ -349,7 +386,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {/* Collapse toggle button (desktop only) */}
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="hidden md:flex items-center justify-center p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            className="hidden md:flex items-center justify-center p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
             title={isCollapsed ? "Buka Sidebar" : "Ciutkan Sidebar"}
           >
             {isCollapsed ? (

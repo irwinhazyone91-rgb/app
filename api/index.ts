@@ -68,17 +68,35 @@ export interface ServiceTicket {
   pickupDate?: string;
 }
 
+export type ProductCategory =
+  | "laptop_baru"
+  | "laptop_bekas"
+  | "komponen_pc"
+  | "part_laptop"
+  | "aksesoris"
+  | "jasa";
+
 export interface Product {
   id: string;
   code: string;
   name: string;
-  category: "komponen_pc" | "part_laptop" | "aksesoris" | "jasa";
+  category: ProductCategory;
   costPrice: number;
   sellPrice: number;
+  resellerPrice?: number;
+  warrantyDays: number;
   stock: number;
   minStock: number;
   unit: string;
   description?: string;
+  processor?: string;
+  ram?: string;
+  storage?: string;
+  graphics?: string;
+  screenSize?: string;
+  conditionGrade?: string;
+  batteryHealth?: string;
+  includes?: string;
 }
 
 export interface TransactionItem {
@@ -218,12 +236,102 @@ let storeSettings: StoreSettings = {
 
 let products: Product[] = [
   {
+    id: "prod-lp-1",
+    code: "LPT-BARU-ASUS-O14",
+    name: "Laptop ASUS Vivobook 14 A1404ZA Core i3-1215U (Baru)",
+    category: "laptop_baru",
+    costPrice: 5850000,
+    sellPrice: 6500000,
+    resellerPrice: 6150000,
+    warrantyDays: 730,
+    stock: 4,
+    minStock: 1,
+    unit: "Unit",
+    description: "Laptop Baru Garansi Resmi ASUS Indonesia 2 Tahun. Layar NanoEdge FHD IPS Anti-Glare.",
+    processor: "Intel Core i3-1215U (6 Core 8 Thread up to 4.4GHz)",
+    ram: "8GB DDR4 3200MHz (Upgradable)",
+    storage: "512GB M.2 NVMe PCIe 3.0 SSD",
+    graphics: "Intel UHD Graphics",
+    screenSize: "14.0\" FHD (1920x1080) IPS-Level 250nits",
+    conditionGrade: "Baru Segel BNIB 100%",
+    batteryHealth: "Baterai Baru 42WHrs (Awet 6-8 Jam)",
+    includes: "Unit Laptop, Charger Original 45W, Tas Backpack ASUS, Dus Box & Kartu Garansi"
+  },
+  {
+    id: "prod-lp-2",
+    code: "LPT-BARU-LENOVO-IP3",
+    name: "Laptop Lenovo IdeaPad Slim 3 Ryzen 5 7520U 16GB (Baru)",
+    category: "laptop_baru",
+    costPrice: 7100000,
+    sellPrice: 7950000,
+    resellerPrice: 7500000,
+    warrantyDays: 730,
+    stock: 3,
+    minStock: 1,
+    unit: "Unit",
+    description: "Laptop Baru Performa Tinggi untuk Kerja & Mahasiswa. Garansi Resmi Lenovo 2 Tahun + ADP.",
+    processor: "AMD Ryzen 5 7520U (4 Core 8 Thread up to 4.3GHz)",
+    ram: "16GB LPDDR5 5500MHz Dual Channel",
+    storage: "512GB SSD NVMe PCIe 4.0",
+    graphics: "AMD Radeon 610M Graphics",
+    screenSize: "14.0\" FHD (1920x1080) IPS 300nits Anti-glare",
+    conditionGrade: "Baru Segel BNIB 100%",
+    batteryHealth: "Baterai Baru 47WHrs Rapid Charge",
+    includes: "Unit Laptop, Charger Lenovo Type-C, Tas Lenovo Original, Dus Box & Buku Panduan"
+  },
+  {
+    id: "prod-lp-3",
+    code: "LPT-BKS-THINKPAD-T480",
+    name: "Laptop Lenovo ThinkPad T480 Core i5-8350U RAM 16GB (Bekas Mulus)",
+    category: "laptop_bekas",
+    costPrice: 2800000,
+    sellPrice: 3500000,
+    resellerPrice: 3100000,
+    warrantyDays: 30,
+    stock: 5,
+    minStock: 1,
+    unit: "Unit",
+    description: "Laptop Bisnis Militer Super Tangguh & Awet. Body Kokoh Mulus Grade A 95%. Garansi Toko 1 Bulan.",
+    processor: "Intel Core i5-8350U vPro (4 Core 8 Thread up to 3.6GHz)",
+    ram: "16GB DDR4 Dual Channel",
+    storage: "256GB SSD NVMe High Speed",
+    graphics: "Intel UHD Graphics 620",
+    screenSize: "14.0\" Full HD IPS (1920x1080) Anti-Glare",
+    conditionGrade: "Bekas Mulus Grade A (Kondisi Fisik 95%)",
+    batteryHealth: "Dual Baterai Sehat 88% (Awet 3-4 Jam)",
+    includes: "Unit ThinkPad, Charger Original Type-C, Kabel Power, Bonus Tas Softcase"
+  },
+  {
+    id: "prod-lp-4",
+    code: "LPT-BKS-DELL-LAT7490",
+    name: "Laptop Dell Latitude 7490 Core i7-8650U SSD 512GB (Bekas)",
+    category: "laptop_bekas",
+    costPrice: 3200000,
+    sellPrice: 4100000,
+    resellerPrice: 3600000,
+    warrantyDays: 30,
+    stock: 2,
+    minStock: 1,
+    unit: "Unit",
+    description: "Laptop Flagship Tipis Ringan Carbon Fiber Keyboard Backlight. Kondisi Istimewa Siap Pakai.",
+    processor: "Intel Core i7-8650U (4 Core 8 Thread up to 4.2GHz)",
+    ram: "16GB DDR4 2400MHz",
+    storage: "512GB SSD NVMe PCIe",
+    graphics: "Intel UHD Graphics 620",
+    screenSize: "14.0\" FHD (1920x1080) Anti-Glare WVA",
+    conditionGrade: "Bekas Mulus Grade A- 93%",
+    batteryHealth: "Normal 85% (Awet 3-4 Jam)",
+    includes: "Unit Dell, Charger Original Dell, Tas Jinjing"
+  },
+  {
     id: "prod-1",
     code: "SSD-NVME-512",
     name: "SSD NVMe M.2 512GB Kingston NV2 Gen4",
     category: "komponen_pc",
     costPrice: 420000,
     sellPrice: 550000,
+    resellerPrice: 480000,
+    warrantyDays: 1095,
     stock: 12,
     minStock: 3,
     unit: "Unit",
@@ -236,6 +344,8 @@ let products: Product[] = [
     category: "part_laptop",
     costPrice: 210000,
     sellPrice: 300000,
+    resellerPrice: 250000,
+    warrantyDays: 365,
     stock: 15,
     minStock: 4,
     unit: "Keping",
@@ -248,6 +358,8 @@ let products: Product[] = [
     category: "part_laptop",
     costPrice: 580000,
     sellPrice: 750000,
+    resellerPrice: 650000,
+    warrantyDays: 90,
     stock: 4,
     minStock: 2,
     unit: "Pcs",
@@ -260,6 +372,8 @@ let products: Product[] = [
     category: "komponen_pc",
     costPrice: 45000,
     sellPrice: 75000,
+    resellerPrice: 55000,
+    warrantyDays: 0,
     stock: 20,
     minStock: 5,
     unit: "Tube",
@@ -272,6 +386,8 @@ let products: Product[] = [
     category: "part_laptop",
     costPrice: 85000,
     sellPrice: 150000,
+    resellerPrice: 110000,
+    warrantyDays: 30,
     stock: 6,
     minStock: 2,
     unit: "Pcs",
@@ -284,6 +400,8 @@ let products: Product[] = [
     category: "aksesoris",
     costPrice: 130000,
     sellPrice: 220000,
+    resellerPrice: 175000,
+    warrantyDays: 90,
     stock: 8,
     minStock: 2,
     unit: "Pcs",
@@ -296,6 +414,8 @@ let products: Product[] = [
     category: "jasa",
     costPrice: 0,
     sellPrice: 75000,
+    resellerPrice: 50000,
+    warrantyDays: 7,
     stock: 999,
     minStock: 0,
     unit: "Jasa",
@@ -308,6 +428,8 @@ let products: Product[] = [
     category: "jasa",
     costPrice: 10000,
     sellPrice: 100000,
+    resellerPrice: 70000,
+    warrantyDays: 14,
     stock: 999,
     minStock: 0,
     unit: "Jasa",
@@ -320,6 +442,8 @@ let products: Product[] = [
     category: "jasa",
     costPrice: 50000,
     sellPrice: 350000,
+    resellerPrice: 250000,
+    warrantyDays: 30,
     stock: 999,
     minStock: 0,
     unit: "Jasa",
@@ -688,10 +812,20 @@ app.post("/api/products", (req: Request, res: Response) => {
     category: req.body.category || "komponen_pc",
     costPrice: Number(req.body.costPrice) || 0,
     sellPrice: Number(req.body.sellPrice) || 0,
+    resellerPrice: req.body.resellerPrice !== undefined ? Number(req.body.resellerPrice) : undefined,
+    warrantyDays: Number(req.body.warrantyDays) || 0,
     stock: Number(req.body.stock) || 0,
     minStock: Number(req.body.minStock) || 2,
     unit: req.body.unit || "Pcs",
-    description: req.body.description || ""
+    description: req.body.description || "",
+    processor: req.body.processor || "",
+    ram: req.body.ram || "",
+    storage: req.body.storage || "",
+    graphics: req.body.graphics || "",
+    screenSize: req.body.screenSize || "",
+    conditionGrade: req.body.conditionGrade || "",
+    batteryHealth: req.body.batteryHealth || "",
+    includes: req.body.includes || ""
   };
 
   products.unshift(newProduct);
@@ -711,6 +845,8 @@ app.put("/api/products/:id", (req: Request, res: Response) => {
     ...req.body,
     costPrice: Number(req.body.costPrice ?? products[index].costPrice),
     sellPrice: Number(req.body.sellPrice ?? products[index].sellPrice),
+    resellerPrice: req.body.resellerPrice !== undefined ? Number(req.body.resellerPrice) : products[index].resellerPrice,
+    warrantyDays: Number(req.body.warrantyDays ?? products[index].warrantyDays ?? 0),
     stock: Number(req.body.stock ?? products[index].stock),
     minStock: Number(req.body.minStock ?? products[index].minStock)
   };

@@ -39,6 +39,10 @@ import { UsersView } from "./components/UsersView";
 import { ReceiptModal, PrintFormat } from "./components/ReceiptModal";
 import { QRScannerModal } from "./components/QRScannerModal";
 import { LoginView } from "./components/LoginView";
+import { SwitchUserModal } from "./components/SwitchUserModal";
+import { isTabAllowedForRole, getDefaultTabForRole } from "./lib/permissions";
+import { getUserRoleConfig } from "./lib/utils";
+import { ShieldAlert } from "lucide-react";
 
 export function App() {
   const [currentTab, setCurrentTab] = useState<string>("dashboard");
@@ -75,13 +79,27 @@ export function App() {
     return initialData.users[0] || DEFAULT_USERS[0];
   });
 
+  // Switch User Modal State
+  const [switchUserModal, setSwitchUserModal] = useState<{
+    isOpen: boolean;
+    targetUser?: User | null;
+  }>({
+    isOpen: false,
+    targetUser: null
+  });
+
   const handleLogin = (user: User) => {
     setCurrentUser(user);
     setIsAuthenticated(true);
     setIsCustomerTrackingDirect(false);
     localStorage.setItem("servisku_active_user", JSON.stringify(user));
     localStorage.setItem("servisku_is_authenticated", "true");
-    toast.success(`Selamat datang, ${user.name}! Masuk sebagai ${user.role.toUpperCase()}`);
+    
+    // Automatically navigate to role's primary landing tab
+    const targetTab = getDefaultTabForRole(user.role);
+    setCurrentTab(targetTab);
+
+    toast.success(`Selamat datang, ${user.name}! Masuk sebagai ${getUserRoleConfig(user.role).label}`);
     // Sync latest database records immediately on login
     loadAllData();
   };
@@ -94,10 +112,22 @@ export function App() {
     toast.info("Anda telah keluar dari sesi aplikasi. Data Anda tetap tersimpan dengan aman.");
   };
 
-  const handleSetCurrentUser = (user: User) => {
+  const handleSwitchUser = (user: User) => {
     setCurrentUser(user);
     localStorage.setItem("servisku_active_user", JSON.stringify(user));
-    toast.success(`Beralih ke akun: ${user.name} (${user.role.toUpperCase()})`);
+    toast.success(`Beralih ke akun: ${user.name} (${getUserRoleConfig(user.role).label})`);
+    
+    // If the new user role cannot access the currently opened tab, redirect to their default tab
+    if (!isTabAllowedForRole(currentTab, user.role)) {
+      setCurrentTab(getDefaultTabForRole(user.role));
+    }
+  };
+
+  const openSwitchUserModal = (targetUser?: User) => {
+    setSwitchUserModal({
+      isOpen: true,
+      targetUser: targetUser || null
+    });
   };
 
   // Recalculate stats whenever tickets, products, or transactions change
@@ -492,10 +522,20 @@ export function App() {
       category: productData.category || "komponen_pc",
       costPrice: Number(productData.costPrice) || 0,
       sellPrice: Number(productData.sellPrice) || 0,
+      resellerPrice: productData.resellerPrice !== undefined ? Number(productData.resellerPrice) : undefined,
+      warrantyDays: productData.warrantyDays !== undefined ? Number(productData.warrantyDays) : 30,
       stock: Number(productData.stock) || 0,
       minStock: Number(productData.minStock) || 2,
       unit: productData.unit || "Pcs",
-      description: productData.description || ""
+      description: productData.description || "",
+      processor: productData.processor,
+      ram: productData.ram,
+      storage: productData.storage,
+      graphics: productData.graphics,
+      screenSize: productData.screenSize,
+      conditionGrade: productData.conditionGrade,
+      batteryHealth: productData.batteryHealth,
+      includes: productData.includes
     };
 
     const updated = [newProduct, ...products];
@@ -932,6 +972,7 @@ export function App() {
         setIsOpenMobile={setIsOpenMobile}
         onOpenQRScanner={() => setIsQRScannerOpen(true)}
         currentUser={currentUser}
+        onOpenSwitchUserModal={openSwitchUserModal}
         onLogout={handleLogout}
       />
 
@@ -947,13 +988,42 @@ export function App() {
           activeTicketsCount={activeTicketsCount}
           currentUser={currentUser}
           users={users}
-          setCurrentUser={handleSetCurrentUser}
+          onOpenSwitchUserModal={openSwitchUserModal}
           onLogout={handleLogout}
         />
 
-        {/* View Routing */}
+        {/* View Routing with Role Guard */}
         <main className="flex-1 p-4 sm:p-6 max-w-7xl w-full mx-auto">
-          {currentTab === "dashboard" && (
+          {/* If the current user's role cannot access the active tab, display access restricted notice */}
+          {!isTabAllowedForRole(currentTab, currentUser.role) && (
+            <div className="p-8 max-w-lg mx-auto my-12 bg-card border border-amber-200 dark:border-amber-900/60 rounded-3xl text-center space-y-4 shadow-lg animate-in fade-in">
+              <div className="h-16 w-16 mx-auto rounded-2xl bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-900 text-amber-600 flex items-center justify-center">
+                <ShieldAlert className="h-8 w-8" />
+              </div>
+              <div className="space-y-1">
+                <h2 className="text-lg font-bold text-foreground">Menu Akses Terbatas</h2>
+                <p className="text-xs text-muted-foreground">
+                  Akun Anda (<strong>{currentUser.name}</strong> - {getUserRoleConfig(currentUser.role).label}) tidak memiliki hak akses untuk membuka menu ini.
+                </p>
+              </div>
+              <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-2">
+                <button
+                  onClick={() => setCurrentTab(getDefaultTabForRole(currentUser.role))}
+                  className="w-full sm:w-auto px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer"
+                >
+                  Buka Menu Utama ({getUserRoleConfig(currentUser.role).label})
+                </button>
+                <button
+                  onClick={() => openSwitchUserModal()}
+                  className="w-full sm:w-auto px-4 py-2.5 bg-muted hover:bg-muted/80 text-foreground border border-border rounded-xl text-xs font-semibold transition-all cursor-pointer"
+                >
+                  Ganti Akun Lain
+                </button>
+              </div>
+            </div>
+          )}
+
+          {isTabAllowedForRole(currentTab, currentUser.role) && currentTab === "dashboard" && (
             <DashboardView
               stats={stats}
               tickets={tickets}
@@ -966,11 +1036,12 @@ export function App() {
             />
           )}
 
-          {currentTab === "services" && (
+          {isTabAllowedForRole(currentTab, currentUser.role) && currentTab === "services" && (
             <ServiceManagementView
               tickets={tickets}
               products={products}
               users={users}
+              currentUser={currentUser}
               onCreateTicket={handleCreateTicket}
               onUpdateTicket={handleUpdateTicket}
               onDeleteTicket={handleDeleteTicket}
@@ -989,7 +1060,7 @@ export function App() {
             />
           )}
 
-          {currentTab === "pos" && (
+          {isTabAllowedForRole(currentTab, currentUser.role) && currentTab === "pos" && (
             <POSView
               products={products}
               readyTickets={tickets.filter(
@@ -1012,7 +1083,7 @@ export function App() {
             />
           )}
 
-          {currentTab === "transactions" && (
+          {isTabAllowedForRole(currentTab, currentUser.role) && currentTab === "transactions" && (
             <TransactionHistoryView
               transactions={transactions}
               tickets={tickets}
@@ -1033,7 +1104,7 @@ export function App() {
             />
           )}
 
-          {currentTab === "inventory" && (
+          {isTabAllowedForRole(currentTab, currentUser.role) && currentTab === "inventory" && (
             <InventoryView
               products={products}
               onCreateProduct={handleCreateProduct}
@@ -1042,22 +1113,24 @@ export function App() {
             />
           )}
 
-          {currentTab === "users" && (
+          {isTabAllowedForRole(currentTab, currentUser.role) && currentTab === "users" && (
             <UsersView
               users={users}
               currentUser={currentUser}
-              setCurrentUser={handleSetCurrentUser}
+              onOpenSwitchUserModal={openSwitchUserModal}
+              onLogout={handleLogout}
+              setCurrentUser={handleSwitchUser}
               onCreateUser={handleCreateUser}
               onUpdateUser={handleUpdateUser}
               onDeleteUser={handleDeleteUser}
             />
           )}
 
-          {currentTab === "tracking" && (
+          {isTabAllowedForRole(currentTab, currentUser.role) && currentTab === "tracking" && (
             <CustomerLandingPage
               onSearchTicket={handleSearchTicket}
               onOpenQRScanner={() => setIsQRScannerOpen(true)}
-              onOpenLoginStaff={() => setCurrentTab("dashboard")}
+              onOpenLoginStaff={() => setCurrentTab(getDefaultTabForRole(currentUser.role))}
               onPrintTicket={(ticket) => {
                 setReceiptModal({
                   isOpen: true,
@@ -1072,7 +1145,7 @@ export function App() {
             />
           )}
 
-          {currentTab === "settings" && (
+          {isTabAllowedForRole(currentTab, currentUser.role) && currentTab === "settings" && (
             <SettingsView
               settings={settings}
               onSaveSettings={handleSaveSettings}
@@ -1095,25 +1168,40 @@ export function App() {
               © {new Date().getFullYear()} {settings.storeName} — POS & Service Management System (Siap Online Vercel)
             </span>
             <div className="flex items-center space-x-4 text-[11px]">
-              <button
-                onClick={() => setCurrentTab("users")}
-                className="hover:text-blue-600 font-medium transition-colors cursor-pointer"
-              >
-                Pengguna & Tim
-              </button>
-              <span>•</span>
+              {isTabAllowedForRole("users", currentUser.role) && (
+                <>
+                  <button
+                    onClick={() => setCurrentTab("users")}
+                    className="hover:text-blue-600 font-medium transition-colors cursor-pointer"
+                  >
+                    Pengguna & Tim
+                  </button>
+                  <span>•</span>
+                </>
+              )}
               <button
                 onClick={() => setCurrentTab("tracking")}
                 className="hover:text-blue-600 font-medium transition-colors cursor-pointer"
               >
                 Portal Konsumen
               </button>
+              {isTabAllowedForRole("settings", currentUser.role) && (
+                <>
+                  <span>•</span>
+                  <button
+                    onClick={() => setCurrentTab("settings")}
+                    className="hover:text-blue-600 font-medium transition-colors cursor-pointer"
+                  >
+                    Pengaturan & Backup
+                  </button>
+                </>
+              )}
               <span>•</span>
               <button
-                onClick={() => setCurrentTab("settings")}
+                onClick={() => openSwitchUserModal()}
                 className="hover:text-blue-600 font-medium transition-colors cursor-pointer"
               >
-                Pengaturan & Backup
+                Ganti Akun
               </button>
               <span>•</span>
               <button
@@ -1126,6 +1214,19 @@ export function App() {
           </div>
         </footer>
       </div>
+
+      {/* Switch User Modal with Password / PIN Verification */}
+      {switchUserModal.isOpen && (
+        <SwitchUserModal
+          isOpen={switchUserModal.isOpen}
+          onClose={() => setSwitchUserModal({ isOpen: false, targetUser: null })}
+          users={users}
+          currentUser={currentUser}
+          targetUserInitial={switchUserModal.targetUser}
+          onSwitchUser={handleSwitchUser}
+          onLogout={handleLogout}
+        />
+      )}
 
       {/* Print / Receipt Modal */}
       {receiptModal.isOpen && (

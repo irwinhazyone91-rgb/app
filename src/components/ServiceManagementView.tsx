@@ -17,9 +17,11 @@ import {
   Sparkles,
   DollarSign,
   ShieldAlert,
+  ShieldCheck,
   ChevronDown,
   Tag,
-  FileText
+  FileText,
+  AlertTriangle
 } from "lucide-react";
 import { ServiceTicket, ServiceStatus, Product, ServicePart, User } from "../types";
 import {
@@ -33,6 +35,7 @@ interface ServiceManagementViewProps {
   tickets: ServiceTicket[];
   products: Product[];
   users?: User[];
+  currentUser?: User;
   onCreateTicket: (ticketData: Partial<ServiceTicket>) => void;
   onUpdateTicket: (id: string, updates: Partial<ServiceTicket>) => void;
   onDeleteTicket: (id: string) => void;
@@ -50,6 +53,7 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
   tickets,
   products,
   users = [],
+  currentUser,
   onCreateTicket,
   onUpdateTicket,
   onDeleteTicket,
@@ -64,6 +68,10 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
   const [activeTicket, setActiveTicket] = useState<ServiceTicket | null>(
     selectedTicketForDetail || null
   );
+  const [ticketToDelete, setTicketToDelete] = useState<ServiceTicket | null>(null);
+
+  const canDelete =
+    !currentUser || currentUser.role === "owner" || currentUser.role === "admin";
 
   // New Ticket Form State
   const [formData, setFormData] = useState({
@@ -160,7 +168,7 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
 
     const updatedParts = [...partsList, newPart];
     setPartsList(updatedParts);
-    
+
     // Auto update total final cost
     const partsSum = updatedParts.reduce((acc, p) => acc + p.price * p.qty, 0);
     if (editFinalCost < partsSum) {
@@ -202,12 +210,25 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
     closeDetailModal();
   };
 
+  const confirmDeleteTicket = () => {
+    if (ticketToDelete) {
+      onDeleteTicket(ticketToDelete.id);
+      setTicketToDelete(null);
+      if (activeTicket && activeTicket.id === ticketToDelete.id) {
+        closeDetailModal();
+      }
+    }
+  };
+
   // Generate customized WhatsApp Message
   const getWhatsAppMessage = (ticket: ServiceTicket) => {
-    const remaining = Math.max(0, (ticket.finalCost || ticket.estimatedCost) - ticket.downPayment);
-    
+    const remaining = Math.max(
+      0,
+      (ticket.finalCost || ticket.estimatedCost) - ticket.downPayment
+    );
+
     if (ticket.status === "ready") {
-      return `Halo Kak *${ticket.customerName}*,\n\nKabar baik dari *ServisKu Computer*! Unit perbaikan Anda:\n🔹 *No. Tiket*: ${ticket.ticketNumber}\n🔹 *Perangkat*: ${ticket.deviceBrandModel}\n🔹 *Status*: *SELESAI & SIAP DIAMBIL*\n🔹 *Total Biaya*: ${formatRupiah(ticket.finalCost || ticket.estimatedCost)}\n🔹 *Sisa Pembayaran*: ${formatRupiah(remaining)}\n🔹 *Garansi Servis*: ${ticket.warrantyDays} Hari\n\nUnit sudah melewati tahap Quality Control (QC). Silakan datang ke toko kami dengan membawa tanda terima/nota ini.\n\nTerima kasih! 🙏`;
+      return `Halo Kak *${ticket.customerName}*,\n\nKabar baik dari *ServisKu Computer*! Unit perbaikan Anda:\n🔹 *No. Tiket*: ${ticket.ticketNumber}\n🔹 *Perangkat*: ${ticket.deviceBrandModel}\n🔹 *Status*: *SELESAI & SIAP DIAMBIL*\n🔹 *Total Biaya*: ${formatRupiah(ticket.finalCost || ticket.estimatedCost)}\n🔹 *Sisa Pembayaran*: ${formatRupiah(remaining)}\n🔹 *Garansi Servis*: ${ticket.warrantyDays || 30} Hari\n\nUnit sudah melewati tahap Quality Control (QC). Silakan datang ke toko kami dengan membawa tanda terima/nota ini.\n\nTerima kasih! 🙏`;
     }
 
     if (ticket.status === "waiting_approval") {
@@ -219,7 +240,7 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
     }
 
     // Default / Received
-    return `Halo Kak *${ticket.customerName}*,\n\nTerima kasih telah mempercayakan perbaikan di *ServisKu Computer*.\n\n📋 *Tanda Terima Servis Masuk*:\n🔹 No. Tiket: *${ticket.ticketNumber}*\n🔹 Perangkat: ${ticket.deviceBrandModel}\n🔹 Keluhan: ${ticket.complaints}\n🔹 Kelengkapan: ${ticket.accessories}\n🔹 Uang Muka (DP): ${formatRupiah(ticket.downPayment)}\n\nAnda dapat mengecek status pengerjaan secara online kapan saja di website kami dengan memasukkan Nomor Tiket *${ticket.ticketNumber}*. Terima kasih! 🙏`;
+    return `Halo Kak *${ticket.customerName}*,\n\nTerima kasih telah mempercayakan perbaikan di *ServisKu Computer*.\n\n📋 *Tanda Terima Servis Masuk*:\n🔹 No. Tiket: *${ticket.ticketNumber}*\n🔹 Perangkat: ${ticket.deviceBrandModel}\n🔹 Keluhan: ${ticket.complaints}\n🔹 Kelengkapan: ${ticket.accessories}\n🔹 Uang Muka (DP): ${formatRupiah(ticket.downPayment)}\n🔹 Garansi Servis: ${ticket.warrantyDays || 30} Hari\n\nAnda dapat mengecek status pengerjaan secara online kapan saja di website kami dengan memasukkan Nomor Tiket *${ticket.ticketNumber}*. Terima kasih! 🙏`;
   };
 
   return (
@@ -232,7 +253,7 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
             <span>Manajemen Tiket Servis</span>
           </h1>
           <p className="text-sm text-muted-foreground">
-            Kelola pendaftaran unit masuk, status diagnosa teknisi, nota tanda terima, & garansi.
+            Kelola pendaftaran unit masuk, status diagnosa teknisi, pengaturan garansi, nota tanda terima, & pembatalan salah input.
           </p>
         </div>
 
@@ -269,7 +290,7 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
             { id: "diagnosing", label: "Diagnosa" },
             { id: "in_progress", label: "Pengerjaan" },
             { id: "ready", label: "Siap Ambil" },
-            { id: "completed", label: "Selesai" },
+            { id: "completed", label: "Selesai" }
           ].map((s) => (
             <button
               key={s.id}
@@ -298,7 +319,7 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
           return (
             <div
               key={ticket.id}
-              className="bg-card border border-border rounded-xl p-5 shadow-xs flex flex-col justify-between hover:border-blue-500/40 transition-all hover:shadow-md"
+              className="bg-card border border-border rounded-xl p-5 shadow-xs flex flex-col justify-between hover:border-blue-500/40 transition-all hover:shadow-md relative group"
             >
               <div>
                 {/* Header: Ticket No & Status Badge */}
@@ -311,29 +332,54 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
                       {ticket.customerName}
                     </h3>
                   </div>
-                  <span className={`px-2.5 py-1 rounded-full text-xs font-bold border shrink-0 ${statusCfg.bg}`}>
-                    {statusCfg.label}
-                  </span>
+
+                  <div className="flex items-center gap-1.5">
+                    <span
+                      className={`px-2.5 py-1 rounded-full text-xs font-bold border shrink-0 ${statusCfg.bg}`}
+                    >
+                      {statusCfg.label}
+                    </span>
+
+                    {/* Owner/Admin Delete Button */}
+                    {canDelete && (
+                      <button
+                        onClick={() => setTicketToDelete(ticket)}
+                        title="Hapus Tiket Servis (Salah Input)"
+                        className="p-1 rounded-lg text-rose-500 hover:bg-rose-100 dark:hover:bg-rose-950/40 transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Device & Complaints */}
                 <div className="mt-3.5 space-y-2 text-xs">
-                  <div className="flex items-center text-foreground font-medium">
-                    <Laptop className="h-3.5 w-3.5 text-muted-foreground mr-1.5 shrink-0" />
-                    <span className="truncate">{ticket.deviceBrandModel}</span>
+                  <div className="flex items-center text-muted-foreground">
+                    <Laptop className="h-4 w-4 mr-2 text-blue-500 shrink-0" />
+                    <span className="font-medium text-foreground truncate">
+                      {ticket.deviceBrandModel}
+                    </span>
                   </div>
 
-                  <div className="bg-muted/40 p-2.5 rounded-lg text-muted-foreground">
-                    <span className="font-semibold text-foreground">Keluhan: </span>
-                    <span className="line-clamp-2">{ticket.complaints}</span>
+                  <div className="p-2 rounded-lg bg-muted/40 text-foreground border border-border/50">
+                    <span className="font-semibold text-muted-foreground block text-[11px]">
+                      Keluhan:
+                    </span>
+                    <p className="line-clamp-2 mt-0.5">{ticket.complaints}</p>
                   </div>
 
-                  {ticket.technicianNotes && (
-                    <div className="p-2 rounded-lg bg-blue-50/50 dark:bg-blue-950/30 text-blue-900 dark:text-blue-300 border border-blue-100 dark:border-blue-900/40">
-                      <span className="font-semibold">Catatan Teknisi: </span>
-                      <span className="line-clamp-2">{ticket.technicianNotes}</span>
+                  {ticket.warrantyDays !== undefined && (
+                    <div className="flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold">
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      <span>Garansi: {ticket.warrantyDays > 0 ? `${ticket.warrantyDays} Hari` : "Tanpa Garansi"}</span>
                     </div>
                   )}
+
+                  <div className="flex items-center justify-between text-muted-foreground text-[11px] pt-1">
+                    <span>Teknisi: {ticket.technicianName || "Teknisi Utama"}</span>
+                    <span>{formatDateIndo(ticket.createdAt)}</span>
+                  </div>
                 </div>
               </div>
 
@@ -360,7 +406,15 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
                 <div className="space-y-1.5 pt-1 border-t border-border">
                   <div className="grid grid-cols-2 gap-1.5">
                     <button
-                      onClick={() => onPrintTicket(ticket, ticket.status === "ready" || ticket.status === "completed" ? "invoice" : "intake", "continuous")}
+                      onClick={() =>
+                        onPrintTicket(
+                          ticket,
+                          ticket.status === "ready" || ticket.status === "completed"
+                            ? "invoice"
+                            : "intake",
+                          "continuous"
+                        )
+                      }
                       title="Cetak Surat Perintah Kerja (SPK) / Nota Tanda Terima untuk Konsumen"
                       className="py-1.5 px-2 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-950/60 dark:text-blue-300 font-bold rounded-lg text-xs flex items-center justify-center space-x-1.5 transition-colors border border-blue-200/50 dark:border-blue-900/50"
                     >
@@ -419,7 +473,7 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
             <Wrench className="h-10 w-10 text-muted-foreground mx-auto mb-2 opacity-50" />
             <h3 className="font-semibold text-foreground">Tidak Ada Tiket Servis</h3>
             <p className="text-xs text-muted-foreground mt-1">
-              Tidak ada data servis yang sesuai dengan filter atau kata kunci pencarian.
+              Tidak ditemukan data servis yang cocok dengan kata kunci atau filter.
             </p>
           </div>
         )}
@@ -428,21 +482,23 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
       {/* MODAL: BUAT TIKET SERVIS BARU */}
       {isNewModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
-          <div className="bg-card border border-border rounded-2xl max-w-xl w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-border pb-4 mb-4">
+          <div className="bg-card border border-border rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-border pb-3">
               <div>
                 <h2 className="text-lg font-bold text-foreground">Pendaftaran Unit Servis Baru</h2>
-                <p className="text-xs text-muted-foreground">Catat data pelanggan & kerusakan untuk diterbitkan SPK Masuk.</p>
+                <p className="text-xs text-muted-foreground">
+                  Isi data pelanggan, keluhan kerusakan, estimasi biaya, dan masa garansi.
+                </p>
               </div>
               <button
                 onClick={() => setIsNewModalOpen(false)}
-                className="text-muted-foreground hover:text-foreground text-sm font-bold p-1"
+                className="text-muted-foreground hover:text-foreground p-1 text-sm font-bold"
               >
                 ✕
               </button>
             </div>
 
-            <form onSubmit={handleCreateSubmit} className="space-y-4 text-sm">
+            <form onSubmit={handleCreateSubmit} className="space-y-4">
               {/* Customer Info */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
@@ -460,7 +516,7 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-foreground mb-1">
-                    Nomor WhatsApp / HP *
+                    No. WhatsApp *
                   </label>
                   <input
                     type="tel"
@@ -474,10 +530,10 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
               </div>
 
               {/* Device Info */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-foreground mb-1">
-                    Jenis Perangkat *
+                    Jenis Perangkat
                   </label>
                   <select
                     value={formData.deviceType}
@@ -485,15 +541,15 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
                     className="w-full px-3 py-2 text-sm bg-muted/40 border border-input rounded-lg"
                   >
                     <option value="laptop">Laptop / Notebook</option>
-                    <option value="pc">PC Desktop / Rakitan</option>
-                    <option value="printer">Printer / Scanner</option>
-                    <option value="monitor">Monitor LCD / LED</option>
-                    <option value="other">Perangkat Lainnya</option>
+                    <option value="pc_desktop">PC Desktop / Komputer</option>
+                    <option value="printer">Printer</option>
+                    <option value="all_in_one">PC All-In-One (AIO)</option>
+                    <option value="other">Lainnya</option>
                   </select>
                 </div>
-                <div>
+                <div className="sm:col-span-2">
                   <label className="block text-xs font-semibold text-foreground mb-1">
-                    Merek & Seri / Model *
+                    Merk & Model Unit *
                   </label>
                   <input
                     type="text"
@@ -547,11 +603,11 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
                 />
               </div>
 
-              {/* Financials & Tech */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* Financials & Warranty & Tech */}
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-foreground mb-1">
-                    Estimasi Biaya Awal (Rp)
+                    Estimasi Biaya (Rp)
                   </label>
                   <input
                     type="number"
@@ -575,6 +631,27 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
                     className="w-full px-3 py-2 text-sm bg-muted/40 border border-input rounded-lg"
                   />
                 </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-foreground mb-1">
+                    Masa Garansi Servis
+                  </label>
+                  <select
+                    value={formData.warrantyDays}
+                    onChange={(e) => setFormData({ ...formData, warrantyDays: Number(e.target.value) })}
+                    className="w-full px-3 py-2 text-sm bg-muted/40 border border-input rounded-lg font-medium"
+                  >
+                    <option value="0">Tanpa Garansi</option>
+                    <option value="7">7 Hari (1 Minggu)</option>
+                    <option value="14">14 Hari (2 Minggu)</option>
+                    <option value="30">30 Hari (1 Bulan)</option>
+                    <option value="60">60 Hari (2 Bulan)</option>
+                    <option value="90">90 Hari (3 Bulan)</option>
+                    <option value="180">180 Hari (6 Bulan)</option>
+                    <option value="365">365 Hari (1 Tahun)</option>
+                  </select>
+                </div>
+
                 <div>
                   <label className="block text-xs font-semibold text-foreground mb-1">
                     Teknisi PIC
@@ -651,56 +728,28 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
               </button>
             </div>
 
-            {/* Quick Actions in Detail */}
-            <div className="flex flex-wrap items-center gap-2 p-3 bg-muted/30 border border-border rounded-xl">
-              <span className="text-xs font-semibold text-muted-foreground mr-1">Cetak Cepat:</span>
-              <button
-                type="button"
-                onClick={() => onPrintTicket(activeTicket, "intake", "sticker_58mm")}
-                className="px-2.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 transition-colors shadow-xs"
-              >
-                <Tag className="h-3.5 w-3.5" />
-                <span>🏷️ Stiker Tempel 58mm</span>
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  onPrintTicket(
-                    activeTicket,
-                    editStatus === "ready" || editStatus === "completed" ? "invoice" : "intake",
-                    "continuous"
-                  )
-                }
-                className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors shadow-xs"
-              >
-                <FileText className="h-3.5 w-3.5" />
-                <span>📄 Nota Konsumen (21x15cm)</span>
-              </button>
-            </div>
-
-            {/* Quick Status Bar */}
+            {/* Status Selector */}
             <div>
               <label className="block text-xs font-semibold text-foreground mb-1.5">
                 Update Status Pengerjaan:
               </label>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {[
                   { id: "received", label: "Antrean Masuk" },
-                  { id: "diagnosing", label: "Pengecekan" },
-                  { id: "waiting_approval", label: "Menunggu ACC" },
-                  { id: "in_progress", label: "Pengerjaan" },
-                  { id: "ready", label: "Siap Diambil" },
-                  { id: "completed", label: "Selesai/Diambil" },
-                  { id: "cancelled", label: "Dibatalkan" },
+                  { id: "diagnosing", label: "Sedang Diagnosa" },
+                  { id: "waiting_approval", label: "Tunggu Persetujuan" },
+                  { id: "in_progress", label: "Dalam Pengerjaan" },
+                  { id: "ready", label: "Selesai (Siap Ambil)" },
+                  { id: "completed", label: "Sudah Diambil / Lunas" }
                 ].map((st) => (
                   <button
                     key={st.id}
                     type="button"
                     onClick={() => setEditStatus(st.id as ServiceStatus)}
-                    className={`py-2 px-2.5 rounded-lg text-xs font-bold transition-all ${
+                    className={`py-2 px-3 rounded-lg text-xs font-bold border transition-all text-left ${
                       editStatus === st.id
-                        ? "bg-blue-600 text-white shadow-md"
-                        : "bg-muted text-muted-foreground hover:bg-muted/80"
+                        ? "bg-blue-600 text-white border-blue-600 shadow-xs"
+                        : "bg-muted/40 text-muted-foreground border-border hover:bg-muted"
                     }`}
                   >
                     {st.label}
@@ -709,93 +758,86 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
               </div>
             </div>
 
-            {/* Technician Diagnostics Note */}
+            {/* Technician Notes */}
             <div>
               <label className="block text-xs font-semibold text-foreground mb-1">
-                Catatan Diagnosa & Tindakan Teknisi:
+                Catatan Diagnosa / Tindakan Teknisi
               </label>
               <textarea
                 rows={3}
-                placeholder="Tuliskan temuan kerusakan, tindakan yang sudah diambil, atau rekomendasi penggantian part..."
                 value={editTechNotes}
                 onChange={(e) => setEditTechNotes(e.target.value)}
+                placeholder="Contoh: Reball chipset VGA berhasil, thermal paste Arctic MX-4 diganti, running test 2 jam temperatur aman 65°C."
                 className="w-full px-3 py-2 text-sm bg-muted/40 border border-input rounded-lg"
               ></textarea>
             </div>
 
-            {/* Spare Parts & Service Addons */}
-            <div className="bg-muted/30 p-4 rounded-xl border border-border space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="font-semibold text-xs text-foreground uppercase tracking-wider">
-                  Spare Part & Jasa Tambahan
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  Subtotal: {formatRupiah(partsList.reduce((acc, p) => acc + p.price * p.qty, 0))}
-                </span>
-              </div>
+            {/* Spareparts Management */}
+            <div className="bg-muted/20 border border-border rounded-xl p-4 space-y-3">
+              <h3 className="text-xs font-bold text-foreground">Sparepart / Komponen Pengganti</h3>
 
-              {/* Add from inventory */}
-              <div className="flex gap-2">
-                <select
-                  value={selectedSparepartId}
-                  onChange={(e) => setSelectedSparepartId(e.target.value)}
-                  className="flex-1 px-3 py-1.5 text-xs bg-card border border-input rounded-lg"
-                >
-                  <option value="">-- Pilih dari Stok Toko --</option>
-                  {products.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} ({formatRupiah(p.sellPrice)}) - Stok: {p.stock}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  onClick={handleAddPartFromInventory}
-                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg"
-                >
-                  + Tambah
-                </button>
-              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="flex space-x-1.5">
+                  <select
+                    value={selectedSparepartId}
+                    onChange={(e) => setSelectedSparepartId(e.target.value)}
+                    className="flex-1 px-2.5 py-1.5 text-xs bg-card border border-input rounded-lg"
+                  >
+                    <option value="">-- Ambil dari Stok Toko --</option>
+                    {products
+                      .filter((p) => p.category !== "jasa")
+                      .map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} ({formatRupiah(p.sellPrice)}) - Stok: {p.stock}
+                        </option>
+                      ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={handleAddPartFromInventory}
+                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg"
+                  >
+                    + Tambah
+                  </button>
+                </div>
 
-              {/* Custom Part / Jasa Input */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 border-t border-border/50">
-                <input
-                  type="text"
-                  placeholder="Atau nama part custom..."
-                  value={customPartName}
-                  onChange={(e) => setCustomPartName(e.target.value)}
-                  className="sm:col-span-2 px-3 py-1.5 text-xs bg-card border border-input rounded-lg"
-                />
-                <div className="flex gap-1.5">
+                <div className="flex space-x-1.5">
+                  <input
+                    type="text"
+                    placeholder="Nama part manual..."
+                    value={customPartName}
+                    onChange={(e) => setCustomPartName(e.target.value)}
+                    className="flex-1 px-2.5 py-1.5 text-xs bg-card border border-input rounded-lg"
+                  />
                   <input
                     type="number"
-                    placeholder="Harga (Rp)"
+                    placeholder="Harga"
                     value={customPartPrice || ""}
                     onChange={(e) => setCustomPartPrice(Number(e.target.value))}
-                    className="w-full px-3 py-1.5 text-xs bg-card border border-input rounded-lg"
+                    className="w-20 px-2 py-1.5 text-xs bg-card border border-input rounded-lg"
                   />
                   <button
                     type="button"
                     onClick={handleAddCustomPart}
-                    className="px-2.5 py-1.5 bg-zinc-700 hover:bg-zinc-800 text-white text-xs font-bold rounded-lg"
+                    className="px-2.5 py-1.5 bg-muted hover:bg-muted/80 text-foreground text-xs font-semibold rounded-lg border border-border"
                   >
                     +
                   </button>
                 </div>
               </div>
 
-              {/* Table of selected parts */}
+              {/* Parts Table */}
               {partsList.length > 0 && (
-                <div className="space-y-1.5 mt-2">
+                <div className="space-y-1.5 pt-2 border-t border-border">
                   {partsList.map((part, idx) => (
                     <div
                       key={part.id || idx}
-                      className="flex items-center justify-between p-2 rounded-lg bg-card border border-border text-xs"
+                      className="flex items-center justify-between text-xs p-2 rounded-lg bg-card border border-border"
                     >
-                      <div>
-                        <div className="font-medium text-foreground">{part.name}</div>
-                        <div className="text-muted-foreground">{formatRupiah(part.price)}</div>
-                      </div>
+                      <span className="font-medium text-foreground">{part.name}</span>
+                      <span className="font-bold text-foreground">
+                        {formatRupiah(part.price * part.qty)}
+                      </span>
                       <button
                         type="button"
                         onClick={() => handleRemovePart(idx)}
@@ -846,14 +888,16 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
                 <select
                   value={editWarrantyDays}
                   onChange={(e) => setEditWarrantyDays(Number(e.target.value))}
-                  className="w-full px-3 py-2 text-sm bg-muted/40 border border-input rounded-lg"
+                  className="w-full px-3 py-2 text-sm bg-muted/40 border border-input rounded-lg font-semibold"
                 >
                   <option value="0">Tanpa Garansi</option>
-                  <option value="7">7 Hari</option>
-                  <option value="14">14 Hari</option>
+                  <option value="7">7 Hari (1 Minggu)</option>
+                  <option value="14">14 Hari (2 Minggu)</option>
                   <option value="30">30 Hari (1 Bulan)</option>
                   <option value="60">60 Hari (2 Bulan)</option>
                   <option value="90">90 Hari (3 Bulan)</option>
+                  <option value="180">180 Hari (6 Bulan)</option>
+                  <option value="365">365 Hari (1 Tahun)</option>
                 </select>
               </div>
             </div>
@@ -862,23 +906,49 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
             <div className="flex flex-wrap items-center justify-between gap-2 pt-4 border-t border-border">
               <div className="flex items-center space-x-2">
                 <a
-                  href={createWhatsAppUrl(activeTicket.customerPhone, getWhatsAppMessage({ ...activeTicket, status: editStatus, finalCost: editFinalCost, downPayment: editDownPayment, technicianNotes: editTechNotes }))}
+                  href={createWhatsAppUrl(
+                    activeTicket.customerPhone,
+                    getWhatsAppMessage({
+                      ...activeTicket,
+                      status: editStatus,
+                      finalCost: editFinalCost,
+                      downPayment: editDownPayment,
+                      technicianNotes: editTechNotes,
+                      warrantyDays: editWarrantyDays
+                    })
+                  )}
                   target="_blank"
                   rel="noreferrer"
                   className="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-colors"
                 >
                   <MessageCircle className="h-4 w-4" />
-                  <span>Kirim WA ke Pelanggan</span>
+                  <span>Kirim WA Pelanggan</span>
                 </a>
 
                 <button
                   type="button"
-                  onClick={() => onPrintTicket(activeTicket, editStatus === "ready" || editStatus === "completed" ? "invoice" : "intake")}
+                  onClick={() =>
+                    onPrintTicket(
+                      activeTicket,
+                      editStatus === "ready" || editStatus === "completed" ? "invoice" : "intake"
+                    )
+                  }
                   className="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-xs font-semibold"
                 >
                   <Printer className="h-4 w-4" />
                   <span>Cetak Nota</span>
                 </button>
+
+                {canDelete && (
+                  <button
+                    type="button"
+                    onClick={() => setTicketToDelete(activeTicket)}
+                    className="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/50 dark:hover:bg-rose-900/50 text-rose-600 dark:text-rose-300 text-xs font-bold transition-colors border border-rose-200 dark:border-rose-900"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    <span>Hapus Tiket (Salah Input)</span>
+                  </button>
+                )}
               </div>
 
               <div className="flex items-center space-x-2">
@@ -897,6 +967,62 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
                   Simpan Perubahan
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CONFIRMATION MODAL: HAPUS TIKET SERVIS */}
+      {ticketToDelete && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="bg-card border border-border rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center space-x-3 text-rose-600">
+              <div className="p-2.5 rounded-xl bg-rose-100 dark:bg-rose-950/60">
+                <AlertTriangle className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="font-bold text-foreground text-base">Hapus Tiket Servis?</h3>
+                <p className="text-xs text-muted-foreground">Opsi ini khusus Pemilik Toko / Admin.</p>
+              </div>
+            </div>
+
+            <div className="p-3.5 bg-muted/40 rounded-xl text-xs space-y-1.5 border border-border">
+              <div>
+                <span className="text-muted-foreground">Nomor Tiket: </span>
+                <span className="font-mono font-bold text-blue-600">
+                  {ticketToDelete.ticketNumber}
+                </span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Pelanggan: </span>
+                <span className="font-bold text-foreground">{ticketToDelete.customerName}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Perangkat: </span>
+                <span className="font-bold text-foreground">{ticketToDelete.deviceBrandModel}</span>
+              </div>
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+              Apakah Anda yakin ingin menghapus data servis yang salah input ini? Data yang terhapus
+              tidak dapat dikembalikan.
+            </p>
+
+            <div className="flex justify-end space-x-2 pt-2 border-t border-border">
+              <button
+                type="button"
+                onClick={() => setTicketToDelete(null)}
+                className="px-4 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteTicket}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-xs"
+              >
+                Ya, Hapus Tiket
+              </button>
             </div>
           </div>
         </div>

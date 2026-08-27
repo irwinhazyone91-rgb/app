@@ -10,15 +10,19 @@ import {
   QrCode,
   Banknote,
   Receipt,
-  User,
+  User as UserIcon,
   Phone,
   Wrench,
   Sparkles,
-  ArrowRight,
+  Laptop,
+  Cpu,
+  ShieldCheck,
+  Users,
+  FileText,
   Printer,
-  FileText
+  ChevronDown
 } from "lucide-react";
-import { Product, CartItem, ServiceTicket, Transaction } from "../types";
+import { Product, CartItem, ServiceTicket, Transaction, ProductCategory } from "../types";
 import { formatRupiah, formatDateIndo } from "../lib/utils";
 
 interface POSViewProps {
@@ -27,6 +31,7 @@ interface POSViewProps {
   onProcessTransaction: (txData: {
     customerName: string;
     customerPhone: string;
+    customerType?: "regular" | "reseller";
     items: CartItem[];
     subtotal: number;
     discount: number;
@@ -59,6 +64,7 @@ export const POSView: React.FC<POSViewProps> = ({
   const [cart, setCart] = useState<CartItem[]>([]);
   const [customerName, setCustomerName] = useState<string>("");
   const [customerPhone, setCustomerPhone] = useState<string>("");
+  const [customerType, setCustomerType] = useState<"regular" | "reseller">("regular");
   const [discount, setDiscount] = useState<number>(0);
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "qris" | "transfer">("cash");
   const [amountPaid, setAmountPaid] = useState<number>(0);
@@ -83,9 +89,14 @@ export const POSView: React.FC<POSViewProps> = ({
           serviceTicketId: preloadedTicket.id,
           name: `Pelunasan Servis #${preloadedTicket.ticketNumber} (${preloadedTicket.deviceBrandModel})`,
           price: remaining,
+          regularPrice: remaining,
+          resellerPrice: remaining,
+          priceType: "regular",
           qty: 1,
           subtotal: remaining,
-          isService: true
+          isService: true,
+          warrantyDays: preloadedTicket.warrantyDays || 14,
+          specsSummary: `Unit: ${preloadedTicket.deviceBrandModel} | Keluhan: ${preloadedTicket.complaints}`
         }
       ]);
       setAmountPaid(remaining);
@@ -93,16 +104,62 @@ export const POSView: React.FC<POSViewProps> = ({
     }
   }, [preloadedTicket]);
 
+  // When changing customerType, optionally update cart items to new pricing tier
+  const handleCustomerTypeChange = (newType: "regular" | "reseller") => {
+    setCustomerType(newType);
+    if (cart.length > 0) {
+      const updated = cart.map((item) => {
+        if (item.isService) return item;
+        const matchedProduct = products.find((p) => p.id === item.productId);
+        if (!matchedProduct) return item;
+
+        const effectivePrice =
+          newType === "reseller" && matchedProduct.resellerPrice
+            ? matchedProduct.resellerPrice
+            : matchedProduct.sellPrice;
+
+        return {
+          ...item,
+          price: effectivePrice,
+          priceType: newType,
+          subtotal: effectivePrice * item.qty
+        };
+      });
+      setCart(updated);
+    }
+  };
+
   // Filter products
   const filteredProducts = products.filter((p) => {
     const matchesCat = activeCategory === "all" || p.category === activeCategory;
     const q = searchQuery.toLowerCase();
     const matchesSearch =
-      !q || p.name.toLowerCase().includes(q) || p.code.toLowerCase().includes(q);
+      !q ||
+      p.name.toLowerCase().includes(q) ||
+      p.code.toLowerCase().includes(q) ||
+      (p.processor && p.processor.toLowerCase().includes(q)) ||
+      (p.ram && p.ram.toLowerCase().includes(q)) ||
+      (p.storage && p.storage.toLowerCase().includes(q)) ||
+      (p.graphics && p.graphics.toLowerCase().includes(q));
     return matchesCat && matchesSearch;
   });
 
+  const getProductSpecsSummary = (p: Product) => {
+    const parts = [];
+    if (p.processor) parts.push(`CPU: ${p.processor}`);
+    if (p.ram) parts.push(`RAM: ${p.ram}`);
+    if (p.storage) parts.push(`Storage: ${p.storage}`);
+    if (p.graphics) parts.push(`VGA: ${p.graphics}`);
+    if (p.screenSize) parts.push(`Layar: ${p.screenSize}`);
+    return parts.join(" | ");
+  };
+
   const addToCart = (product: Product) => {
+    const activePrice =
+      customerType === "reseller" && product.resellerPrice
+        ? product.resellerPrice
+        : product.sellPrice;
+
     const existingIndex = cart.findIndex((item) => item.productId === product.id);
     if (existingIndex !== -1) {
       const updated = [...cart];
@@ -116,13 +173,36 @@ export const POSView: React.FC<POSViewProps> = ({
           id: `cart-${Date.now()}-${product.id}`,
           productId: product.id,
           name: product.name,
-          price: product.sellPrice,
+          price: activePrice,
+          regularPrice: product.sellPrice,
+          resellerPrice: product.resellerPrice || product.sellPrice,
+          priceType: customerType,
           qty: 1,
-          subtotal: product.sellPrice,
-          isService: product.category === "jasa"
+          subtotal: activePrice,
+          isService: product.category === "jasa",
+          warrantyDays: product.warrantyDays || (product.category === "jasa" ? 7 : 30),
+          specsSummary: getProductSpecsSummary(product),
+          conditionGrade: product.conditionGrade
         }
       ]);
     }
+  };
+
+  const toggleItemPriceType = (index: number) => {
+    const updated = [...cart];
+    const item = updated[index];
+    if (item.isService) return;
+
+    const nextType: "regular" | "reseller" = item.priceType === "reseller" ? "regular" : "reseller";
+    const nextPrice = nextType === "reseller" ? (item.resellerPrice || item.regularPrice || item.price) : (item.regularPrice || item.price);
+
+    updated[index] = {
+      ...item,
+      priceType: nextType,
+      price: nextPrice,
+      subtotal: nextPrice * item.qty
+    };
+    setCart(updated);
   };
 
   const addServiceTicketToCart = (ticket: ServiceTicket) => {
@@ -143,9 +223,14 @@ export const POSView: React.FC<POSViewProps> = ({
         serviceTicketId: ticket.id,
         name: `Pelunasan Servis #${ticket.ticketNumber} (${ticket.deviceBrandModel})`,
         price: remaining,
+        regularPrice: remaining,
+        resellerPrice: remaining,
+        priceType: "regular",
         qty: 1,
         subtotal: remaining,
-        isService: true
+        isService: true,
+        warrantyDays: ticket.warrantyDays || 14,
+        specsSummary: `Unit: ${ticket.deviceBrandModel} | Keluhan: ${ticket.complaints}`
       }
     ]);
   };
@@ -199,6 +284,7 @@ export const POSView: React.FC<POSViewProps> = ({
       const createdTx = await onProcessTransaction({
         customerName: customerName.trim() || "Pelanggan Umum",
         customerPhone: customerPhone.trim() || "-",
+        customerType,
         items: cart,
         subtotal,
         discount,
@@ -219,6 +305,14 @@ export const POSView: React.FC<POSViewProps> = ({
     }
   };
 
+  const getWarrantyLabel = (days?: number) => {
+    if (!days || days <= 0) return "Tanpa Garansi";
+    if (days >= 730) return `${Math.round(days / 365)} Thn`;
+    if (days >= 365) return "1 Tahun";
+    if (days % 30 === 0) return `${days / 30} Bulan`;
+    return `${days} Hari`;
+  };
+
   return (
     <div className="space-y-6">
       {/* Top Header */}
@@ -229,29 +323,69 @@ export const POSView: React.FC<POSViewProps> = ({
             <span>Kasir POS & Transaksi Penjualan</span>
           </h1>
           <p className="text-sm text-muted-foreground">
-            Transaksi cepat untuk penjualan spare part, jasa servis, dan pelunasan unit servis.
+            Penjualan Laptop Baru & Bekas lengkap dengan spesifikasi, sparepart, serta tarif Konsumen Biasa / Reseller.
           </p>
         </div>
 
-        <button
-          onClick={() => {
-            if (onNavigateToHistory) {
-              onNavigateToHistory();
-            } else {
-              setShowHistoryModal(true);
-            }
-          }}
-          className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-card border border-border text-xs font-semibold text-foreground hover:bg-muted transition-colors shadow-2xs"
-        >
-          <FileText className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-          <span>Lihat Riwayat Transaksi</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              if (onNavigateToHistory) {
+                onNavigateToHistory();
+              } else {
+                setShowHistoryModal(true);
+              }
+            }}
+            className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-card border border-border text-xs font-semibold text-foreground hover:bg-muted transition-colors shadow-2xs"
+          >
+            <FileText className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            <span>Riwayat Transaksi</span>
+          </button>
+        </div>
       </div>
 
       {/* Main Grid: Products Catalog on Left, Checkout Cart on Right */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Side: Product Selector (7 cols) */}
         <div className="lg:col-span-7 space-y-4">
+          {/* Pricing Tier Selector (Konsumen Biasa vs Reseller) */}
+          <div className="bg-card border border-border rounded-xl p-3.5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                <Users className="w-4 h-4 text-blue-600" />
+                <span>Pilih Tipe Harga Pelanggan:</span>
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => handleCustomerTypeChange("regular")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                  customerType === "regular"
+                    ? "bg-blue-600 text-white shadow-xs"
+                    : "bg-muted/60 text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                <UserIcon className="w-3.5 h-3.5" />
+                <span>Konsumen Biasa</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleCustomerTypeChange("reseller")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                  customerType === "reseller"
+                    ? "bg-indigo-600 text-white shadow-xs"
+                    : "bg-muted/60 text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                <span>Reseller / Mitra</span>
+              </button>
+            </div>
+          </div>
+
           {/* Quick Notice for Ready Services */}
           {readyTickets.length > 0 && (
             <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-xl p-3.5">
@@ -261,7 +395,7 @@ export const POSView: React.FC<POSViewProps> = ({
                   Unit Servis Siap Diambil ({readyTickets.length} Unit)
                 </span>
                 <span className="text-[11px] text-emerald-700 dark:text-emerald-400">
-                  Klik untuk masukkan ke kasir
+                  Klik untuk pelunasan di kasir
                 </span>
               </div>
               <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
@@ -289,7 +423,7 @@ export const POSView: React.FC<POSViewProps> = ({
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
                 type="text"
-                placeholder="Cari spare part, SSD, RAM, Jasa Install..."
+                placeholder="Cari Laptop Baru/Bekas, Core i5, Ryzen, RAM, SSD, atau Jasa..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-9 pr-4 py-2 text-sm bg-muted/40 border border-input rounded-lg"
@@ -298,18 +432,20 @@ export const POSView: React.FC<POSViewProps> = ({
 
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-xs">
               {[
-                { id: "all", label: "Semua Kategori" },
+                { id: "all", label: "Semua Item" },
+                { id: "laptop_baru", label: "✨ Laptop Baru" },
+                { id: "laptop_bekas", label: "🔄 Laptop Bekas" },
                 { id: "komponen_pc", label: "Komponen PC" },
                 { id: "part_laptop", label: "Part Laptop" },
                 { id: "aksesoris", label: "Aksesoris" },
-                { id: "jasa", label: "Jasa & Servis" },
+                { id: "jasa", label: "Jasa & Servis" }
               ].map((cat) => (
                 <button
                   key={cat.id}
                   onClick={() => setActiveCategory(cat.id)}
                   className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-colors ${
                     activeCategory === cat.id
-                      ? "bg-blue-600 text-white"
+                      ? "bg-blue-600 text-white shadow-xs"
                       : "bg-muted/50 text-muted-foreground hover:bg-muted"
                   }`}
                 >
@@ -320,37 +456,124 @@ export const POSView: React.FC<POSViewProps> = ({
           </div>
 
           {/* Product Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-[560px] overflow-y-auto pr-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[580px] overflow-y-auto pr-1">
             {filteredProducts.map((product) => {
               const isLowStock = product.category !== "jasa" && product.stock <= product.minStock;
+              const isLaptop = product.category === "laptop_baru" || product.category === "laptop_bekas";
+              const activePrice =
+                customerType === "reseller" && product.resellerPrice
+                  ? product.resellerPrice
+                  : product.sellPrice;
+              const hasResellerDiscount =
+                product.resellerPrice && product.resellerPrice < product.sellPrice;
+
               return (
                 <div
                   key={product.id}
                   onClick={() => addToCart(product)}
-                  className="bg-card border border-border rounded-xl p-3 shadow-xs hover:border-blue-500 hover:shadow-md cursor-pointer transition-all flex flex-col justify-between"
+                  className="bg-card border border-border rounded-xl p-3.5 shadow-xs hover:border-blue-500 hover:shadow-md cursor-pointer transition-all flex flex-col justify-between group"
                 >
                   <div>
-                    <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1">
-                      <span className="font-mono">{product.code}</span>
-                      {product.category !== "jasa" ? (
-                        <span className={`font-semibold ${isLowStock ? "text-rose-500" : "text-emerald-600"}`}>
-                          Stok: {product.stock}
+                    {/* Top Row: Category badge, Stock, Warranty */}
+                    <div className="flex items-center justify-between text-[11px] text-muted-foreground mb-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-mono font-bold text-blue-600 dark:text-blue-400">
+                          {product.code}
                         </span>
-                      ) : (
-                        <span className="text-blue-500 font-semibold">Jasa</span>
-                      )}
+                        {product.category === "laptop_baru" && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                            ✨ Baru
+                          </span>
+                        )}
+                        {product.category === "laptop_bekas" && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+                            🔄 Bekas
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-1">
+                        {product.warrantyDays > 0 && (
+                          <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-1.5 py-0.5 rounded">
+                            <ShieldCheck className="w-3 h-3" />
+                            {getWarrantyLabel(product.warrantyDays)}
+                          </span>
+                        )}
+                        {product.category !== "jasa" ? (
+                          <span
+                            className={`font-bold text-[10px] ${
+                              isLowStock ? "text-rose-500" : "text-foreground"
+                            }`}
+                          >
+                            Stok: {product.stock}
+                          </span>
+                        ) : (
+                          <span className="text-purple-600 text-[10px] font-bold">Jasa</span>
+                        )}
+                      </div>
                     </div>
-                    <h4 className="text-xs font-semibold text-foreground line-clamp-2">
+
+                    <h4 className="text-xs font-bold text-foreground line-clamp-2 group-hover:text-blue-600 transition-colors">
                       {product.name}
                     </h4>
+
+                    {/* Detailed Specifications for Laptops */}
+                    {isLaptop && (
+                      <div className="mt-2 p-2 bg-muted/40 rounded-lg text-[11px] space-y-1">
+                        {product.conditionGrade && (
+                          <div className="font-bold text-amber-700 dark:text-amber-400 flex items-center gap-1">
+                            <span>🏷️</span>
+                            <span>{product.conditionGrade}</span>
+                          </div>
+                        )}
+                        {product.processor && (
+                          <div className="text-foreground flex items-center gap-1">
+                            <Cpu className="w-3 h-3 text-blue-500 shrink-0" />
+                            <span className="truncate">{product.processor}</span>
+                          </div>
+                        )}
+                        <div className="flex flex-wrap gap-x-2 text-muted-foreground text-[10px]">
+                          {product.ram && <span>🧠 {product.ram}</span>}
+                          {product.storage && <span>💾 {product.storage}</span>}
+                          {product.screenSize && <span>🖥️ {product.screenSize}</span>}
+                        </div>
+                        {product.batteryHealth && (
+                          <div className="text-[10px] text-emerald-600 dark:text-emerald-400">
+                            🔋 {product.batteryHealth}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {!isLaptop && product.description && (
+                      <p className="text-[11px] text-muted-foreground line-clamp-2 mt-1">
+                        {product.description}
+                      </p>
+                    )}
                   </div>
 
-                  <div className="mt-3 pt-2 border-t border-border/50 flex items-center justify-between">
-                    <span className="font-bold text-xs text-blue-600 dark:text-blue-400">
-                      {formatRupiah(product.sellPrice)}
-                    </span>
-                    <button className="h-6 w-6 rounded-md bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-300 flex items-center justify-center font-bold text-xs hover:bg-blue-600 hover:text-white transition-colors">
-                      +
+                  {/* Pricing Bar */}
+                  <div className="mt-3 pt-2.5 border-t border-border/60 flex items-center justify-between">
+                    <div>
+                      <div className="flex items-baseline gap-1.5">
+                        <span className="font-bold text-sm text-blue-600 dark:text-blue-400">
+                          {formatRupiah(activePrice)}
+                        </span>
+                        {customerType === "reseller" && hasResellerDiscount && (
+                          <span className="text-[10px] line-through text-muted-foreground">
+                            {formatRupiah(product.sellPrice)}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[10px] text-muted-foreground block">
+                        {customerType === "reseller" && product.resellerPrice
+                          ? "🏷️ Harga Reseller Mitra"
+                          : "🏷️ Harga Konsumen Biasa"}
+                      </span>
+                    </div>
+
+                    <button className="h-7 px-2.5 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-xs hover:bg-blue-700 transition-colors shadow-2xs">
+                      + Masuk Kasir
                     </button>
                   </div>
                 </div>
@@ -358,8 +581,8 @@ export const POSView: React.FC<POSViewProps> = ({
             })}
 
             {filteredProducts.length === 0 && (
-              <div className="col-span-full py-10 text-center text-muted-foreground text-xs">
-                Tidak ada produk ditemukan.
+              <div className="col-span-full py-12 text-center text-muted-foreground text-xs bg-card border border-border rounded-xl">
+                Tidak ada produk yang cocok dengan pencarian / filter.
               </div>
             )}
           </div>
@@ -371,7 +594,15 @@ export const POSView: React.FC<POSViewProps> = ({
             <div className="flex items-center justify-between border-b border-border pb-3">
               <div className="flex items-center space-x-2">
                 <Receipt className="h-5 w-5 text-blue-600" />
-                <h2 className="font-bold text-foreground text-sm">Keranjang Transaksi</h2>
+                <div>
+                  <h2 className="font-bold text-foreground text-sm">Keranjang Transaksi</h2>
+                  <span className="text-[11px] text-muted-foreground">
+                    Harga Aktif:{" "}
+                    <span className="font-semibold text-foreground">
+                      {customerType === "reseller" ? "Reseller / Mitra" : "Konsumen Biasa"}
+                    </span>
+                  </span>
+                </div>
               </div>
               {cart.length > 0 && (
                 <button
@@ -386,7 +617,7 @@ export const POSView: React.FC<POSViewProps> = ({
             {/* Customer Inputs */}
             <div className="grid grid-cols-2 gap-2 mt-3 text-xs">
               <div className="relative">
-                <User className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <UserIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                 <input
                   type="text"
                   placeholder="Nama Pelanggan"
@@ -408,47 +639,90 @@ export const POSView: React.FC<POSViewProps> = ({
             </div>
 
             {/* Cart Items List */}
-            <div className="mt-3.5 space-y-2 max-h-[220px] overflow-y-auto pr-1">
+            <div className="mt-3.5 space-y-2.5 max-h-[260px] overflow-y-auto pr-1">
               {cart.map((item, idx) => (
                 <div
                   key={item.id || idx}
-                  className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30 border border-border text-xs"
+                  className="p-2.5 rounded-xl bg-muted/30 border border-border text-xs space-y-1.5"
                 >
-                  <div className="flex-1 pr-2">
-                    <div className="font-medium text-foreground line-clamp-1">{item.name}</div>
-                    <div className="text-muted-foreground text-[11px]">
-                      {formatRupiah(item.price)} x {item.qty} = <span className="font-bold text-foreground">{formatRupiah(item.subtotal)}</span>
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 pr-2">
+                      <div className="font-bold text-foreground line-clamp-1">{item.name}</div>
+                      {item.conditionGrade && (
+                        <div className="text-[10px] text-amber-700 dark:text-amber-300 font-semibold">
+                          🏷️ {item.conditionGrade}
+                        </div>
+                      )}
+                      {item.specsSummary && (
+                        <div className="text-[10px] text-muted-foreground line-clamp-1">
+                          {item.specsSummary}
+                        </div>
+                      )}
                     </div>
-                  </div>
 
-                  <div className="flex items-center space-x-1.5">
-                    <button
-                      onClick={() => updateQty(idx, -1)}
-                      className="p-1 rounded-md bg-muted hover:bg-muted/80 text-foreground"
-                    >
-                      <Minus className="h-3 w-3" />
-                    </button>
-                    <span className="w-5 text-center font-bold">{item.qty}</span>
-                    <button
-                      onClick={() => updateQty(idx, 1)}
-                      className="p-1 rounded-md bg-muted hover:bg-muted/80 text-foreground"
-                    >
-                      <Plus className="h-3 w-3" />
-                    </button>
                     <button
                       onClick={() => removeItem(idx)}
-                      className="p-1 rounded-md text-rose-500 hover:text-rose-700 ml-1"
+                      className="p-1 rounded-md text-rose-500 hover:text-rose-700 shrink-0"
+                      title="Hapus Item"
                     >
-                      <Trash2 className="h-3 w-3" />
+                      <Trash2 className="h-3.5 w-3.5" />
                     </button>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1 border-t border-border/50 text-[11px]">
+                    <div className="flex items-center gap-1.5">
+                      {/* Price Tier Switcher per Item */}
+                      {!item.isService && item.resellerPrice && item.regularPrice && (
+                        <button
+                          type="button"
+                          onClick={() => toggleItemPriceType(idx)}
+                          className={`px-1.5 py-0.5 rounded text-[10px] font-bold border transition-colors ${
+                            item.priceType === "reseller"
+                              ? "bg-indigo-100 text-indigo-700 border-indigo-300 dark:bg-indigo-950 dark:text-indigo-300"
+                              : "bg-muted text-muted-foreground border-border"
+                          }`}
+                          title="Klik untuk ubah harga Biasa / Reseller item ini"
+                        >
+                          {item.priceType === "reseller" ? "👥 Reseller" : "👤 Biasa"}
+                        </button>
+                      )}
+
+                      {item.warrantyDays !== undefined && (
+                        <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-1 py-0.5 rounded">
+                          🛡️ {getWarrantyLabel(item.warrantyDays)}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <span className="font-bold text-foreground">
+                        {formatRupiah(item.subtotal)}
+                      </span>
+
+                      <div className="flex items-center space-x-1 bg-card border border-border rounded-md px-1 py-0.5">
+                        <button
+                          onClick={() => updateQty(idx, -1)}
+                          className="text-muted-foreground hover:text-foreground"
+                        >
+                          <Minus className="h-3 w-3" />
+                        </button>
+                        <span className="w-4 text-center font-bold">{item.qty}</span>
+                        <button
+                          onClick={() => updateQty(idx, 1)}
+                          className="text-muted-foreground hover:text-foreground"
+                        >
+                          <Plus className="h-3 w-3" />
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               ))}
 
               {cart.length === 0 && (
-                <div className="py-8 text-center text-muted-foreground text-xs">
+                <div className="py-10 text-center text-muted-foreground text-xs">
                   <ShoppingCart className="h-8 w-8 mx-auto mb-1 opacity-40" />
-                  <span>Keranjang kosong. Pilih barang dari katalog sebelah kiri.</span>
+                  <span>Keranjang kasir masih kosong. Klik barang di katalog sebelah kiri.</span>
                 </div>
               )}
             </div>
@@ -459,11 +733,11 @@ export const POSView: React.FC<POSViewProps> = ({
             {/* Calculation summary */}
             <div className="space-y-1.5 text-muted-foreground">
               <div className="flex justify-between">
-                <span>Subtotal:</span>
+                <span>Subtotal ({cart.length} item):</span>
                 <span className="font-medium text-foreground">{formatRupiah(subtotal)}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span>Diskon (Rp):</span>
+                <span>Diskon / Potongan (Rp):</span>
                 <input
                   type="number"
                   min="0"
@@ -471,23 +745,27 @@ export const POSView: React.FC<POSViewProps> = ({
                   value={discount || ""}
                   onChange={(e) => setDiscount(Number(e.target.value))}
                   placeholder="0"
-                  className="w-24 px-2 py-0.5 text-right bg-muted/40 border border-input rounded-md"
+                  className="w-24 px-2 py-0.5 text-right bg-muted/40 border border-input rounded-md font-bold"
                 />
               </div>
               <div className="flex justify-between text-sm font-bold text-foreground pt-1 border-t border-border">
                 <span>Total Bayar:</span>
-                <span className="text-base text-blue-600 dark:text-blue-400">{formatRupiah(total)}</span>
+                <span className="text-base text-blue-600 dark:text-blue-400">
+                  {formatRupiah(total)}
+                </span>
               </div>
             </div>
 
             {/* Payment Method Selector */}
             <div>
-              <label className="block font-semibold text-foreground mb-1">Metode Pembayaran:</label>
+              <label className="block font-semibold text-foreground mb-1">
+                Metode Pembayaran:
+              </label>
               <div className="grid grid-cols-3 gap-1.5">
                 {[
                   { id: "cash", label: "Tunai", icon: Banknote },
                   { id: "qris", label: "QRIS", icon: QrCode },
-                  { id: "transfer", label: "Transfer", icon: CreditCard },
+                  { id: "transfer", label: "Transfer", icon: CreditCard }
                 ].map((pm) => {
                   const Icon = pm.icon;
                   return (
@@ -537,7 +815,7 @@ export const POSView: React.FC<POSViewProps> = ({
                   >
                     Uang Pas
                   </button>
-                  {[50000, 100000, 200000, 500000].map((preset) => (
+                  {[50000, 100000, 200000, 500000, 1000000, 5000000].map((preset) => (
                     <button
                       key={preset}
                       type="button"
@@ -551,7 +829,11 @@ export const POSView: React.FC<POSViewProps> = ({
 
                 <div className="flex justify-between pt-1 border-t border-blue-200/50 dark:border-blue-900/50 text-xs">
                   <span className="text-muted-foreground">Kembalian:</span>
-                  <span className={`font-bold text-sm ${change > 0 ? "text-emerald-600" : "text-foreground"}`}>
+                  <span
+                    className={`font-bold text-sm ${
+                      change > 0 ? "text-emerald-600" : "text-foreground"
+                    }`}
+                  >
                     {formatRupiah(change)}
                   </span>
                 </div>
@@ -565,7 +847,11 @@ export const POSView: React.FC<POSViewProps> = ({
               className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-sm rounded-xl shadow-md transition-all active:scale-98 flex items-center justify-center space-x-2"
             >
               <CheckCircle className="h-4 w-4" />
-              <span>{isProcessing ? "Memproses Transaksi..." : `Selesaikan & Cetak Struk (${formatRupiah(total)})`}</span>
+              <span>
+                {isProcessing
+                  ? "Memproses Transaksi..."
+                  : `Selesaikan & Cetak Struk (${formatRupiah(total)})`}
+              </span>
             </button>
           </div>
         </div>
@@ -578,7 +864,9 @@ export const POSView: React.FC<POSViewProps> = ({
             <div className="flex items-center justify-between border-b border-border pb-3">
               <div>
                 <h3 className="font-bold text-foreground text-base">Riwayat Transaksi Penjualan</h3>
-                <p className="text-xs text-muted-foreground">Daftar transaksi kasir & pelunasan servis terakhir.</p>
+                <p className="text-xs text-muted-foreground">
+                  Daftar transaksi kasir & pelunasan servis terakhir.
+                </p>
               </div>
               <button
                 onClick={() => setShowHistoryModal(false)}
@@ -598,6 +886,11 @@ export const POSView: React.FC<POSViewProps> = ({
                     <div className="flex items-center gap-2">
                       <span className="font-mono font-bold text-blue-600">{tx.invoiceNumber}</span>
                       <span className="text-muted-foreground">• {formatDateIndo(tx.date)}</span>
+                      {tx.customerType === "reseller" && (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                          Reseller
+                        </span>
+                      )}
                     </div>
                     <div className="font-medium text-foreground mt-0.5">
                       {tx.customerName} ({tx.items.length} item)
@@ -608,7 +901,9 @@ export const POSView: React.FC<POSViewProps> = ({
                   </div>
 
                   <div className="flex items-center gap-3">
-                    <span className="font-bold text-sm text-foreground">{formatRupiah(tx.total)}</span>
+                    <span className="font-bold text-sm text-foreground">
+                      {formatRupiah(tx.total)}
+                    </span>
                     <button
                       onClick={() => {
                         setShowHistoryModal(false);

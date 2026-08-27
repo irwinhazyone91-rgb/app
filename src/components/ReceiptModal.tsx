@@ -82,10 +82,17 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
     shareText = `*${settings.storeName.toUpperCase()}*\n${settings.address}\nTelp/WA: ${settings.whatsapp}\n--------------------------------\n🧾 *NOTA PELUNASAN SERVIS (KONSUMEN 21x15cm)*\nNo. Tiket: *${ticket.ticketNumber}*\nTanggal: ${formatDateIndo(ticket.completedAt || ticket.updatedAt)}\n\nPelanggan: ${ticket.customerName}\nPerangkat: ${ticket.deviceBrandModel}\nTindakan: ${ticket.technicianNotes || "Perbaikan hardware/software"}\n\nTotal Biaya: *${formatRupiah(ticket.finalCost || ticket.estimatedCost)}*\nUang Muka (DP): ${formatRupiah(ticket.downPayment)}\nSisa Lunas: *${formatRupiah(remaining)}*\n\n🛡️ *Garansi Servis*: ${ticket.warrantyDays} Hari (s/d ${formatDateIndo(ticket.warrantyUntil)})\n--------------------------------\n${settings.receiptFooter}`;
   } else if (mode === "pos_transaction" && transaction) {
     customerPhone = transaction.customerPhone;
+    const tierLabel = transaction.customerType === "reseller" ? " [Reseller/Mitra]" : " [Konsumen Biasa]";
     const itemsList = transaction.items
-      .map((i) => `• ${i.name} (${i.qty}x) = ${formatRupiah(i.subtotal)}`)
+      .map((i) => {
+        let line = `• ${i.name} (${i.qty}x) = ${formatRupiah(i.subtotal)}`;
+        if (i.conditionGrade) line += `\n  Kondisi: ${i.conditionGrade}`;
+        if (i.specsSummary) line += `\n  Spesifikasi: ${i.specsSummary}`;
+        if (i.warrantyDays && i.warrantyDays > 0) line += `\n  Garansi: ${i.warrantyDays} Hari`;
+        return line;
+      })
       .join("\n");
-    shareText = `*${settings.storeName.toUpperCase()}*\n${settings.address}\nTelp/WA: ${settings.whatsapp}\n--------------------------------\n🧾 *STRUK PENJUALAN KASIR*\nNo. Faktur: *${transaction.invoiceNumber}*\nTanggal: ${formatDateIndo(transaction.date)}\nKasir: ${transaction.cashierName}\nPelanggan: ${transaction.customerName}\n\n${itemsList}\n\nSubtotal: ${formatRupiah(transaction.subtotal)}\nDiskon: ${formatRupiah(transaction.discount)}\n*TOTAL: ${formatRupiah(transaction.total)}*\nBayar (${transaction.paymentMethod.toUpperCase()}): ${formatRupiah(transaction.amountPaid)}\nKembalian: ${formatRupiah(transaction.change)}\n--------------------------------\n${settings.receiptFooter}`;
+    shareText = `*${settings.storeName.toUpperCase()}*\n${settings.address}\nTelp/WA: ${settings.whatsapp}\n--------------------------------\n🧾 *STRUK PENJUALAN KASIR*\nNo. Faktur: *${transaction.invoiceNumber}*\nTanggal: ${formatDateIndo(transaction.date)}\nKasir: ${transaction.cashierName}\nPelanggan: ${transaction.customerName}${tierLabel}\n\n${itemsList}\n\nSubtotal: ${formatRupiah(transaction.subtotal)}\nDiskon: ${formatRupiah(transaction.discount)}\n*TOTAL: ${formatRupiah(transaction.total)}*\nBayar (${transaction.paymentMethod.toUpperCase()}): ${formatRupiah(transaction.amountPaid)}\nKembalian: ${formatRupiah(transaction.change)}\n--------------------------------\n${settings.receiptFooter}`;
   }
 
   return (
@@ -573,7 +580,13 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                     </div>
                     <div className="flex justify-between">
                       <span className="text-zinc-500">Pelanggan:</span>
-                      <span>{transaction.customerName}</span>
+                      <span className="font-semibold">{transaction.customerName}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-zinc-500">Tipe Pelanggan:</span>
+                      <span className="font-bold text-zinc-950">
+                        {transaction.customerType === "reseller" ? "Reseller / Mitra" : "Konsumen Biasa"}
+                      </span>
                     </div>
                   </>
                 )}
@@ -619,14 +632,32 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                 <div className="space-y-1 text-[11px] border-b border-dashed border-zinc-400 pb-2.5">
                   <div className="font-bold text-[10px] text-zinc-500 pb-1">DAFTAR ITEM / BARANG:</div>
                   {transaction.items.map((item, idx) => (
-                    <div key={idx} className="flex justify-between items-start py-0.5">
-                      <div className="pr-2">
-                        <div>{item.name}</div>
-                        <div className="text-[10px] text-zinc-500">
-                          {item.qty} x {formatRupiah(item.price)}
+                    <div key={idx} className="py-1 border-b border-zinc-100 last:border-none">
+                      <div className="flex justify-between items-start">
+                        <div className="pr-2">
+                          <div className="font-bold text-zinc-950">{item.name}</div>
+                          {item.conditionGrade && (
+                            <div className="text-[9.5px] text-zinc-600 font-semibold">
+                              [{item.conditionGrade}]
+                            </div>
+                          )}
+                          {item.specsSummary && (
+                            <div className="text-[9px] text-zinc-500 line-clamp-2">
+                              {item.specsSummary}
+                            </div>
+                          )}
+                          <div className="text-[10px] text-zinc-500">
+                            {item.qty} x {formatRupiah(item.price)}
+                            {item.priceType === "reseller" && " (Harga Reseller)"}
+                          </div>
                         </div>
+                        <div className="font-bold text-right text-zinc-950">{formatRupiah(item.subtotal)}</div>
                       </div>
-                      <div className="font-semibold text-right">{formatRupiah(item.subtotal)}</div>
+                      {item.warrantyDays !== undefined && item.warrantyDays > 0 && (
+                        <div className="text-[9.5px] text-zinc-700 font-semibold mt-0.5">
+                          🛡️ Garansi: {item.warrantyDays} Hari
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

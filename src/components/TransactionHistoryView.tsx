@@ -450,8 +450,19 @@ export const TransactionHistoryView: React.FC<TransactionHistoryViewProps> = ({
 
                       {/* Customer */}
                       <td className="py-3.5 px-4">
-                        <div className="font-semibold text-foreground">
-                          {tx.customerName || "Pelanggan Umum"}
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-semibold text-foreground">
+                            {tx.customerName || "Pelanggan Umum"}
+                          </span>
+                          {tx.customerType === "reseller" ? (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                              Reseller
+                            </span>
+                          ) : (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted text-muted-foreground">
+                              Biasa
+                            </span>
+                          )}
                         </div>
                         <div className="text-[11px] text-muted-foreground">
                           {tx.customerPhone && tx.customerPhone !== "-" ? tx.customerPhone : "Tanpa No. HP"}
@@ -593,7 +604,18 @@ export const TransactionHistoryView: React.FC<TransactionHistoryViewProps> = ({
             <div className="grid grid-cols-2 gap-3 p-3.5 rounded-xl bg-muted/40 border border-border text-xs">
               <div>
                 <div className="text-muted-foreground">Pelanggan</div>
-                <div className="font-bold text-foreground mt-0.5">{selectedTx.customerName || "Pelanggan Umum"}</div>
+                <div className="font-bold text-foreground mt-0.5 flex items-center gap-1.5">
+                  <span>{selectedTx.customerName || "Pelanggan Umum"}</span>
+                  {selectedTx.customerType === "reseller" ? (
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                      Reseller
+                    </span>
+                  ) : (
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted text-muted-foreground">
+                      Biasa
+                    </span>
+                  )}
+                </div>
                 <div className="text-muted-foreground text-[11px]">{selectedTx.customerPhone || "-"}</div>
               </div>
               <div>
@@ -608,15 +630,37 @@ export const TransactionHistoryView: React.FC<TransactionHistoryViewProps> = ({
               <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Item Transaksi</div>
               <div className="divide-y divide-border border border-border rounded-xl overflow-hidden bg-card text-xs">
                 {selectedTx.items.map((item, idx) => (
-                  <div key={idx} className="p-3 flex items-center justify-between">
-                    <div>
-                      <div className="font-semibold text-foreground">{item.name}</div>
-                      <div className="text-[11px] text-muted-foreground">
-                        {item.qty} x {formatRupiah(item.price)}
-                        {item.isService && " (Biaya Servis)"}
+                  <div key={idx} className="p-3 flex items-start justify-between gap-3">
+                    <div className="space-y-0.5">
+                      <div className="font-semibold text-foreground flex items-center gap-1.5 flex-wrap">
+                        <span>{item.name}</span>
+                        {item.conditionGrade && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300">
+                            {item.conditionGrade}
+                          </span>
+                        )}
+                        {item.priceType === "reseller" && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                            Harga Reseller
+                          </span>
+                        )}
+                      </div>
+                      {item.specsSummary && (
+                        <div className="text-[11px] text-muted-foreground">{item.specsSummary}</div>
+                      )}
+                      <div className="text-[11px] text-muted-foreground flex items-center gap-2">
+                        <span>
+                          {item.qty} x {formatRupiah(item.price)}
+                          {item.isService && " (Biaya Servis)"}
+                        </span>
+                        {item.warrantyDays !== undefined && item.warrantyDays > 0 && (
+                          <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                            🛡️ Garansi: {item.warrantyDays} Hari
+                          </span>
+                        )}
                       </div>
                     </div>
-                    <div className="font-bold text-foreground">{formatRupiah(item.subtotal)}</div>
+                    <div className="font-bold text-foreground whitespace-nowrap">{formatRupiah(item.subtotal)}</div>
                   </div>
                 ))}
               </div>
