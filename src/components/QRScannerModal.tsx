@@ -17,6 +17,22 @@ export const QRScannerModal: React.FC<QRScannerModalProps> = ({
   const [manualCode, setManualCode] = useState("");
   const scannerRef = useRef<Html5Qrcode | null>(null);
 
+  // Helper to extract ticket code from URL or raw text
+  const cleanScannedCode = (raw: string) => {
+    const trimmed = raw.trim();
+    if (trimmed.includes("track=") || trimmed.includes("ticket=") || trimmed.includes("garansi=")) {
+      try {
+        const url = new URL(trimmed.startsWith("http") ? trimmed : `https://dummy.com/${trimmed}`);
+        const code =
+          url.searchParams.get("track") ||
+          url.searchParams.get("ticket") ||
+          url.searchParams.get("garansi");
+        if (code) return code;
+      } catch (e) {}
+    }
+    return trimmed;
+  };
+
   useEffect(() => {
     if (!isOpen) return;
 
@@ -34,12 +50,13 @@ export const QRScannerModal: React.FC<QRScannerModalProps> = ({
             qrbox: { width: 250, height: 250 }
           },
           (decodedText) => {
+            const parsed = cleanScannedCode(decodedText);
             // Success callback
             html5QrCode.stop().then(() => {
-              onScanSuccess(decodedText);
+              onScanSuccess(parsed);
               onClose();
             }).catch(() => {
-              onScanSuccess(decodedText);
+              onScanSuccess(parsed);
               onClose();
             });
           },
@@ -71,7 +88,8 @@ export const QRScannerModal: React.FC<QRScannerModalProps> = ({
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!manualCode.trim()) return;
-    onScanSuccess(manualCode.trim());
+    const parsed = cleanScannedCode(manualCode.trim());
+    onScanSuccess(parsed);
     onClose();
   };
 

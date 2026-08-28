@@ -322,6 +322,52 @@ export function App() {
     };
   }, []);
 
+  // Listen for direct URL Tracking / Warranty link (from scanned QR Code with smartphone camera)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const hashParams = new URLSearchParams(window.location.hash.replace(/^#\/?/, ""));
+      const trackCode =
+        urlParams.get("track") ||
+        urlParams.get("ticket") ||
+        urlParams.get("garansi") ||
+        hashParams.get("track") ||
+        hashParams.get("ticket");
+
+      if (trackCode && trackCode.trim()) {
+        const cleanCode = trackCode.trim();
+        setIsCustomerTrackingDirect(true);
+
+        // Find immediately from current tickets
+        const match = tickets.find((t) => {
+          const q = cleanCode.toLowerCase();
+          return (
+            t.ticketNumber.toLowerCase() === q ||
+            t.id === cleanCode ||
+            (t.customerPhone && t.customerPhone.replace(/[^0-9]/g, "").includes(q.replace(/[^0-9]/g, ""))) ||
+            (t.serialNumber && t.serialNumber.toLowerCase() === q)
+          );
+        });
+
+        if (match) {
+          setPrefilledTicketForTracking(match);
+        } else {
+          // If not yet loaded in local state, fetch from server / cloud
+          handleSearchTicket(cleanCode)
+            .then((res) => {
+              if (res) {
+                setPrefilledTicketForTracking(res);
+              }
+            })
+            .catch(() => {});
+        }
+      }
+    } catch (e) {
+      console.warn("Error parsing URL tracking parameter:", e);
+    }
+  }, [tickets.length]);
+
   // CRUD Users
   const handleCreateUser = async (userData: Partial<User>) => {
     const newUser: User = {
@@ -915,7 +961,7 @@ export function App() {
           onScanSuccess={handleQRScanSuccess}
         />
 
-        {/* Printable Receipt Modal (21cm x 15cm & 58mm) */}
+        {/* Printable Receipt Modal (1 Rangkap & Stiker Tempel) */}
         {receiptModal.isOpen && (
           <ReceiptModal
             isOpen={receiptModal.isOpen}
@@ -924,6 +970,8 @@ export function App() {
             ticket={receiptModal.ticket}
             transaction={receiptModal.transaction}
             settings={settings}
+            currentUser={currentUser}
+            users={users}
             defaultFormat={receiptModal.defaultFormat}
           />
         )}
@@ -1237,6 +1285,8 @@ export function App() {
           ticket={receiptModal.ticket}
           transaction={receiptModal.transaction}
           settings={settings}
+          currentUser={currentUser}
+          users={users}
           defaultFormat={receiptModal.defaultFormat}
         />
       )}

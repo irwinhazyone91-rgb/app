@@ -73,6 +73,11 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
   const canDelete =
     !currentUser || currentUser.role === "owner" || currentUser.role === "admin";
 
+  const defaultTechName =
+    currentUser?.role === "technician" || currentUser?.role === "admin" || currentUser?.role === "owner"
+      ? currentUser.name
+      : users.find((u) => u.role === "technician")?.name || currentUser?.name || "Teknisi Utama";
+
   // New Ticket Form State
   const [formData, setFormData] = useState({
     customerName: "",
@@ -83,16 +88,23 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
     serialNumber: "",
     complaints: "",
     accessories: "Unit + Charger",
-    technicianName: "Rian (Senior Tech)",
+    technicianName: defaultTechName,
     estimatedCost: 0,
     downPayment: 0,
     warrantyDays: 30
   });
 
+  // Keep technician name in sync with logged-in user if not touched
+  React.useEffect(() => {
+    if (defaultTechName && (!formData.technicianName || formData.technicianName === "Rian (Senior Tech)")) {
+      setFormData((prev) => ({ ...prev, technicianName: defaultTechName }));
+    }
+  }, [defaultTechName]);
+
   // Ticket Editing State
   const [editStatus, setEditStatus] = useState<ServiceStatus>("received");
   const [editTechNotes, setEditTechNotes] = useState("");
-  const [editTechName, setEditTechName] = useState("");
+  const [editTechName, setEditTechName] = useState(defaultTechName);
   const [editFinalCost, setEditFinalCost] = useState(0);
   const [editDownPayment, setEditDownPayment] = useState(0);
   const [editWarrantyDays, setEditWarrantyDays] = useState(30);
@@ -108,7 +120,7 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
     setActiveTicket(ticket);
     setEditStatus(ticket.status);
     setEditTechNotes(ticket.technicianNotes || "");
-    setEditTechName(ticket.technicianName || "Teknisi Utama");
+    setEditTechName(ticket.technicianName || defaultTechName);
     setEditFinalCost(ticket.finalCost || ticket.estimatedCost || 0);
     setEditDownPayment(ticket.downPayment || 0);
     setEditWarrantyDays(ticket.warrantyDays || 30);
@@ -147,7 +159,7 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
       serialNumber: "",
       complaints: "",
       accessories: "Unit + Charger",
-      technicianName: "Rian (Senior Tech)",
+      technicianName: defaultTechName,
       estimatedCost: 0,
       downPayment: 0,
       warrantyDays: 30
@@ -424,11 +436,11 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
 
                     <button
                       onClick={() => onPrintTicket(ticket, "intake", "sticker_58mm")}
-                      title="Cetak Stiker Tempel Ukuran 58mm untuk ditempel langsung di Casing Unit Servis"
+                      title="Cetak Stiker Tempel untuk ditempel langsung di Casing Unit Servis"
                       className="py-1.5 px-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-bold flex items-center justify-center space-x-1.5 transition-colors shadow-2xs"
                     >
                       <Tag className="h-3.5 w-3.5 shrink-0" />
-                      <span className="truncate">🏷️ Stiker 58mm</span>
+                      <span className="truncate">🏷️ Stiker Unit</span>
                     </button>
                   </div>
 
@@ -851,8 +863,8 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
               )}
             </div>
 
-            {/* Final Cost & Warranty Settings */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {/* Final Cost, DP, Warranty, & Technician Settings */}
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
               <div>
                 <label className="block text-xs font-semibold text-foreground mb-1">
                   Total Biaya Akhir (Rp)
@@ -899,6 +911,34 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
                   <option value="180">180 Hari (6 Bulan)</option>
                   <option value="365">365 Hari (1 Tahun)</option>
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-foreground mb-1">
+                  Teknisi PIC
+                </label>
+                {users.length > 0 ? (
+                  <select
+                    value={editTechName}
+                    onChange={(e) => setEditTechName(e.target.value)}
+                    className="w-full px-3 py-2 text-sm bg-muted/40 border border-input rounded-lg font-semibold"
+                  >
+                    {users
+                      .filter((u) => u.role === "technician" || u.role === "admin" || u.role === "owner")
+                      .map((u) => (
+                        <option key={u.id} value={u.name}>
+                          {u.name} ({u.role === "technician" ? "Teknisi" : u.role === "admin" ? "Admin" : "Owner"})
+                        </option>
+                      ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    value={editTechName}
+                    onChange={(e) => setEditTechName(e.target.value)}
+                    className="w-full px-3 py-2 text-sm bg-muted/40 border border-input rounded-lg font-semibold"
+                  />
+                )}
               </div>
             </div>
 

@@ -17,7 +17,7 @@ import {
   Layers,
   Scissors
 } from "lucide-react";
-import { ServiceTicket, Transaction, StoreSettings } from "../types";
+import { ServiceTicket, Transaction, StoreSettings, User } from "../types";
 import {
   formatRupiah,
   formatDateIndo,
@@ -35,6 +35,8 @@ interface ReceiptModalProps {
   transaction?: Transaction | null;
   settings: StoreSettings;
   defaultFormat?: PrintFormat;
+  currentUser?: User;
+  users?: User[];
 }
 
 export const ReceiptModal: React.FC<ReceiptModalProps> = ({
@@ -44,7 +46,9 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
   ticket,
   transaction,
   settings,
-  defaultFormat
+  defaultFormat,
+  currentUser,
+  users = []
 }) => {
   // Select active print format
   const [selectedFormat, setSelectedFormat] = useState<PrintFormat>(
@@ -69,17 +73,42 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
     window.print();
   };
 
+  // Helper to build direct QR tracking & warranty web link
+  const getTrackingUrl = (code: string) => {
+    if (typeof window !== "undefined" && window.location) {
+      const origin = window.location.origin;
+      const pathname = window.location.pathname;
+      return `${origin}${pathname}?track=${encodeURIComponent(code)}`;
+    }
+    return code;
+  };
+
+  // Resolve accurate staff and technician names
+  const resolvedTechnicianName =
+    ticket?.technicianName ||
+    users.find((u) => u.role === "technician")?.name ||
+    currentUser?.name ||
+    "Teknisi Utama";
+
+  const resolvedCashierName =
+    transaction?.cashierName ||
+    currentUser?.name ||
+    users.find((u) => u.role === "cashier" || u.role === "admin" || u.role === "owner")?.name ||
+    "Petugas Kasir";
+
   // Construct share text for WhatsApp
   let shareText = "";
   let customerPhone = "";
 
   if (mode === "intake_service" && ticket) {
     customerPhone = ticket.customerPhone;
-    shareText = `*${settings.storeName.toUpperCase()}*\n${settings.address}\nTelp/WA: ${settings.whatsapp}\n--------------------------------\n📋 *TANDA TERIMA SERVIS RESMI (NOTA KONSUMEN 21x15cm)*\nNo. Tiket: *${ticket.ticketNumber}*\nTanggal: ${formatDateIndo(ticket.createdAt)}\n\nPelanggan: ${ticket.customerName} (${ticket.customerPhone})\nPerangkat: *${ticket.deviceBrandModel}*\nKeluhan: ${ticket.complaints}\nKelengkapan: ${ticket.accessories}\nUang Muka (DP): ${formatRupiah(ticket.downPayment)}\nEstimasi Biaya: ${formatRupiah(ticket.estimatedCost)}\n\nLacak status pengerjaan online dengan Nomor Tiket Anda di sistem kami.\n--------------------------------\n${settings.receiptFooter}`;
+    const trackUrl = getTrackingUrl(ticket.ticketNumber);
+    shareText = `*${settings.storeName.toUpperCase()}*\n${settings.address}\nTelp/WA: ${settings.whatsapp}\n--------------------------------\n📋 *TANDA TERIMA SERVIS RESMI (SPK KONSUMEN)*\nNo. Tiket: *${ticket.ticketNumber}*\nTanggal: ${formatDateIndo(ticket.createdAt)}\n\nPelanggan: ${ticket.customerName} (${ticket.customerPhone})\nPerangkat: *${ticket.deviceBrandModel}*\nKeluhan: ${ticket.complaints}\nKelengkapan: ${ticket.accessories}\nTeknisi PIC: *${resolvedTechnicianName}*\nUang Muka (DP): ${formatRupiah(ticket.downPayment)}\nEstimasi Biaya: ${formatRupiah(ticket.estimatedCost)}\n\n🔍 *Lacak Status & Garansi Online Langsung*:\n${trackUrl}\n--------------------------------\n${settings.receiptFooter}`;
   } else if (mode === "invoice_service" && ticket) {
     customerPhone = ticket.customerPhone;
     const remaining = Math.max(0, (ticket.finalCost || ticket.estimatedCost) - ticket.downPayment);
-    shareText = `*${settings.storeName.toUpperCase()}*\n${settings.address}\nTelp/WA: ${settings.whatsapp}\n--------------------------------\n🧾 *NOTA PELUNASAN SERVIS (KONSUMEN 21x15cm)*\nNo. Tiket: *${ticket.ticketNumber}*\nTanggal: ${formatDateIndo(ticket.completedAt || ticket.updatedAt)}\n\nPelanggan: ${ticket.customerName}\nPerangkat: ${ticket.deviceBrandModel}\nTindakan: ${ticket.technicianNotes || "Perbaikan hardware/software"}\n\nTotal Biaya: *${formatRupiah(ticket.finalCost || ticket.estimatedCost)}*\nUang Muka (DP): ${formatRupiah(ticket.downPayment)}\nSisa Lunas: *${formatRupiah(remaining)}*\n\n🛡️ *Garansi Servis*: ${ticket.warrantyDays} Hari (s/d ${formatDateIndo(ticket.warrantyUntil)})\n--------------------------------\n${settings.receiptFooter}`;
+    const trackUrl = getTrackingUrl(ticket.ticketNumber);
+    shareText = `*${settings.storeName.toUpperCase()}*\n${settings.address}\nTelp/WA: ${settings.whatsapp}\n--------------------------------\n🧾 *NOTA PELUNASAN SERVIS RESMI*\nNo. Tiket: *${ticket.ticketNumber}*\nTanggal: ${formatDateIndo(ticket.completedAt || ticket.updatedAt)}\n\nPelanggan: ${ticket.customerName}\nPerangkat: ${ticket.deviceBrandModel}\nTeknisi PIC: *${resolvedTechnicianName}*\nTindakan: ${ticket.technicianNotes || "Perbaikan hardware/software"}\n\nTotal Biaya: *${formatRupiah(ticket.finalCost || ticket.estimatedCost)}*\nUang Muka (DP): ${formatRupiah(ticket.downPayment)}\nSisa Lunas: *${formatRupiah(remaining)}*\n\n🛡️ *Garansi Servis*: ${ticket.warrantyDays} Hari (s/d ${formatDateIndo(ticket.warrantyUntil)})\n🔍 *Cek Status Garansi Online*:\n${trackUrl}\n--------------------------------\n${settings.receiptFooter}`;
   } else if (mode === "pos_transaction" && transaction) {
     customerPhone = transaction.customerPhone;
     const tierLabel = transaction.customerType === "reseller" ? " [Reseller/Mitra]" : " [Konsumen Biasa]";
@@ -92,7 +121,8 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
         return line;
       })
       .join("\n");
-    shareText = `*${settings.storeName.toUpperCase()}*\n${settings.address}\nTelp/WA: ${settings.whatsapp}\n--------------------------------\n🧾 *STRUK PENJUALAN KASIR*\nNo. Faktur: *${transaction.invoiceNumber}*\nTanggal: ${formatDateIndo(transaction.date)}\nKasir: ${transaction.cashierName}\nPelanggan: ${transaction.customerName}${tierLabel}\n\n${itemsList}\n\nSubtotal: ${formatRupiah(transaction.subtotal)}\nDiskon: ${formatRupiah(transaction.discount)}\n*TOTAL: ${formatRupiah(transaction.total)}*\nBayar (${transaction.paymentMethod.toUpperCase()}): ${formatRupiah(transaction.amountPaid)}\nKembalian: ${formatRupiah(transaction.change)}\n--------------------------------\n${settings.receiptFooter}`;
+    const trackUrl = getTrackingUrl(transaction.invoiceNumber);
+    shareText = `*${settings.storeName.toUpperCase()}*\n${settings.address}\nTelp/WA: ${settings.whatsapp}\n--------------------------------\n🧾 *STRUK PENJUALAN KASIR*\nNo. Faktur: *${transaction.invoiceNumber}*\nTanggal: ${formatDateIndo(transaction.date)}\nKasir: ${resolvedCashierName}\nPelanggan: ${transaction.customerName}${tierLabel}\n\n${itemsList}\n\nSubtotal: ${formatRupiah(transaction.subtotal)}\nDiskon: ${formatRupiah(transaction.discount)}\n*TOTAL: ${formatRupiah(transaction.total)}*\nBayar (${transaction.paymentMethod.toUpperCase()}): ${formatRupiah(transaction.amountPaid)}\nKembalian: ${formatRupiah(transaction.change)}\n\n🔍 *Cek & Verifikasi Nota Online*:\n${trackUrl}\n--------------------------------\n${settings.receiptFooter}`;
   }
 
   return (
@@ -108,18 +138,18 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
               <h3 className="font-bold text-foreground text-sm sm:text-base flex items-center gap-2">
                 <span>
                   {selectedFormat === "sticker_58mm"
-                    ? "🏷️ Cetak Stiker Tempel Unit Servis (58mm)"
+                    ? "🏷️ Cetak Stiker Tempel Unit Servis"
                     : mode === "intake_service"
-                    ? "📄 Cetak Tanda Terima SPK Servis (Untuk Konsumen)"
+                    ? "📄 Cetak Tanda Terima SPK Servis (1 Rangkap)"
                     : mode === "invoice_service"
-                    ? "🧾 Cetak Nota Pelunasan Servis (Untuk Konsumen)"
-                    : "🧾 Cetak Struk Transaksi Kasir POS"}
+                    ? "🧾 Cetak Nota Pelunasan Servis (1 Rangkap)"
+                    : "🧾 Cetak Struk Transaksi Kasir POS (1 Rangkap)"}
                 </span>
               </h3>
               <p className="text-xs text-muted-foreground">
                 {selectedFormat === "sticker_58mm"
                   ? "Format label stiker khusus untuk ditempelkan pada fisik unit/casing barang pelanggan."
-                  : "Format dokumen resmi lengkap dengan pasal garansi & tanda tangan untuk diserahkan ke konsumen."}
+                  : "Format dokumen resmi lengkap dengan QR code tracking garansi, rincian biaya, & tanda tangan sah (1 rangkap)."}
               </p>
             </div>
           </div>
@@ -135,12 +165,12 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
         <div className="no-print space-y-2">
           <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
             <span className="font-semibold uppercase tracking-wider text-[11px]">
-              Pilih Jenis Dokumen Cetak:
+              Pilih Format Dokumen Cetak:
             </span>
             <span className="text-[11px] text-blue-600 dark:text-blue-400 font-medium">
               {selectedFormat === "sticker_58mm"
                 ? "🏷️ Mode: Stiker Fisik Barang"
-                : "📄 Mode: Nota / Dokumen Konsumen"}
+                : "📄 Mode: Nota Konsumen (1 Rangkap)"}
             </span>
           </div>
 
@@ -158,7 +188,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                   }`}
                 >
                   <FileText className="h-4 w-4 shrink-0" />
-                  <span className="truncate">📄 Nota Konsumen (21x15cm - 1 Rangkap)</span>
+                  <span className="truncate">📄 Nota Konsumen (1 Rangkap)</span>
                 </button>
 
                 <button
@@ -172,7 +202,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                   }`}
                 >
                   <Tag className="h-4 w-4 shrink-0 text-amber-300" />
-                  <span className="truncate">🏷️ Stiker Tempel 58mm (Di Unit)</span>
+                  <span className="truncate">🏷️ Stiker Tempel Unit</span>
                 </button>
               </>
             )}
@@ -188,7 +218,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
               }`}
             >
               <Receipt className="h-4 w-4 shrink-0" />
-              <span className="truncate">🧾 Struk Thermal (80mm)</span>
+              <span className="truncate">🧾 Struk Kasir POS</span>
             </button>
           </div>
         </div>
@@ -198,25 +228,25 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
           <Info className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
           <span>
             {selectedFormat === "continuous" &&
-              "📄 NOTA KONSUMEN (Ukuran 21 cm x 15 cm - 1 Rangkap): Dokumen tanda terima resmi untuk pelanggan dengan ukuran presisi 21x15cm (Continuous/A5 Landscape), memuat pasal garansi, rincian biaya, QR tracking, dan tanda tangan sah."}
+              "📄 NOTA KONSUMEN (1 Rangkap): Dokumen resmi tanda terima / pelunasan untuk pelanggan dengan rincian biaya, pasal garansi, tanda tangan sah, dan QR code langsung ke tracking & cek garansi online."}
             {selectedFormat === "sticker_58mm" &&
-              "🏷️ STIKER TEMPEL 58MM: Label khusus berisi nomor servis, nama pemilik, keluhan, dan QR Code untuk ditempel langsung pada unit fisik laptop/PC/printer pelanggan."}
+              "🏷️ STIKER TEMPEL UNIT: Label khusus berisi nomor servis, nama pemilik, keluhan, dan QR Code untuk ditempel langsung pada casing unit/laptop pelanggan."}
             {selectedFormat === "thermal" &&
-              "🧾 STRUK THERMAL: Format struk kasir roll 80mm untuk printer POS standar."}
+              "🧾 STRUK KASIR POS: Format struk kasir thermal untuk transaksi kasir atau ringkasan servis cepat."}
           </span>
         </div>
 
         {/* ================================================================
-            PRINTABLE CONTENT AREA
+            PRINTABLE CONTENT AREA (1 RANGKAP SAJA)
             ================================================================ */}
         <div ref={printAreaRef} className="print-area">
-          {/* FORMAT 1: DOKUMEN NOTA KONSUMEN / SPK KERTAS 21 CM X 15 CM (1 RANGKAP) */}
+          {/* FORMAT 1: DOKUMEN NOTA KONSUMEN / SPK (1 RANGKAP SAJA) */}
           {selectedFormat === "continuous" && ticket && (
             <div className="print-21x15 print-continuous bg-white text-zinc-950 p-4 sm:p-5 rounded-lg border border-zinc-500 font-mono text-[10.5px] leading-tight space-y-2.5 shadow-xs max-w-[210mm] mx-auto">
-              {/* 21x15 Form Header Line */}
+              {/* Form Header Line */}
               <div className="flex justify-between items-center border-b border-zinc-600 pb-1.5 text-[9.5px] text-zinc-700">
                 <span className="font-extrabold tracking-wider uppercase text-zinc-900">
-                  ★★★ TANDA TERIMA SERVIS & NOTA KONSUMEN (21 CM X 15 CM) ★★★
+                  ★★★ TANDA TERIMA & NOTA SERVIS RESMI ★★★
                 </span>
                 <span className="font-bold px-2 py-0.5 border border-zinc-800 bg-zinc-100 text-zinc-900 text-[9px] uppercase">
                   {mode === "intake_service" ? "1 RANGKAP - SPK PENERIMAAN" : "1 RANGKAP - NOTA PELUNASAN"}
@@ -307,7 +337,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
               <div className="space-y-0.5">
                 <div className="font-bold text-[9px] uppercase text-zinc-900 flex justify-between items-center">
                   <span>RINCIAN JASA SERVIS & SPAREPART:</span>
-                  <span className="text-zinc-600 font-semibold">Teknisi: {ticket.technicianName}</span>
+                  <span className="text-zinc-800 font-bold">Teknisi PIC: {resolvedTechnicianName}</span>
                 </div>
                 <table className="w-full text-[9.5px] border-collapse border border-zinc-400">
                   <thead>
@@ -349,16 +379,18 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                 </table>
               </div>
 
-              {/* Financial Calculation & QR Code */}
+              {/* Financial Calculation & Direct Tracking QR Code */}
               <div className="flex justify-between items-start gap-3 pt-0.5">
-                {/* QR Code & Tracking Note */}
-                <div className="flex items-center gap-2 border border-zinc-400 p-1.5 rounded-xs bg-zinc-50 max-w-[55%]">
-                  <div className="p-0.5 bg-white border border-zinc-400">
-                    <QRCode value={ticket.ticketNumber} size={50} level="M" />
+                {/* QR Code directly linked to warranty & service tracking */}
+                <div className="flex items-center gap-2 border border-zinc-400 p-1.5 rounded-xs bg-zinc-50 max-w-[58%]">
+                  <div className="p-0.5 bg-white border border-zinc-900 rounded-xs shrink-0">
+                    <QRCode value={getTrackingUrl(ticket.ticketNumber)} size={56} level="M" />
                   </div>
                   <div className="text-[8px] text-zinc-700 space-y-0.5">
-                    <span className="font-bold text-zinc-950 block">QR LACAK SERVIS ONLINE:</span>
-                    <span>Scan untuk cek progres status perbaikan & masa aktif garansi toko realtime.</span>
+                    <span className="font-black text-zinc-950 block">QR TRACKING & GARANSI ONLINE:</span>
+                    <span className="leading-tight block font-medium">
+                      Scan dengan kamera HP untuk lacak status servis & cek masa aktif garansi secara langsung.
+                    </span>
                   </div>
                 </div>
 
@@ -399,7 +431,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                 <p className="leading-tight">2. Nota SPK asli ini wajib ditunjukkan saat pengambilan unit servis.</p>
               </div>
 
-              {/* 3 Signatures Continuous Form Standard */}
+              {/* 3 Signatures Standard with Accurate Staff & Technician Names */}
               <div className="grid grid-cols-3 gap-2 text-center text-[9px] pt-1.5 border-t border-zinc-950">
                 <div className="space-y-6">
                   <span className="text-zinc-600 block text-[8.5px]">Tanda Tangan Pelanggan,</span>
@@ -407,25 +439,25 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                   <span className="font-bold block text-[8.5px]">( {ticket.customerName} )</span>
                 </div>
                 <div className="space-y-6">
-                  <span className="text-zinc-600 block text-[8.5px]">Penerima / Kasir,</span>
+                  <span className="text-zinc-600 block text-[8.5px]">Penerima / Petugas Kasir,</span>
                   <div className="border-b border-zinc-900 w-2/3 mx-auto"></div>
-                  <span className="font-bold block text-[8.5px]">( Petugas Toko )</span>
+                  <span className="font-bold block text-[8.5px]">( {resolvedCashierName} )</span>
                 </div>
                 <div className="space-y-6">
                   <span className="text-zinc-600 block text-[8.5px]">Teknisi Pemeriksa,</span>
                   <div className="border-b border-zinc-900 w-2/3 mx-auto"></div>
-                  <span className="font-bold block text-[8.5px]">( {ticket.technicianName} )</span>
+                  <span className="font-bold block text-[8.5px]">( {resolvedTechnicianName} )</span>
                 </div>
               </div>
 
-              {/* Single Copy Footnote */}
+              {/* Single Copy Footnote without paper size text */}
               <div className="text-[7.5px] text-zinc-500 text-center pt-1 border-t border-dashed border-zinc-300">
-                [ DOKUMEN RESMI 1 RANGKAP - UKURAN KERTAS 21 CM X 15 CM - {settings.storeName.toUpperCase()} ]
+                [ DOKUMEN RESMI 1 RANGKAP — {settings.storeName.toUpperCase()} ]
               </div>
             </div>
           )}
 
-          {/* FORMAT 2: STIKER TEMPEL KHUSUS DI BARANG SERVIS (UKURAN 58MM) */}
+          {/* FORMAT 2: STIKER TEMPEL KHUSUS DI BARANG SERVIS */}
           {selectedFormat === "sticker_58mm" && ticket && (
             <div className="print-58mm mx-auto w-[240px] max-w-[58mm] bg-white text-zinc-950 p-2.5 rounded-xl border-2 border-dashed border-zinc-950 font-mono text-[10px] space-y-1.5 shadow-xs">
               {/* Header Label Stiker */}
@@ -451,13 +483,13 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                 </span>
               </div>
 
-              {/* QR Code in Center for Technician & Tracking */}
+              {/* QR Code in Center with direct URL to tracking & warranty */}
               <div className="flex flex-col items-center justify-center py-1">
                 <div className="p-1 bg-white border border-zinc-950 rounded-xs">
-                  <QRCode value={ticket.ticketNumber} size={92} level="M" />
+                  <QRCode value={getTrackingUrl(ticket.ticketNumber)} size={92} level="M" />
                 </div>
-                <span className="text-[7.5px] text-zinc-600 font-black mt-0.5 tracking-tight">
-                  SCAN QR UNTUK DIAGNOSA / QC
+                <span className="text-[7.5px] text-zinc-700 font-black mt-0.5 tracking-tight text-center">
+                  SCAN QR: LACAK SERVIS & GARANSI
                 </span>
               </div>
 
@@ -500,7 +532,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                 </div>
                 <div className="flex justify-between">
                   <span className="text-zinc-600">Teknisi PIC:</span>
-                  <span className="font-bold text-zinc-950">{ticket.technicianName}</span>
+                  <span className="font-bold text-zinc-950">{resolvedTechnicianName}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-zinc-600">DP:</span>
@@ -519,7 +551,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
             </div>
           )}
 
-          {/* FORMAT 3: STRUK KASIR THERMAL (POS & STANDAR 80MM) */}
+          {/* FORMAT 3: STRUK KASIR POS (1 RANGKAP SAJA) */}
           {selectedFormat === "thermal" && (
             <div className="mx-auto max-w-[320px] bg-white text-zinc-900 p-4 rounded-xl border border-zinc-400 font-mono text-xs space-y-3 shadow-xs">
               {/* Header */}
@@ -554,6 +586,10 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                       <span>{formatDateIndo(ticket.createdAt)}</span>
                     </div>
                     <div className="flex justify-between">
+                      <span className="text-zinc-500">Teknisi PIC:</span>
+                      <span className="font-bold text-zinc-950">{resolvedTechnicianName}</span>
+                    </div>
+                    <div className="flex justify-between">
                       <span className="text-zinc-500">Pelanggan:</span>
                       <span className="font-bold text-zinc-950">{ticket.customerName}</span>
                     </div>
@@ -576,7 +612,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                     </div>
                     <div className="flex justify-between">
                       <span className="text-zinc-500">Kasir:</span>
-                      <span>{transaction.cashierName}</span>
+                      <span className="font-bold text-zinc-950">{resolvedCashierName}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-zinc-500">Pelanggan:</span>
@@ -716,17 +752,19 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                 )}
               </div>
 
-              {/* QR Code */}
-              {ticket && (
-                <div className="flex flex-col items-center justify-center py-1.5 space-y-1">
-                  <div className="p-1 bg-white border border-zinc-300 rounded-xs">
-                    <QRCode value={ticket.ticketNumber} size={80} level="M" />
-                  </div>
-                  <span className="text-[8px] text-zinc-500 text-center">
-                    Scan QR Code untuk cek status & garansi
-                  </span>
+              {/* QR Code directly linked to web warranty & tracking */}
+              <div className="flex flex-col items-center justify-center py-1.5 space-y-1">
+                <div className="p-1 bg-white border border-zinc-900 rounded-xs">
+                  <QRCode
+                    value={getTrackingUrl(ticket ? ticket.ticketNumber : transaction?.invoiceNumber || "")}
+                    size={80}
+                    level="M"
+                  />
                 </div>
-              )}
+                <span className="text-[8px] text-zinc-600 text-center font-semibold">
+                  Scan QR dengan kamera HP untuk cek status & garansi online
+                </span>
+              </div>
 
               {/* Footer */}
               <div className="text-center text-[8.5px] text-zinc-500 space-y-0.5 pt-1">
@@ -736,6 +774,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                   </p>
                 )}
                 <p>{settings.receiptFooter}</p>
+                <p className="text-[7.5px] text-zinc-400 pt-0.5">[ 1 RANGKAP ]</p>
               </div>
             </div>
           )}
@@ -756,9 +795,9 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
             >
               <Printer className="h-4 w-4" />
               <span>
-                Cetak {selectedFormat === "continuous" && "Nota Konsumen (Continuous Form)"}
-                {selectedFormat === "sticker_58mm" && "Label Stiker Unit 58mm"}
-                {selectedFormat === "thermal" && "Struk Kasir Thermal"}
+                Cetak {selectedFormat === "continuous" && "Nota Konsumen (1 Rangkap)"}
+                {selectedFormat === "sticker_58mm" && "Label Stiker Unit"}
+                {selectedFormat === "thermal" && "Struk Kasir POS"}
               </span>
             </button>
 
@@ -771,10 +810,10 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                   setTimeout(() => window.print(), 100);
                 }}
                 className="flex items-center space-x-1.5 px-3.5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl text-xs shadow-md transition-all active:scale-95"
-                title="Langsung cetak stiker tempel 58mm untuk ditempel di fisik laptop/unit"
+                title="Langsung cetak stiker tempel untuk ditempel di fisik laptop/unit"
               >
                 <Tag className="h-4 w-4" />
-                <span>🏷️ Cetak Stiker Tempel 58mm</span>
+                <span>🏷️ Cetak Stiker Unit</span>
               </button>
             )}
 
@@ -790,7 +829,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                 title="Beralih dan cetak Nota SPK Konsumen"
               >
                 <FileText className="h-4 w-4" />
-                <span>📄 Cetak Nota SPK Konsumen</span>
+                <span>📄 Cetak Nota SPK (1 Rangkap)</span>
               </button>
             )}
 
