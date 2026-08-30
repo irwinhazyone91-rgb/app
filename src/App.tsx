@@ -679,18 +679,25 @@ export function App() {
     setProducts(updatedProducts);
     savePersistentProducts(updatedProducts);
 
-    // If transaction settled a service ticket, mark ticket as completed
+    // If transaction settled a service ticket, mark ticket as completed (Finish)
     let updatedTickets = [...tickets];
     const completedTicketObjs: ServiceTicket[] = [];
     for (const item of txData.items) {
       if (item.isService && item.serviceTicketId) {
         updatedTickets = updatedTickets.map((t) => {
           if (t.id === item.serviceTicketId || t.ticketNumber === item.serviceTicketId) {
-            const completed = {
+            const warrantyDays = item.warrantyDays || t.warrantyDays || 14;
+            const warrantyUntil = new Date(
+              now.getTime() + warrantyDays * 24 * 60 * 60 * 1000
+            ).toISOString();
+            const completed: ServiceTicket = {
               ...t,
               status: "completed" as const,
               completedAt: now.toISOString(),
-              finalCost: item.subtotal
+              pickupDate: now.toISOString().split("T")[0],
+              finalCost: item.subtotal,
+              warrantyDays: warrantyDays,
+              warrantyUntil: warrantyUntil
             };
             completedTicketObjs.push(completed);
             return completed;
@@ -930,6 +937,29 @@ export function App() {
   const activeTicketsCount = tickets.filter((t) => t.status !== "completed" && t.status !== "cancelled").length;
   const readyTicketsCount = tickets.filter((t) => t.status === "ready").length;
 
+  // Helper to determine print format automatically for transactions:
+  // - Laptop Baru, Laptop Bekas, & Servis -> continuous (Form Continuous 1 Rangkap)
+  // - Sparepart & Aksesoris -> thermal (Struk Kasir POS 58mm / 80mm)
+  const getFormatForTransaction = (tx: Transaction): PrintFormat => {
+    const hasLaptopOrService = tx.items.some((item) => {
+      if (item.isService || item.serviceTicketId || item.conditionGrade) return true;
+      const p = products.find((prod) => prod.id === item.productId);
+      if (p && (p.category === "laptop_baru" || p.category === "laptop_bekas" || p.category === "jasa")) return true;
+      const nameLower = (item.name || "").toLowerCase();
+      if (
+        nameLower.includes("laptop") ||
+        nameLower.includes("notebook") ||
+        nameLower.includes("macbook") ||
+        nameLower.includes("servis") ||
+        nameLower.includes("service")
+      ) {
+        return true;
+      }
+      return false;
+    });
+    return hasLaptopOrService ? "continuous" : "thermal";
+  };
+
   // VIEW MODE 1: DEDICATED CUSTOMER LANDING PAGE FOR SERVICE & WARRANTY TRACKING (WITHOUT LOGIN)
   if (isCustomerTrackingDirect) {
     return (
@@ -972,6 +1002,7 @@ export function App() {
             settings={settings}
             currentUser={currentUser}
             users={users}
+            products={products}
             defaultFormat={receiptModal.defaultFormat}
           />
         )}
@@ -1111,17 +1142,16 @@ export function App() {
           {isTabAllowedForRole(currentTab, currentUser.role) && currentTab === "pos" && (
             <POSView
               products={products}
-              readyTickets={tickets.filter(
-                (t) => t.status === "ready" || t.status === "completed" || t.status === "in_progress"
-              )}
+              readyTickets={tickets.filter((t) => t.status === "ready")}
               onProcessTransaction={handlePOSCheckout}
               onPrintTransaction={(tx) => {
+                const autoFormat = getFormatForTransaction(tx);
                 setReceiptModal({
                   isOpen: true,
                   mode: "pos_transaction",
                   transaction: tx,
                   ticket: null,
-                  defaultFormat: "thermal"
+                  defaultFormat: autoFormat
                 });
               }}
               recentTransactions={transactions}
@@ -1140,12 +1170,13 @@ export function App() {
               settings={settings}
               onDeleteTransaction={handleDeleteTransaction}
               onPrintTransaction={(tx) => {
+                const autoFormat = getFormatForTransaction(tx);
                 setReceiptModal({
                   isOpen: true,
                   mode: "pos_transaction",
                   transaction: tx,
                   ticket: null,
-                  defaultFormat: "thermal"
+                  defaultFormat: autoFormat
                 });
               }}
               onNavigateToPOS={() => setCurrentTab("pos")}
@@ -1287,6 +1318,7 @@ export function App() {
           settings={settings}
           currentUser={currentUser}
           users={users}
+          products={products}
           defaultFormat={receiptModal.defaultFormat}
         />
       )}

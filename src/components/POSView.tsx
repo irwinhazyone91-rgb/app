@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { toast } from "sonner";
 import {
   ShoppingCart,
   Search,
@@ -75,6 +76,13 @@ export const POSView: React.FC<POSViewProps> = ({
   // Handle preloaded ticket from Service view
   React.useEffect(() => {
     if (preloadedTicket) {
+      if (preloadedTicket.status === "completed") {
+        toast.error(
+          `Tiket servis #${preloadedTicket.ticketNumber} sudah berstatus LUNAS & SELESAI (Finish) dan tidak dapat dibayar lagi.`
+        );
+        if (onClearPreloadedTicket) onClearPreloadedTicket();
+        return;
+      }
       const remaining = Math.max(
         0,
         (preloadedTicket.finalCost || preloadedTicket.estimatedCost) - preloadedTicket.downPayment
@@ -82,24 +90,29 @@ export const POSView: React.FC<POSViewProps> = ({
       setCustomerName(preloadedTicket.customerName);
       setCustomerPhone(preloadedTicket.customerPhone);
 
-      // Add to cart
-      setCart([
-        {
-          id: `srv-item-${preloadedTicket.id}`,
-          serviceTicketId: preloadedTicket.id,
-          name: `Pelunasan Servis #${preloadedTicket.ticketNumber} (${preloadedTicket.deviceBrandModel})`,
-          price: remaining,
-          regularPrice: remaining,
-          resellerPrice: remaining,
-          priceType: "regular",
-          qty: 1,
-          subtotal: remaining,
-          isService: true,
-          warrantyDays: preloadedTicket.warrantyDays || 14,
-          specsSummary: `Unit: ${preloadedTicket.deviceBrandModel} | Keluhan: ${preloadedTicket.complaints}`
-        }
-      ]);
-      setAmountPaid(remaining);
+      // Add to cart if not already present
+      const existing = cart.find((item) => item.serviceTicketId === preloadedTicket.id);
+      if (!existing) {
+        setCart([
+          ...cart,
+          {
+            id: `srv-item-${preloadedTicket.id}`,
+            serviceTicketId: preloadedTicket.id,
+            name: `Pelunasan Servis #${preloadedTicket.ticketNumber} (${preloadedTicket.deviceBrandModel})`,
+            price: remaining,
+            regularPrice: remaining,
+            resellerPrice: remaining,
+            priceType: "regular",
+            qty: 1,
+            subtotal: remaining,
+            isService: true,
+            warrantyDays: preloadedTicket.warrantyDays || 14,
+            specsSummary: `Unit: ${preloadedTicket.deviceBrandModel} | Keluhan: ${preloadedTicket.complaints}`
+          }
+        ]);
+        setAmountPaid(remaining);
+        toast.success(`Tiket servis #${preloadedTicket.ticketNumber} dimasukkan ke kasir.`);
+      }
       if (onClearPreloadedTicket) onClearPreloadedTicket();
     }
   }, [preloadedTicket]);
@@ -206,12 +219,23 @@ export const POSView: React.FC<POSViewProps> = ({
   };
 
   const addServiceTicketToCart = (ticket: ServiceTicket) => {
+    if (ticket.status === "completed") {
+      toast.error(
+        `Tiket servis #${ticket.ticketNumber} sudah berstatus LUNAS & SELESAI (Finish) dan tidak dapat dibayar lagi.`
+      );
+      return;
+    }
+
+    const existing = cart.find((item) => item.serviceTicketId === ticket.id);
+    if (existing) {
+      toast.info(`Tiket servis #${ticket.ticketNumber} sudah ada dalam keranjang kasir.`);
+      return;
+    }
+
     const remaining = Math.max(
       0,
       (ticket.finalCost || ticket.estimatedCost) - ticket.downPayment
     );
-    const existing = cart.find((item) => item.serviceTicketId === ticket.id);
-    if (existing) return;
 
     setCustomerName(ticket.customerName);
     setCustomerPhone(ticket.customerPhone);
@@ -233,6 +257,7 @@ export const POSView: React.FC<POSViewProps> = ({
         specsSummary: `Unit: ${ticket.deviceBrandModel} | Keluhan: ${ticket.complaints}`
       }
     ]);
+    toast.success(`Tiket servis #${ticket.ticketNumber} berhasil ditambahkan ke keranjang.`);
   };
 
   const updateQty = (index: number, delta: number) => {
@@ -386,33 +411,50 @@ export const POSView: React.FC<POSViewProps> = ({
             </div>
           </div>
 
-          {/* Quick Notice for Ready Services */}
-          {readyTickets.length > 0 && (
+          {/* Quick Notice for Ready Services (Siap Diambil & Belum Dibayar) */}
+          {readyTickets.filter((t) => t.status === "ready").length > 0 && (
             <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-xl p-3.5">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
                   <Wrench className="h-4 w-4" />
-                  Unit Servis Siap Diambil ({readyTickets.length} Unit)
+                  Unit Servis Siap Diambil & Pelunasan (
+                  {readyTickets.filter((t) => t.status === "ready").length} Unit)
                 </span>
                 <span className="text-[11px] text-emerald-700 dark:text-emerald-400">
-                  Klik untuk pelunasan di kasir
+                  Klik untuk masukkan ke kasir
                 </span>
               </div>
               <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-                {readyTickets.map((t) => (
-                  <button
-                    key={t.id}
-                    onClick={() => addServiceTicketToCart(t)}
-                    className="px-3 py-1.5 bg-white dark:bg-zinc-800 border border-emerald-300 dark:border-emerald-700 rounded-lg text-xs text-left shrink-0 hover:bg-emerald-100 dark:hover:bg-zinc-700 transition-colors"
-                  >
-                    <div className="font-bold text-emerald-700 dark:text-emerald-400">
-                      {t.ticketNumber}
-                    </div>
-                    <div className="text-[11px] text-zinc-600 dark:text-zinc-300 truncate max-w-[140px]">
-                      {t.customerName} ({t.deviceBrandModel})
-                    </div>
-                  </button>
-                ))}
+                {readyTickets
+                  .filter((t) => t.status === "ready")
+                  .map((t) => {
+                    const inCart = cart.some((c) => c.serviceTicketId === t.id);
+                    return (
+                      <button
+                        key={t.id}
+                        onClick={() => addServiceTicketToCart(t)}
+                        className={`px-3 py-1.5 border rounded-lg text-xs text-left shrink-0 transition-all ${
+                          inCart
+                            ? "bg-emerald-100 dark:bg-emerald-900/60 border-emerald-500 font-semibold"
+                            : "bg-white dark:bg-zinc-800 border-emerald-300 dark:border-emerald-700 hover:bg-emerald-50 dark:hover:bg-zinc-700"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-1.5">
+                          <span className="font-bold text-emerald-700 dark:text-emerald-400">
+                            {t.ticketNumber}
+                          </span>
+                          {inCart && (
+                            <span className="text-[9px] bg-emerald-600 text-white px-1.5 py-0.2 rounded-xs">
+                              Di Kasir
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[11px] text-zinc-600 dark:text-zinc-300 truncate max-w-[150px]">
+                          {t.customerName} ({t.deviceBrandModel})
+                        </div>
+                      </button>
+                    );
+                  })}
               </div>
             </div>
           )}

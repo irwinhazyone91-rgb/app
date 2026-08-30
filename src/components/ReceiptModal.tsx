@@ -17,7 +17,7 @@ import {
   Layers,
   Scissors
 } from "lucide-react";
-import { ServiceTicket, Transaction, StoreSettings, User } from "../types";
+import { ServiceTicket, Transaction, StoreSettings, User, Product } from "../types";
 import {
   formatRupiah,
   formatDateIndo,
@@ -37,6 +37,7 @@ interface ReceiptModalProps {
   defaultFormat?: PrintFormat;
   currentUser?: User;
   users?: User[];
+  products?: Product[];
 }
 
 export const ReceiptModal: React.FC<ReceiptModalProps> = ({
@@ -48,22 +49,41 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
   settings,
   defaultFormat,
   currentUser,
-  users = []
+  users = [],
+  products = []
 }) => {
+  // Determine if transaction contains laptop or service
+  const hasLaptopOrService = Boolean(
+    ticket ||
+    mode === "intake_service" ||
+    mode === "invoice_service" ||
+    transaction?.items.some(
+      (item) =>
+        item.isService ||
+        item.serviceTicketId ||
+        item.conditionGrade ||
+        products.some((p) => p.id === item.productId && (p.category === "laptop_baru" || p.category === "laptop_bekas")) ||
+        item.name.toLowerCase().includes("laptop") ||
+        item.name.toLowerCase().includes("notebook") ||
+        item.name.toLowerCase().includes("macbook") ||
+        item.name.toLowerCase().includes("servis")
+    )
+  );
+
   // Select active print format
   const [selectedFormat, setSelectedFormat] = useState<PrintFormat>(
-    defaultFormat || (mode === "pos_transaction" ? "thermal" : "continuous")
+    defaultFormat || (hasLaptopOrService ? "continuous" : "thermal")
   );
 
   useEffect(() => {
     if (defaultFormat) {
       setSelectedFormat(defaultFormat);
-    } else if (mode === "pos_transaction") {
-      setSelectedFormat("thermal");
-    } else {
+    } else if (hasLaptopOrService) {
       setSelectedFormat("continuous");
+    } else {
+      setSelectedFormat("thermal");
     }
-  }, [defaultFormat, mode, isOpen]);
+  }, [defaultFormat, mode, isOpen, hasLaptopOrService]);
 
   const printAreaRef = useRef<HTMLDivElement>(null);
 
@@ -122,7 +142,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
       })
       .join("\n");
     const trackUrl = getTrackingUrl(transaction.invoiceNumber);
-    shareText = `*${settings.storeName.toUpperCase()}*\n${settings.address}\nTelp/WA: ${settings.whatsapp}\n--------------------------------\n🧾 *STRUK PENJUALAN KASIR*\nNo. Faktur: *${transaction.invoiceNumber}*\nTanggal: ${formatDateIndo(transaction.date)}\nKasir: ${resolvedCashierName}\nPelanggan: ${transaction.customerName}${tierLabel}\n\n${itemsList}\n\nSubtotal: ${formatRupiah(transaction.subtotal)}\nDiskon: ${formatRupiah(transaction.discount)}\n*TOTAL: ${formatRupiah(transaction.total)}*\nBayar (${transaction.paymentMethod.toUpperCase()}): ${formatRupiah(transaction.amountPaid)}\nKembalian: ${formatRupiah(transaction.change)}\n\n🔍 *Cek & Verifikasi Nota Online*:\n${trackUrl}\n--------------------------------\n${settings.receiptFooter}`;
+    shareText = `*${settings.storeName.toUpperCase()}*\n${settings.address}\nTelp/WA: ${settings.whatsapp}\n--------------------------------\n🧾 *FAKTUR PENJUALAN & NOTA RESMI*\nNo. Faktur: *${transaction.invoiceNumber}*\nTanggal: ${formatDateIndo(transaction.date)}\nKasir: ${resolvedCashierName}\nPelanggan: ${transaction.customerName}${tierLabel}\n\n${itemsList}\n\nSubtotal: ${formatRupiah(transaction.subtotal)}\nDiskon: ${formatRupiah(transaction.discount)}\n*TOTAL: ${formatRupiah(transaction.total)}*\nBayar (${transaction.paymentMethod.toUpperCase()}): ${formatRupiah(transaction.amountPaid)}\nKembalian: ${formatRupiah(transaction.change)}\n\n🔍 *Cek & Verifikasi Nota Online*:\n${trackUrl}\n--------------------------------\n${settings.receiptFooter}`;
   }
 
   return (
@@ -139,17 +159,21 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                 <span>
                   {selectedFormat === "sticker_58mm"
                     ? "🏷️ Cetak Stiker Tempel Unit Servis"
-                    : mode === "intake_service"
-                    ? "📄 Cetak Tanda Terima SPK Servis (1 Rangkap)"
-                    : mode === "invoice_service"
-                    ? "🧾 Cetak Nota Pelunasan Servis (1 Rangkap)"
-                    : "🧾 Cetak Struk Transaksi Kasir POS (1 Rangkap)"}
+                    : selectedFormat === "continuous"
+                    ? mode === "intake_service"
+                      ? "📄 Cetak Tanda Terima SPK Servis (1 Rangkap)"
+                      : mode === "invoice_service"
+                      ? "🧾 Cetak Nota Pelunasan Servis (1 Rangkap)"
+                      : "📄 Cetak Faktur Penjualan Form Continuous (1 Rangkap)"
+                    : "🧾 Cetak Struk Kasir POS (Thermal 58mm/80mm)"}
                 </span>
               </h3>
               <p className="text-xs text-muted-foreground">
                 {selectedFormat === "sticker_58mm"
                   ? "Format label stiker khusus untuk ditempelkan pada fisik unit/casing barang pelanggan."
-                  : "Format dokumen resmi lengkap dengan QR code tracking garansi, rincian biaya, & tanda tangan sah (1 rangkap)."}
+                  : selectedFormat === "continuous"
+                  ? "Format dokumen form continuous 1 rangkap resmi untuk servis, laptop baru & bekas, lengkap dengan rincian spesifikasi, pasal garansi, tanda tangan sah, dan QR code."
+                  : "Format struk kasir thermal (58mm / 80mm) untuk transaksi sparepart, aksesoris & komponen."}
               </p>
             </div>
           </div>
@@ -170,41 +194,41 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
             <span className="text-[11px] text-blue-600 dark:text-blue-400 font-medium">
               {selectedFormat === "sticker_58mm"
                 ? "🏷️ Mode: Stiker Fisik Barang"
-                : "📄 Mode: Nota Konsumen (1 Rangkap)"}
+                : selectedFormat === "continuous"
+                ? "📄 Mode: Form Continuous (1 Rangkap)"
+                : "🧾 Mode: Struk Kasir (58mm / 80mm)"}
             </span>
           </div>
 
           <div className="bg-muted/40 p-1.5 rounded-xl border border-border grid grid-cols-1 sm:grid-cols-3 gap-1.5">
-            {ticket && (
-              <>
-                <button
-                  type="button"
-                  id="btn-format-continuous"
-                  onClick={() => setSelectedFormat("continuous")}
-                  className={`py-2 px-3 rounded-lg text-xs font-bold flex items-center justify-center space-x-2 transition-all ${
-                    selectedFormat === "continuous"
-                      ? "bg-blue-600 text-white shadow-sm ring-2 ring-blue-400/40"
-                      : "bg-card hover:bg-muted text-muted-foreground hover:text-foreground border border-border"
-                  }`}
-                >
-                  <FileText className="h-4 w-4 shrink-0" />
-                  <span className="truncate">📄 Nota Konsumen (1 Rangkap)</span>
-                </button>
+            <button
+              type="button"
+              id="btn-format-continuous"
+              onClick={() => setSelectedFormat("continuous")}
+              className={`py-2 px-3 rounded-lg text-xs font-bold flex items-center justify-center space-x-2 transition-all ${
+                selectedFormat === "continuous"
+                  ? "bg-blue-600 text-white shadow-sm ring-2 ring-blue-400/40"
+                  : "bg-card hover:bg-muted text-muted-foreground hover:text-foreground border border-border"
+              }`}
+            >
+              <FileText className="h-4 w-4 shrink-0" />
+              <span className="truncate">📄 Form Continuous (1 Rangkap)</span>
+            </button>
 
-                <button
-                  type="button"
-                  id="btn-format-sticker"
-                  onClick={() => setSelectedFormat("sticker_58mm")}
-                  className={`py-2 px-3 rounded-lg text-xs font-bold flex items-center justify-center space-x-2 transition-all ${
-                    selectedFormat === "sticker_58mm"
-                      ? "bg-amber-500 text-white shadow-sm ring-2 ring-amber-400/40"
-                      : "bg-card hover:bg-muted text-muted-foreground hover:text-foreground border border-border"
-                  }`}
-                >
-                  <Tag className="h-4 w-4 shrink-0 text-amber-300" />
-                  <span className="truncate">🏷️ Stiker Tempel Unit</span>
-                </button>
-              </>
+            {ticket && (
+              <button
+                type="button"
+                id="btn-format-sticker"
+                onClick={() => setSelectedFormat("sticker_58mm")}
+                className={`py-2 px-3 rounded-lg text-xs font-bold flex items-center justify-center space-x-2 transition-all ${
+                  selectedFormat === "sticker_58mm"
+                    ? "bg-amber-500 text-white shadow-sm ring-2 ring-amber-400/40"
+                    : "bg-card hover:bg-muted text-muted-foreground hover:text-foreground border border-border"
+                }`}
+              >
+                <Tag className="h-4 w-4 shrink-0 text-amber-300" />
+                <span className="truncate">🏷️ Stiker Tempel Unit</span>
+              </button>
             )}
 
             <button
@@ -218,7 +242,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
               }`}
             >
               <Receipt className="h-4 w-4 shrink-0" />
-              <span className="truncate">🧾 Struk Kasir POS</span>
+              <span className="truncate">🧾 Struk Kasir (58/80mm)</span>
             </button>
           </div>
         </div>
@@ -228,11 +252,11 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
           <Info className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
           <span>
             {selectedFormat === "continuous" &&
-              "📄 NOTA KONSUMEN (1 Rangkap): Dokumen resmi tanda terima / pelunasan untuk pelanggan dengan rincian biaya, pasal garansi, tanda tangan sah, dan QR code langsung ke tracking & cek garansi online."}
+              "📄 NOTA FORM CONTINUOUS (1 Rangkap): Format standar untuk Servis, Laptop Baru, dan Laptop Bekas dengan rincian spesifikasi lengkap, garansi toko, tanda tangan sah, dan QR Code verifikasi online."}
             {selectedFormat === "sticker_58mm" &&
               "🏷️ STIKER TEMPEL UNIT: Label khusus berisi nomor servis, nama pemilik, keluhan, dan QR Code untuk ditempel langsung pada casing unit/laptop pelanggan."}
             {selectedFormat === "thermal" &&
-              "🧾 STRUK KASIR POS: Format struk kasir thermal untuk transaksi kasir atau ringkasan servis cepat."}
+              "🧾 STRUK KASIR POS (58mm / 80mm): Format struk thermal standar untuk transaksi sparepart, aksesoris, dan komponen PC."}
           </span>
         </div>
 
@@ -240,7 +264,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
             PRINTABLE CONTENT AREA (1 RANGKAP SAJA)
             ================================================================ */}
         <div ref={printAreaRef} className="print-area">
-          {/* FORMAT 1: DOKUMEN NOTA KONSUMEN / SPK (1 RANGKAP SAJA) */}
+          {/* FORMAT 1: DOKUMEN NOTA KONSUMEN / SPK SERVIS (1 RANGKAP SAJA) */}
           {selectedFormat === "continuous" && ticket && (
             <div className="print-21x15 print-continuous bg-white text-zinc-950 p-4 sm:p-5 rounded-lg border border-zinc-500 font-mono text-[10.5px] leading-tight space-y-2.5 shadow-xs max-w-[210mm] mx-auto">
               {/* Form Header Line */}
@@ -447,6 +471,225 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                   <span className="text-zinc-600 block text-[8.5px]">Teknisi Pemeriksa,</span>
                   <div className="border-b border-zinc-900 w-2/3 mx-auto"></div>
                   <span className="font-bold block text-[8.5px]">( {resolvedTechnicianName} )</span>
+                </div>
+              </div>
+
+              {/* Single Copy Footnote without paper size text */}
+              <div className="text-[7.5px] text-zinc-500 text-center pt-1 border-t border-dashed border-zinc-300">
+                [ DOKUMEN RESMI 1 RANGKAP — {settings.storeName.toUpperCase()} ]
+              </div>
+            </div>
+          )}
+
+          {/* FORMAT 1B: DOKUMEN NOTA FORM CONTINUOUS UNTUK TRANSAKSI POS (LAPTOP BARU, LAPTOP BEKAS & SERVIS) */}
+          {selectedFormat === "continuous" && transaction && (
+            <div className="print-21x15 print-continuous bg-white text-zinc-950 p-4 sm:p-5 rounded-lg border border-zinc-500 font-mono text-[10.5px] leading-tight space-y-2.5 shadow-xs max-w-[210mm] mx-auto">
+              {/* Form Header Line */}
+              <div className="flex justify-between items-center border-b border-zinc-600 pb-1.5 text-[9.5px] text-zinc-700">
+                <span className="font-extrabold tracking-wider uppercase text-zinc-900">
+                  ★★★ FAKTUR PENJUALAN & NOTA TRANSAKSI RESMI ★★★
+                </span>
+                <span className="font-bold px-2 py-0.5 border border-zinc-800 bg-zinc-100 text-zinc-900 text-[9px] uppercase">
+                  1 RANGKAP - NOTA KONSUMEN
+                </span>
+              </div>
+
+              {/* Header: Company & Invoice Info */}
+              <div className="flex justify-between items-start gap-3 border-b border-zinc-400 pb-2">
+                <div className="space-y-0.5 max-w-[66%]">
+                  <h2 className="font-black text-sm tracking-wider uppercase text-zinc-950">
+                    {settings.storeName}
+                  </h2>
+                  <p className="text-[10px] text-zinc-800 font-semibold leading-none">{settings.tagline}</p>
+                  <p className="text-[9px] text-zinc-600 leading-tight">{settings.address}</p>
+                  <p className="text-[9px] text-zinc-800 font-bold">
+                    Telp: {settings.phone} | WA: {settings.whatsapp}
+                  </p>
+                </div>
+
+                {/* Right: Boxed Invoice Number */}
+                <div className="text-right space-y-0.5">
+                  <div className="border-2 border-zinc-950 px-2.5 py-1 rounded-xs bg-zinc-50 text-center">
+                    <span className="block text-[8px] uppercase font-bold text-zinc-600 leading-none">
+                      NO. FAKTUR PENJUALAN
+                    </span>
+                    <span className="block text-xs font-black tracking-wider text-zinc-950 font-mono">
+                      {transaction.invoiceNumber}
+                    </span>
+                  </div>
+                  <div className="text-[9px] text-zinc-700 text-right font-medium">
+                    Tgl: <span className="font-bold">{formatDateIndo(transaction.date)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Two Column Customer & Cashier Details */}
+              <div className="grid grid-cols-2 gap-2 border border-zinc-400 p-2 rounded-xs bg-zinc-50/70 text-[10px]">
+                {/* Left: Customer Data */}
+                <div className="space-y-0.5">
+                  <div className="font-bold uppercase text-zinc-950 border-b border-dashed border-zinc-400 pb-0.5 text-[9px]">
+                    [ DATA PELANGGAN ]
+                  </div>
+                  <div className="grid grid-cols-3 gap-0.5">
+                    <span className="text-zinc-600">Nama</span>
+                    <span className="col-span-2 font-bold text-zinc-950">: {transaction.customerName}</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-0.5">
+                    <span className="text-zinc-600">No. WA</span>
+                    <span className="col-span-2 font-semibold text-zinc-950">: {transaction.customerPhone}</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-0.5">
+                    <span className="text-zinc-600">Kategori</span>
+                    <span className="col-span-2 font-bold text-zinc-900">
+                      : {transaction.customerType === "reseller" ? "Reseller / Mitra Teknisi" : "Konsumen Biasa (Retail)"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Right: Payment & Cashier Metadata */}
+                <div className="space-y-0.5">
+                  <div className="font-bold uppercase text-zinc-950 border-b border-dashed border-zinc-400 pb-0.5 text-[9px]">
+                    [ DETAIL TRANSAKSI ]
+                  </div>
+                  <div className="grid grid-cols-3 gap-0.5">
+                    <span className="text-zinc-600">Kasir</span>
+                    <span className="col-span-2 font-bold text-zinc-950">: {resolvedCashierName}</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-0.5">
+                    <span className="text-zinc-600">Pembayaran</span>
+                    <span className="col-span-2 font-bold uppercase text-zinc-950">
+                      : {transaction.paymentMethod}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-0.5">
+                    <span className="text-zinc-600">Status</span>
+                    <span className="col-span-2 font-black text-emerald-800 dark:text-emerald-700">
+                      : LUNAS & SELESAI
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Items Table with Full Specs, Condition, Warranty */}
+              <div className="space-y-0.5">
+                <div className="font-bold text-[9px] uppercase text-zinc-900 flex justify-between items-center">
+                  <span>DAFTAR BARANG / UNIT LAPTOP / JASA SERVIS:</span>
+                  <span className="text-zinc-700 text-[8.5px]">Total Item: {transaction.items.length}</span>
+                </div>
+                <table className="w-full text-[9.5px] border-collapse border border-zinc-400">
+                  <thead>
+                    <tr className="bg-zinc-100 border-b border-zinc-400 text-[9px]">
+                      <th className="py-0.5 px-1.5 text-left border-r border-zinc-400 w-6">No</th>
+                      <th className="py-0.5 px-1.5 text-left border-r border-zinc-400">Nama Item & Spesifikasi Detail</th>
+                      <th className="py-0.5 px-1.5 text-center border-r border-zinc-400 w-20">Garansi</th>
+                      <th className="py-0.5 px-1.5 text-center border-r border-zinc-400 w-10">Qty</th>
+                      <th className="py-0.5 px-1.5 text-right border-r border-zinc-400 w-24">Harga (Rp)</th>
+                      <th className="py-0.5 px-1.5 text-right w-24">Subtotal (Rp)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {transaction.items.map((item, i) => (
+                      <tr key={i} className="border-b border-zinc-300">
+                        <td className="py-1 px-1.5 text-center border-r border-zinc-300 align-top">{i + 1}</td>
+                        <td className="py-1 px-1.5 border-r border-zinc-300">
+                          <div className="font-bold text-zinc-950">{item.name}</div>
+                          {item.conditionGrade && (
+                            <div className="text-[8.5px] text-amber-800 font-bold">
+                              ★ Kondisi: {item.conditionGrade}
+                            </div>
+                          )}
+                          {item.specsSummary && (
+                            <div className="text-[8.5px] text-zinc-700 leading-tight">
+                              {item.specsSummary}
+                            </div>
+                          )}
+                          {item.priceType === "reseller" && (
+                            <span className="inline-block text-[8px] bg-indigo-50 border border-indigo-200 text-indigo-700 px-1 py-0.1 rounded-xs font-semibold">
+                              Tarif Reseller/Mitra
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-1 px-1.5 text-center border-r border-zinc-300 font-semibold text-[9px] align-top">
+                          {item.warrantyDays && item.warrantyDays > 0 ? (
+                            <span className="text-emerald-800 font-bold">🛡️ {item.warrantyDays} Hari</span>
+                          ) : (
+                            <span className="text-zinc-500">-</span>
+                          )}
+                        </td>
+                        <td className="py-1 px-1.5 text-center border-r border-zinc-300 align-top font-semibold">{item.qty}</td>
+                        <td className="py-1 px-1.5 text-right border-r border-zinc-300 align-top">{formatRupiah(item.price)}</td>
+                        <td className="py-1 px-1.5 text-right font-bold align-top">{formatRupiah(item.subtotal)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Financial Calculation & Direct Verification QR Code */}
+              <div className="flex justify-between items-start gap-3 pt-0.5">
+                {/* QR Code directly linked to invoice & warranty verification */}
+                <div className="flex items-center gap-2 border border-zinc-400 p-1.5 rounded-xs bg-zinc-50 max-w-[58%]">
+                  <div className="p-0.5 bg-white border border-zinc-900 rounded-xs shrink-0">
+                    <QRCode value={getTrackingUrl(transaction.invoiceNumber)} size={56} level="M" />
+                  </div>
+                  <div className="text-[8px] text-zinc-700 space-y-0.5">
+                    <span className="font-black text-zinc-950 block">QR VERIFIKASI & GARANSI ONLINE:</span>
+                    <span className="leading-tight block font-medium">
+                      Scan QR dengan kamera HP untuk verifikasi keaslian nota & cek masa aktif garansi pembelian.
+                    </span>
+                  </div>
+                </div>
+
+                {/* Totals Table */}
+                <div className="w-56 space-y-0.5 text-[9.5px] border border-zinc-400 p-1.5 rounded-xs bg-zinc-50">
+                  <div className="flex justify-between">
+                    <span className="text-zinc-600">Subtotal:</span>
+                    <span className="font-semibold text-zinc-950">{formatRupiah(transaction.subtotal)}</span>
+                  </div>
+                  {transaction.discount > 0 && (
+                    <div className="flex justify-between text-emerald-700 font-medium">
+                      <span>Diskon:</span>
+                      <span>-{formatRupiah(transaction.discount)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between font-black text-[10.5px] border-t border-zinc-950 pt-0.5 text-zinc-950">
+                    <span>TOTAL BAYAR:</span>
+                    <span>{formatRupiah(transaction.total)}</span>
+                  </div>
+                  <div className="flex justify-between text-[9px]">
+                    <span className="text-zinc-600">Bayar ({transaction.paymentMethod}):</span>
+                    <span className="font-semibold text-zinc-950">{formatRupiah(transaction.amountPaid)}</span>
+                  </div>
+                  <div className="flex justify-between text-[9px]">
+                    <span className="text-zinc-600">Kembalian:</span>
+                    <span className="font-semibold text-zinc-950">{formatRupiah(transaction.change)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Warranty & Terms */}
+              <div className="text-[8px] text-zinc-700 border-t border-zinc-400 pt-1 space-y-0.5">
+                <div className="flex justify-between font-bold text-zinc-950">
+                  <span>KETENTUAN GARANSI & TRANSAKSI:</span>
+                  <span className="text-blue-900 font-black">
+                    TERIMA KASIH ATAS KUNJUNGAN & TRANSAKSI ANDA
+                  </span>
+                </div>
+                <p className="leading-tight">1. {settings.warrantyTerms}</p>
+                <p className="leading-tight">2. Barang yang sudah dibeli dapat diklaim garansi dengan menunjukkan nota resmi ini & segel utuh.</p>
+              </div>
+
+              {/* 2 Signatures Standard: Customer & Cashier */}
+              <div className="grid grid-cols-2 gap-4 text-center text-[9px] pt-1.5 border-t border-zinc-950">
+                <div className="space-y-6">
+                  <span className="text-zinc-600 block text-[8.5px]">Tanda Terima Konsumen / Pembeli,</span>
+                  <div className="border-b border-zinc-900 w-1/2 mx-auto"></div>
+                  <span className="font-bold block text-[8.5px]">( {transaction.customerName} )</span>
+                </div>
+                <div className="space-y-6">
+                  <span className="text-zinc-600 block text-[8.5px]">Hormat Kami (Kasir / Petugas Toko),</span>
+                  <div className="border-b border-zinc-900 w-1/2 mx-auto"></div>
+                  <span className="font-bold block text-[8.5px]">( {resolvedCashierName} )</span>
                 </div>
               </div>
 
