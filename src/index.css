@@ -58,11 +58,11 @@
   }
 }
 
-/* Print Specific Rules for Thermal, 21cm x 15cm (1 Rangkap), and 58mm Stickers */
+/* Print Specific Rules for A4 Portrait Dibagi 2 (210mm x 148.5mm - 1 Rangkap), Thermal, and 58mm Stickers */
 @media print {
   @page {
-    size: 210mm 150mm;
-    margin: 4mm;
+    size: 210mm 148.5mm;
+    margin: 3.5mm;
   }
   body * {
     visibility: hidden !important;
@@ -89,26 +89,20 @@
     font-size: 8.5px !important;
     margin: 0 auto !important;
   }
-  .print-21x15 {
+  .print-21x15, .print-continuous {
     width: 202mm !important;
     max-width: 202mm !important;
-    min-height: 140mm !important;
-    max-height: 142mm !important;
-    padding: 4mm !important;
-    font-size: 10px !important;
-    line-height: 1.25 !important;
+    min-height: 138mm !important;
+    max-height: 141.5mm !important;
+    padding: 3.5mm !important;
+    font-size: 9.5px !important;
+    line-height: 1.22 !important;
     box-sizing: border-box !important;
     margin: 0 auto !important;
     overflow: hidden !important;
-  }
-  .print-continuous {
-    width: 202mm !important;
-    max-width: 202mm !important;
-    padding: 4mm !important;
-    font-size: 10px !important;
-    line-height: 1.25 !important;
-    box-sizing: border-box !important;
-    margin: 0 auto !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    page-break-after: avoid !important;
   }
   .no-print {
     display: none !important;

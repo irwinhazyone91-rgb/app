@@ -161,10 +161,10 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                     ? "🏷️ Cetak Stiker Tempel Unit Servis"
                     : selectedFormat === "continuous"
                     ? mode === "intake_service"
-                      ? "📄 Cetak Tanda Terima SPK Servis (1 Rangkap)"
+                      ? "📄 Cetak Tanda Terima SPK Servis (A4 Dibagi 2 / 1 Rangkap)"
                       : mode === "invoice_service"
-                      ? "🧾 Cetak Nota Pelunasan Servis (1 Rangkap)"
-                      : "📄 Cetak Faktur Penjualan Form Continuous (1 Rangkap)"
+                      ? "🧾 Cetak Nota Pelunasan Servis (A4 Dibagi 2 / 1 Rangkap)"
+                      : "📄 Cetak Faktur Penjualan (A4 Dibagi 2 / 1 Rangkap)"
                     : "🧾 Cetak Struk Kasir POS (Thermal 58mm/80mm)"}
                 </span>
               </h3>
@@ -172,7 +172,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                 {selectedFormat === "sticker_58mm"
                   ? "Format label stiker khusus untuk ditempelkan pada fisik unit/casing barang pelanggan."
                   : selectedFormat === "continuous"
-                  ? "Format dokumen form continuous 1 rangkap resmi untuk servis, laptop baru & bekas, lengkap dengan rincian spesifikasi, pasal garansi, tanda tangan sah, dan QR code."
+                  ? "Format dokumen resmi ukuran A4 portrait dibagi 2 ke bawah (1 rangkap) untuk servis, laptop baru & bekas, lengkap dengan spesifikasi/keluhan, rincian biaya & DP, garansi, tanda tangan, dan QR code."
                   : "Format struk kasir thermal (58mm / 80mm) untuk transaksi sparepart, aksesoris & komponen."}
               </p>
             </div>
@@ -195,7 +195,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
               {selectedFormat === "sticker_58mm"
                 ? "🏷️ Mode: Stiker Fisik Barang"
                 : selectedFormat === "continuous"
-                ? "📄 Mode: Form Continuous (1 Rangkap)"
+                ? "📄 Mode: A4 Dibagi 2 (1 Rangkap)"
                 : "🧾 Mode: Struk Kasir (58mm / 80mm)"}
             </span>
           </div>
@@ -212,7 +212,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
               }`}
             >
               <FileText className="h-4 w-4 shrink-0" />
-              <span className="truncate">📄 Form Continuous (1 Rangkap)</span>
+              <span className="truncate">📄 A4 Dibagi 2 (1 Rangkap)</span>
             </button>
 
             {ticket && (
@@ -252,7 +252,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
           <Info className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
           <span>
             {selectedFormat === "continuous" &&
-              "📄 NOTA FORM CONTINUOUS (1 Rangkap): Format standar untuk Servis, Laptop Baru, dan Laptop Bekas dengan rincian spesifikasi lengkap, garansi toko, tanda tangan sah, dan QR Code verifikasi online."}
+              "📄 NOTA A4 PORTRAIT DIBAGI 2 (1 RANGKAP): Format standar untuk Servis, Laptop Baru, dan Laptop Bekas dengan rincian spesifikasi unit / keluhan lengkap, rincian biaya & DP, masa garansi toko, tanda tangan pelanggan & teknisi, serta QR Code verifikasi online tanpa duplikasi 2 rangkap."}
             {selectedFormat === "sticker_58mm" &&
               "🏷️ STIKER TEMPEL UNIT: Label khusus berisi nomor servis, nama pemilik, keluhan, dan QR Code untuk ditempel langsung pada casing unit/laptop pelanggan."}
             {selectedFormat === "thermal" &&
