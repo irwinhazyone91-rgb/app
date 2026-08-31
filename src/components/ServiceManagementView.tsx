@@ -23,7 +23,24 @@ import {
   Tag,
   FileText,
   AlertTriangle,
-  Lock
+  Lock,
+  Copy,
+  Check,
+  Smartphone,
+  Phone,
+  User as UserIcon,
+  PackageCheck,
+  Cpu,
+  Receipt,
+  Calendar,
+  Layers,
+  HelpCircle,
+  ExternalLink,
+  Boxes,
+  PlusCircle,
+  Minus,
+  Calculator,
+  RotateCcw
 } from "lucide-react";
 import { ServiceTicket, ServiceStatus, Product, ServicePart, User } from "../types";
 import {
@@ -115,9 +132,12 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
   const [partsList, setPartsList] = useState<ServicePart[]>([]);
 
   // Sparepart selector helper
+  const [sparepartTab, setSparepartTab] = useState<"inventory" | "manual">("inventory");
   const [selectedSparepartId, setSelectedSparepartId] = useState("");
+  const [inventoryPartQty, setInventoryPartQty] = useState<number>(1);
   const [customPartName, setCustomPartName] = useState("");
-  const [customPartPrice, setCustomPartPrice] = useState(0);
+  const [customPartPrice, setCustomPartPrice] = useState<number>(0);
+  const [customPartQty, setCustomPartQty] = useState<number>(1);
 
   // Open Edit Modal
   const openDetail = (ticket: ServiceTicket) => {
@@ -129,6 +149,12 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
     setEditDownPayment(ticket.downPayment || 0);
     setEditWarrantyDays(ticket.warrantyDays || 30);
     setPartsList(ticket.partsUsed || []);
+    setSparepartTab("inventory");
+    setSelectedSparepartId("");
+    setInventoryPartQty(1);
+    setCustomPartName("");
+    setCustomPartPrice(0);
+    setCustomPartQty(1);
   };
 
   const closeDetailModal = () => {
@@ -171,45 +197,101 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
   };
 
   const handleAddPartFromInventory = () => {
-    if (!selectedSparepartId) return;
+    if (!selectedSparepartId) {
+      toast.error("Pilih sparepart dari daftar stok terlebih dahulu.");
+      return;
+    }
     const prod = products.find((p) => p.id === selectedSparepartId);
     if (!prod) return;
 
-    const newPart: ServicePart = {
-      id: `part-${Date.now()}`,
-      name: prod.name,
-      price: prod.sellPrice,
-      qty: 1
-    };
+    const qtyToAdd = Math.max(1, Number(inventoryPartQty) || 1);
 
-    const updatedParts = [...partsList, newPart];
+    const existingIndex = partsList.findIndex((p) => p.id === prod.id || p.name === prod.name);
+    let updatedParts: ServicePart[];
+    if (existingIndex >= 0) {
+      updatedParts = partsList.map((p, idx) =>
+        idx === existingIndex ? { ...p, qty: p.qty + qtyToAdd } : p
+      );
+    } else {
+      const newPart: ServicePart = {
+        id: prod.id,
+        name: prod.name,
+        price: prod.sellPrice,
+        qty: qtyToAdd
+      };
+      updatedParts = [...partsList, newPart];
+    }
+
     setPartsList(updatedParts);
 
-    // Auto update total final cost
+    // Auto update total final cost if lower than parts total
     const partsSum = updatedParts.reduce((acc, p) => acc + p.price * p.qty, 0);
     if (editFinalCost < partsSum) {
       setEditFinalCost(partsSum);
     }
+
     setSelectedSparepartId("");
+    setInventoryPartQty(1);
+    toast.success(`${prod.name} (${qtyToAdd}x) ditambahkan ke daftar suku cadang.`);
   };
 
   const handleAddCustomPart = () => {
-    if (!customPartName || customPartPrice <= 0) return;
+    if (!customPartName.trim()) {
+      toast.error("Nama sparepart manual tidak boleh kosong.");
+      return;
+    }
+    if (customPartPrice <= 0) {
+      toast.error("Harga sparepart harus lebih dari 0.");
+      return;
+    }
+    const qtyToAdd = Math.max(1, Number(customPartQty) || 1);
     const newPart: ServicePart = {
-      id: `part-${Date.now()}`,
-      name: customPartName,
+      id: `part-manual-${Date.now()}`,
+      name: customPartName.trim(),
       price: customPartPrice,
-      qty: 1
+      qty: qtyToAdd
     };
     const updatedParts = [...partsList, newPart];
     setPartsList(updatedParts);
+
+    const partsSum = updatedParts.reduce((acc, p) => acc + p.price * p.qty, 0);
+    if (editFinalCost < partsSum) {
+      setEditFinalCost(partsSum);
+    }
     setCustomPartName("");
     setCustomPartPrice(0);
+    setCustomPartQty(1);
+    toast.success(`${newPart.name} (${qtyToAdd}x) ditambahkan ke daftar.`);
+  };
+
+  const handleUpdatePartQty = (index: number, newQty: number) => {
+    if (newQty <= 0) {
+      handleRemovePart(index);
+      return;
+    }
+    const updated = partsList.map((p, idx) =>
+      idx === index ? { ...p, qty: newQty } : p
+    );
+    setPartsList(updated);
   };
 
   const handleRemovePart = (index: number) => {
+    const itemToRemove = partsList[index];
     const updated = partsList.filter((_, i) => i !== index);
     setPartsList(updated);
+    if (itemToRemove) {
+      toast.info(`${itemToRemove.name} dihapus dari daftar.`);
+    }
+  };
+
+  const handleSyncPartsToTotal = () => {
+    const partsSum = partsList.reduce((acc, p) => acc + p.price * p.qty, 0);
+    if (partsSum === 0) {
+      toast.info("Tidak ada biaya sparepart untuk disinkronkan.");
+      return;
+    }
+    setEditFinalCost(partsSum);
+    toast.success(`Total biaya servis disinkronkan menjadi ${formatRupiah(partsSum)}.`);
   };
 
   const handleSaveTicketUpdates = () => {
@@ -748,323 +830,749 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
       {/* MODAL: DETAIL & UPDATE PROGRESS TIKET */}
       {activeTicket && (() => {
         const isTicketLocked = activeTicket.status === "completed" && !isOwner;
+        const remainingCost = Math.max(0, editFinalCost - editDownPayment);
+
+        const statusOptions: {
+          id: ServiceStatus;
+          label: string;
+          desc: string;
+          icon: React.ReactNode;
+          activeColor: string;
+        }[] = [
+          {
+            id: "received",
+            label: "Antrean Masuk",
+            desc: "Unit baru diterima",
+            icon: <Clock className="w-3.5 h-3.5" />,
+            activeColor: "bg-blue-600 text-white border-blue-600 shadow-xs"
+          },
+          {
+            id: "diagnosing",
+            label: "Sedang Diagnosa",
+            desc: "Pengecekan teknisi",
+            icon: <Search className="w-3.5 h-3.5" />,
+            activeColor: "bg-amber-600 text-white border-amber-600 shadow-xs"
+          },
+          {
+            id: "waiting_approval",
+            label: "Tunggu Persetujuan",
+            desc: "Konfirmasi biaya/part",
+            icon: <AlertCircle className="w-3.5 h-3.5" />,
+            activeColor: "bg-orange-600 text-white border-orange-600 shadow-xs"
+          },
+          {
+            id: "in_progress",
+            label: "Dalam Pengerjaan",
+            desc: "Perbaikan & instalasi",
+            icon: <Wrench className="w-3.5 h-3.5" />,
+            activeColor: "bg-indigo-600 text-white border-indigo-600 shadow-xs"
+          },
+          {
+            id: "ready",
+            label: "Selesai (Siap Ambil)",
+            desc: "Lolos QC & siap serah",
+            icon: <CheckCircle className="w-3.5 h-3.5" />,
+            activeColor: "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+          },
+          {
+            id: "completed",
+            label: "Sudah Diambil / Lunas",
+            desc: "Transaksi servis selesai",
+            icon: <PackageCheck className="w-3.5 h-3.5" />,
+            activeColor: "bg-slate-700 text-white border-slate-700 shadow-xs"
+          }
+        ];
+
+        const quickTechNotes = [
+          "Cleaning fan & ganti thermal paste Arctic MX-4",
+          "Reball chipset VGA / solder ulang komponen power",
+          "Install ulang Windows 11 Pro 64-bit + Office + Driver",
+          "Ganti keyboard baru original, semua tombol normal",
+          "Ganti layar LCD IPS 14 inch baru",
+          "Upgrade SSD NVMe 512GB & clone sistem",
+          "Ganti baterai baru & running test charging normal",
+          "QC passed: Running stress test 2 jam temperatur stabil <65°C"
+        ];
+
+        const handleAddQuickNote = (note: string) => {
+          if (isTicketLocked) return;
+          if (!editTechNotes) {
+            setEditTechNotes(note);
+          } else {
+            setEditTechNotes((prev) => `${prev}. ${note}`);
+          }
+        };
+
+        const copyTicketNumber = () => {
+          navigator.clipboard.writeText(activeTicket.ticketNumber);
+          toast.success(`Nomor tiket ${activeTicket.ticketNumber} disalin ke clipboard.`);
+        };
 
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
-            <div className="bg-card border border-border rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl space-y-5">
-              {/* Modal Header */}
-              <div className="flex items-center justify-between border-b border-border pb-3">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono font-bold text-blue-600 text-base">
-                      {activeTicket.ticketNumber}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      • Dibuat: {formatDateIndo(activeTicket.createdAt)}
-                    </span>
-                  </div>
-                  <h2 className="text-base font-bold text-foreground mt-0.5">
-                    {activeTicket.customerName} — {activeTicket.deviceBrandModel}
-                  </h2>
-                </div>
-                <button
-                  onClick={closeDetailModal}
-                  className="text-muted-foreground hover:text-foreground p-1 text-sm font-bold"
-                >
-                  ✕
-                </button>
-              </div>
-
-              {/* Status Lock Warning or Owner Access Indicator */}
-              {isTicketLocked ? (
-                <div className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 border border-amber-200 dark:border-amber-800 text-xs">
-                  <Lock className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
-                  <div>
-                    <span className="font-bold block">TIKET TELAH SELESAI & DIAMBIL (MODE TERKUNCI):</span>
-                    <span className="text-[11px] text-amber-800 dark:text-amber-300 leading-relaxed">
-                      Status tiket servis ini telah lunas dan unit sudah diambil. Formulir perubahan data dinonaktifkan untuk staff/teknisi/kasir dan <strong>hanya dapat diubah oleh Owner (Pemilik Toko)</strong>.
-                    </span>
-                  </div>
-                </div>
-              ) : activeTicket.status === "completed" && isOwner ? (
-                <div className="flex items-start gap-2.5 p-2.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-900 dark:text-blue-200 border border-blue-200 dark:border-blue-800 text-xs">
-                  <Sparkles className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400 mt-0.5" />
-                  <div>
-                    <span className="font-bold block">AKSES OWNER (PEMILIK TOKO):</span>
-                    <span className="text-[11px] text-blue-800 dark:text-blue-300">
-                      Anda login sebagai Owner dan memiliki hak akses khusus untuk memperbarui atau mengoreksi data tiket yang telah berstatus Selesai & Diambil.
-                    </span>
-                  </div>
-                </div>
-              ) : null}
-
-              {/* Status Selector */}
-              <div>
-                <label className="block text-xs font-semibold text-foreground mb-1.5 flex items-center justify-between">
-                  <span>Update Status Pengerjaan:</span>
-                  {isTicketLocked && (
-                    <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold flex items-center gap-1">
-                      <Lock className="h-3 w-3" /> Status Terkunci
-                    </span>
-                  )}
-                </label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {[
-                    { id: "received", label: "Antrean Masuk" },
-                    { id: "diagnosing", label: "Sedang Diagnosa" },
-                    { id: "waiting_approval", label: "Tunggu Persetujuan" },
-                    { id: "in_progress", label: "Dalam Pengerjaan" },
-                    { id: "ready", label: "Selesai (Siap Ambil)" },
-                    { id: "completed", label: "Sudah Diambil / Lunas" }
-                  ].map((st) => (
-                    <button
-                      key={st.id}
-                      type="button"
-                      disabled={isTicketLocked}
-                      onClick={() => !isTicketLocked && setEditStatus(st.id as ServiceStatus)}
-                      className={`py-2 px-3 rounded-lg text-xs font-bold border transition-all text-left ${
-                        editStatus === st.id
-                          ? "bg-blue-600 text-white border-blue-600 shadow-xs"
-                          : "bg-muted/40 text-muted-foreground border-border hover:bg-muted"
-                      } ${isTicketLocked ? "cursor-not-allowed opacity-75" : ""}`}
-                    >
-                      {st.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Technician Notes */}
-              <div>
-                <label className="block text-xs font-semibold text-foreground mb-1">
-                  Catatan Diagnosa / Tindakan Teknisi
-                </label>
-                <textarea
-                  rows={3}
-                  disabled={isTicketLocked}
-                  value={editTechNotes}
-                  onChange={(e) => setEditTechNotes(e.target.value)}
-                  placeholder="Contoh: Reball chipset VGA berhasil, thermal paste Arctic MX-4 diganti, running test 2 jam temperatur aman 65°C."
-                  className={`w-full px-3 py-2 text-sm bg-muted/40 border border-input rounded-lg ${
-                    isTicketLocked ? "cursor-not-allowed opacity-75" : ""
-                  }`}
-                ></textarea>
-              </div>
-
-              {/* Spareparts Management */}
-              <div className="bg-muted/20 border border-border rounded-xl p-4 space-y-3">
-                <h3 className="text-xs font-bold text-foreground">Sparepart / Komponen Pengganti</h3>
-
-                {!isTicketLocked && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <div className="flex space-x-1.5">
-                      <select
-                        value={selectedSparepartId}
-                        onChange={(e) => setSelectedSparepartId(e.target.value)}
-                        className="flex-1 px-2.5 py-1.5 text-xs bg-card border border-input rounded-lg"
-                      >
-                        <option value="">-- Ambil dari Stok Toko --</option>
-                        {products
-                          .filter((p) => p.category !== "jasa")
-                          .map((p) => (
-                            <option key={p.id} value={p.id}>
-                              {p.name} ({formatRupiah(p.sellPrice)}) - Stok: {p.stock}
-                            </option>
-                          ))}
-                      </select>
-                      <button
-                        type="button"
-                        onClick={handleAddPartFromInventory}
-                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg"
-                      >
-                        + Tambah
-                      </button>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-xs p-2 sm:p-4 overflow-y-auto">
+            <div className="bg-card border border-border rounded-2xl max-w-4xl w-full max-h-[92vh] flex flex-col shadow-2xl overflow-hidden">
+              {/* Header Box with Meta Info */}
+              <div className="p-4 sm:p-5 border-b border-border bg-gradient-to-r from-blue-50/60 via-card to-card dark:from-blue-950/30 dark:via-card dark:to-card shrink-0">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="space-y-1">
+                    <div className="flex items-center flex-wrap gap-2">
+                      <div className="flex items-center gap-1.5 bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 px-2.5 py-1 rounded-lg font-mono font-bold text-xs sm:text-sm">
+                        <span>{activeTicket.ticketNumber}</span>
+                        <button
+                          type="button"
+                          onClick={copyTicketNumber}
+                          title="Salin No. Tiket"
+                          className="hover:text-blue-900 dark:hover:text-blue-100 p-0.5 rounded transition-colors"
+                        >
+                          <Copy className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        • Masuk: {formatDateIndo(activeTicket.createdAt)}
+                      </span>
                     </div>
 
-                    <div className="flex space-x-1.5">
-                      <input
-                        type="text"
-                        placeholder="Nama part manual..."
-                        value={customPartName}
-                        onChange={(e) => setCustomPartName(e.target.value)}
-                        className="flex-1 px-2.5 py-1.5 text-xs bg-card border border-input rounded-lg"
-                      />
+                    <h2 className="text-base sm:text-lg font-bold text-foreground flex items-center flex-wrap gap-2">
+                      <span>{activeTicket.customerName}</span>
+                      <span className="text-muted-foreground font-normal text-sm">—</span>
+                      <span className="text-blue-600 dark:text-blue-400 font-semibold text-sm sm:text-base">
+                        {activeTicket.deviceBrandModel}
+                      </span>
+                    </h2>
+                  </div>
+
+                  <div className="flex items-center gap-2 self-start sm:self-auto">
+                    <a
+                      href={createWhatsAppUrl(
+                        activeTicket.customerPhone,
+                        getWhatsAppMessage({
+                          ...activeTicket,
+                          status: editStatus,
+                          finalCost: editFinalCost,
+                          downPayment: editDownPayment,
+                          technicianNotes: editTechNotes,
+                          warrantyDays: editWarrantyDays
+                        })
+                      )}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 transition-colors shadow-2xs"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5" />
+                      <span>Chat WA</span>
+                    </a>
+
+                    <button
+                      type="button"
+                      onClick={closeDetailModal}
+                      className="p-1.5 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-colors text-base font-bold leading-none"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+
+                {/* Initial Device & Complaint Quick Summary Card */}
+                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs bg-muted/40 border border-border/70 p-3 rounded-xl">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-1.5 text-muted-foreground font-medium">
+                      <Laptop className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                      <span className="font-semibold text-foreground">Kelengkapan Bawaan:</span>
+                    </div>
+                    <p className="text-foreground pl-5">{activeTicket.accessories || "Hanya Unit"}</p>
+                    {activeTicket.serialNumber && (
+                      <div className="pl-5 text-muted-foreground text-[11px]">
+                        No. Seri: <span className="font-mono text-foreground font-semibold">{activeTicket.serialNumber}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-1.5 text-amber-700 dark:text-amber-400 font-medium">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span className="font-semibold text-foreground">Keluhan Awal Konsumen:</span>
+                    </div>
+                    <p className="text-foreground pl-5 line-clamp-2 italic">
+                      "{activeTicket.complaints}"
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Scrollable Modal Body Form */}
+              <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
+                {/* Status Lock Warning or Owner Access Indicator */}
+                {isTicketLocked ? (
+                  <div className="flex items-start gap-2.5 p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 border border-amber-200 dark:border-amber-800 text-xs">
+                    <Lock className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+                    <div>
+                      <span className="font-bold block text-sm">TIKET TELAH SELESAI & DIAMBIL (MODE TERKUNCI):</span>
+                      <span className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed mt-0.5 block">
+                        Status tiket servis ini telah lunas dan unit sudah diambil. Formulir perubahan data dinonaktifkan untuk staff/teknisi/kasir dan <strong>hanya dapat diubah oleh Owner (Pemilik Toko)</strong>.
+                      </span>
+                    </div>
+                  </div>
+                ) : activeTicket.status === "completed" && isOwner ? (
+                  <div className="flex items-start gap-2.5 p-3 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-900 dark:text-blue-200 border border-blue-200 dark:border-blue-800 text-xs">
+                    <Sparkles className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400 mt-0.5" />
+                    <div>
+                      <span className="font-bold block">AKSES OWNER (PEMILIK TOKO):</span>
+                      <span className="text-xs text-blue-800 dark:text-blue-300 mt-0.5 block">
+                        Anda login sebagai Owner dan memiliki hak akses khusus untuk memperbarui atau mengoreksi data tiket yang telah berstatus Selesai & Diambil.
+                      </span>
+                    </div>
+                  </div>
+                ) : null}
+
+                {/* 1. STATUS WORKFLOW SELECTOR */}
+                <div className="space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <Layers className="w-4 h-4 text-blue-600" />
+                      1. Status Pengerjaan Servis:
+                    </label>
+                    {isTicketLocked && (
+                      <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold flex items-center gap-1">
+                        <Lock className="h-3 w-3" /> Status Terkunci
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {statusOptions.map((st) => {
+                      const isCurrentActive = editStatus === st.id;
+                      return (
+                        <button
+                          key={st.id}
+                          type="button"
+                          disabled={isTicketLocked}
+                          onClick={() => !isTicketLocked && setEditStatus(st.id)}
+                          className={`p-3 rounded-xl text-xs font-semibold border transition-all text-left flex items-start gap-2.5 ${
+                            isCurrentActive
+                              ? st.activeColor
+                              : "bg-card text-foreground border-border hover:bg-muted/60"
+                          } ${isTicketLocked ? "cursor-not-allowed opacity-75" : ""}`}
+                        >
+                          <span className="mt-0.5 shrink-0">{st.icon}</span>
+                          <div className="min-w-0">
+                            <div className="font-bold leading-tight truncate">{st.label}</div>
+                            <div
+                              className={`text-[10px] truncate mt-0.5 ${
+                                isCurrentActive ? "text-white/80" : "text-muted-foreground"
+                              }`}
+                            >
+                              {st.desc}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 2. TECHNICIAN DIAGNOSIS & ACTIONS */}
+                <div className="space-y-3 bg-muted/20 border border-border rounded-xl p-4 sm:p-5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+                    <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <Wrench className="w-4 h-4 text-blue-600" />
+                      2. Catatan Diagnosa & Tindakan Teknisi:
+                    </label>
+                    <span className="text-[10px] text-muted-foreground">
+                      *Tercantum pada nota & laporan servis konsumen
+                    </span>
+                  </div>
+
+                  {/* Quick Note Chips */}
+                  {!isTicketLocked && (
+                    <div className="space-y-1.5">
+                      <span className="text-[10px] font-semibold text-muted-foreground block">
+                        Template Cepat Teknisi (Klik untuk menambahkan):
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {quickTechNotes.map((chip, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => handleAddQuickNote(chip)}
+                            className="px-2.5 py-1 rounded-lg text-[10px] bg-card border border-border text-foreground hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 dark:hover:bg-blue-950 dark:hover:text-blue-300 transition-colors shadow-2xs font-medium"
+                          >
+                            + {chip}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <textarea
+                    rows={3}
+                    disabled={isTicketLocked}
+                    value={editTechNotes}
+                    onChange={(e) => setEditTechNotes(e.target.value)}
+                    placeholder="Contoh: Reball chipset VGA berhasil, thermal paste Arctic MX-4 diganti, running test 2 jam temperatur aman 65°C."
+                    className={`w-full px-3 py-2.5 text-xs sm:text-sm bg-card border border-input rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-hidden ${
+                      isTicketLocked ? "cursor-not-allowed opacity-75" : ""
+                    }`}
+                  ></textarea>
+                </div>
+
+                {/* 3. SPAREPARTS & COMPONENTS MANAGEMENT */}
+                <div className="bg-card border border-border rounded-xl p-4 sm:p-5 space-y-4 shadow-xs">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-border">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 rounded-lg bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400">
+                        <Cpu className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h3 className="text-xs sm:text-sm font-bold text-foreground">
+                          3. Sparepart & Komponen Pengganti
+                        </h3>
+                        <p className="text-[11px] text-muted-foreground">
+                          Suku cadang yang terpasang pada unit servis pelanggan
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 self-start sm:self-auto">
+                      <span className="text-xs bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300 px-2.5 py-1 rounded-lg font-bold border border-blue-200 dark:border-blue-800">
+                        Total Part:{" "}
+                        {formatRupiah(
+                          partsList.reduce((acc, p) => acc + p.price * p.qty, 0)
+                        )}
+                      </span>
+                    </div>
+                  </div>
+
+                  {!isTicketLocked && (
+                    <div className="space-y-3 bg-muted/20 border border-border/80 rounded-xl p-3.5">
+                      {/* Sub-tab Mode Switcher */}
+                      <div className="flex items-center gap-2 border-b border-border/60 pb-2.5">
+                        <button
+                          type="button"
+                          onClick={() => setSparepartTab("inventory")}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                            sparepartTab === "inventory"
+                              ? "bg-blue-600 text-white shadow-2xs"
+                              : "bg-card text-muted-foreground hover:text-foreground border border-border"
+                          }`}
+                        >
+                          <Boxes className="w-3.5 h-3.5" />
+                          <span>Ambil dari Stok Toko</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setSparepartTab("manual")}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                            sparepartTab === "manual"
+                              ? "bg-blue-600 text-white shadow-2xs"
+                              : "bg-card text-muted-foreground hover:text-foreground border border-border"
+                          }`}
+                        >
+                          <PlusCircle className="w-3.5 h-3.5" />
+                          <span>Input Sparepart Manual / Luar</span>
+                        </button>
+                      </div>
+
+                      {/* Tab 1: Ambil dari Stok Toko */}
+                      {sparepartTab === "inventory" ? (
+                        <div className="space-y-2.5">
+                          <div>
+                            <label className="block text-[11px] font-semibold text-foreground mb-1">
+                              Pilih Produk / Sparepart dari Inventaris Toko:
+                            </label>
+                            <select
+                              value={selectedSparepartId}
+                              onChange={(e) => setSelectedSparepartId(e.target.value)}
+                              className="w-full px-3 py-2 text-xs bg-card border border-input rounded-xl focus:ring-2 focus:ring-blue-500"
+                            >
+                              <option value="">-- Cari & Pilih Suku Cadang --</option>
+                              {products
+                                .filter((p) => p.category !== "jasa")
+                                .map((p) => (
+                                  <option key={p.id} value={p.id}>
+                                    {p.name} — Stok: {p.stock} unit | {formatRupiah(p.sellPrice)}
+                                  </option>
+                                ))}
+                            </select>
+                          </div>
+
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-1">
+                            <div className="flex items-center gap-2">
+                              <label className="text-[11px] font-semibold text-muted-foreground shrink-0">
+                                Jumlah (Qty):
+                              </label>
+                              <input
+                                type="number"
+                                min="1"
+                                value={inventoryPartQty}
+                                onChange={(e) => setInventoryPartQty(Math.max(1, Number(e.target.value)))}
+                                className="w-20 px-2.5 py-1.5 text-xs text-center font-bold bg-card border border-input rounded-lg"
+                              />
+                              {selectedSparepartId && (
+                                <span className="text-xs text-muted-foreground">
+                                  Subtotal:{" "}
+                                  <strong className="text-blue-600 font-bold">
+                                    {formatRupiah(
+                                      (products.find((p) => p.id === selectedSparepartId)?.sellPrice || 0) *
+                                        inventoryPartQty
+                                    )}
+                                  </strong>
+                                </span>
+                              )}
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={handleAddPartFromInventory}
+                              disabled={!selectedSparepartId}
+                              className={`px-4 py-2 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-colors ${
+                                selectedSparepartId
+                                  ? "bg-blue-600 hover:bg-blue-700 text-white shadow-2xs cursor-pointer"
+                                  : "bg-muted text-muted-foreground cursor-not-allowed"
+                              }`}
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              <span>+ Tambah ke Daftar Tiket</span>
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        /* Tab 2: Input Part Manual / Luar */
+                        <div className="space-y-2.5">
+                          <div>
+                            <label className="block text-[11px] font-semibold text-foreground mb-1">
+                              Nama Komponen / Sparepart Khusus:
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="Contoh: IC Power TPS51285B / Kabel Fleksibel eDP 30 pin"
+                              value={customPartName}
+                              onChange={(e) => setCustomPartName(e.target.value)}
+                              className="w-full px-3 py-2 text-xs bg-card border border-input rounded-xl focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                            <div>
+                              <label className="block text-[11px] font-semibold text-foreground mb-1">
+                                Harga Satuan (Rp):
+                              </label>
+                              <input
+                                type="number"
+                                min="0"
+                                step="5000"
+                                placeholder="Harga Satuan"
+                                value={customPartPrice || ""}
+                                onChange={(e) => setCustomPartPrice(Number(e.target.value))}
+                                className="w-full px-3 py-1.5 text-xs bg-card border border-input rounded-xl focus:ring-2 focus:ring-blue-500"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-[11px] font-semibold text-foreground mb-1">
+                                Jumlah (Qty):
+                              </label>
+                              <input
+                                type="number"
+                                min="1"
+                                value={customPartQty}
+                                onChange={(e) => setCustomPartQty(Math.max(1, Number(e.target.value)))}
+                                className="w-full px-3 py-1.5 text-xs text-center font-bold bg-card border border-input rounded-xl focus:ring-2 focus:ring-blue-500"
+                              />
+                            </div>
+
+                            <div className="flex items-end">
+                              <button
+                                type="button"
+                                onClick={handleAddCustomPart}
+                                disabled={!customPartName.trim() || customPartPrice <= 0}
+                                className={`w-full py-2 px-3 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-colors ${
+                                  customPartName.trim() && customPartPrice > 0
+                                    ? "bg-blue-600 hover:bg-blue-700 text-white shadow-2xs cursor-pointer"
+                                    : "bg-muted text-muted-foreground cursor-not-allowed"
+                                }`}
+                              >
+                                <Plus className="w-3.5 h-3.5" />
+                                <span>+ Tambah Manual</span>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Parts List Table */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground px-1">
+                      <span>Daftar Sparepart Terpasang ({partsList.length})</span>
+                      {partsList.length > 0 && !isTicketLocked && (
+                        <button
+                          type="button"
+                          onClick={handleSyncPartsToTotal}
+                          className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 font-bold"
+                          title="Klik untuk otomatis menyetel Total Biaya Servis sama dengan total part ini"
+                        >
+                          <Calculator className="w-3 h-3" />
+                          <span>Setel Total Servis ke Total Part</span>
+                        </button>
+                      )}
+                    </div>
+
+                    {partsList.length > 0 ? (
+                      <div className="border border-border rounded-xl overflow-hidden divide-y divide-border/60 bg-card">
+                        {partsList.map((part, idx) => {
+                          const isInventoryItem = products.some((p) => p.id === part.id || p.name === part.name);
+                          return (
+                            <div
+                              key={part.id || idx}
+                              className="p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 hover:bg-muted/20 transition-colors"
+                            >
+                              <div className="space-y-0.5 min-w-0 flex-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-bold text-foreground text-xs sm:text-sm">
+                                    {part.name}
+                                  </span>
+                                  <span
+                                    className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${
+                                      isInventoryItem
+                                        ? "bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-900"
+                                        : "bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-900"
+                                    }`}
+                                  >
+                                    {isInventoryItem ? "Stok Toko" : "Manual"}
+                                  </span>
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  Harga Satuan: {formatRupiah(part.price)}
+                                </div>
+                              </div>
+
+                              <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
+                                {/* Qty Stepper */}
+                                {!isTicketLocked ? (
+                                  <div className="flex items-center border border-border rounded-lg bg-muted/30 overflow-hidden">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleUpdatePartQty(idx, part.qty - 1)}
+                                      className="p-1 hover:bg-muted text-muted-foreground hover:text-foreground"
+                                      title="Kurangi Qty"
+                                    >
+                                      <Minus className="w-3 h-3" />
+                                    </button>
+                                    <span className="px-2.5 text-xs font-bold text-foreground min-w-[24px] text-center">
+                                      {part.qty}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleUpdatePartQty(idx, part.qty + 1)}
+                                      className="p-1 hover:bg-muted text-muted-foreground hover:text-foreground"
+                                      title="Tambah Qty"
+                                    >
+                                      <Plus className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <span className="text-xs font-bold px-2 py-0.5 bg-muted rounded border border-border">
+                                    {part.qty}x
+                                  </span>
+                                )}
+
+                                {/* Line Subtotal */}
+                                <div className="text-right min-w-[90px]">
+                                  <span className="text-xs sm:text-sm font-extrabold text-foreground block">
+                                    {formatRupiah(part.price * part.qty)}
+                                  </span>
+                                </div>
+
+                                {/* Remove Button */}
+                                {!isTicketLocked && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemovePart(idx)}
+                                    className="text-rose-500 hover:text-rose-700 p-1.5 hover:bg-rose-50 dark:hover:bg-rose-950/60 rounded-lg transition-colors"
+                                    title="Hapus part ini"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="p-4 rounded-xl bg-muted/20 border border-dashed border-border text-center text-xs text-muted-foreground">
+                        Belum ada sparepart / suku cadang tambahan yang tercatat pada tiket ini.
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 4. FINANCIAL SUMMARY, DP, WARRANTY, & TECHNICIAN PIC */}
+                <div className="bg-gradient-to-br from-muted/30 via-card to-card border border-border rounded-xl p-4 sm:p-5 space-y-4">
+                  <div className="flex items-center justify-between pb-2 border-b border-border">
+                    <h3 className="text-xs sm:text-sm font-bold text-foreground flex items-center gap-1.5">
+                      <DollarSign className="w-4 h-4 text-blue-600" />
+                      4. Rincian Biaya, Pembayaran, Garansi & Teknisi PIC
+                    </h3>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    {/* Total Final Cost */}
+                    <div className="space-y-1">
+                      <label className="block text-[11px] font-bold text-foreground">
+                        Total Biaya Servis (Rp)
+                      </label>
                       <input
                         type="number"
-                        placeholder="Harga"
-                        value={customPartPrice || ""}
-                        onChange={(e) => setCustomPartPrice(Number(e.target.value))}
-                        className="w-20 px-2 py-1.5 text-xs bg-card border border-input rounded-lg"
+                        min="0"
+                        step="5000"
+                        disabled={isTicketLocked}
+                        value={editFinalCost}
+                        onChange={(e) => setEditFinalCost(Number(e.target.value))}
+                        className={`w-full px-3 py-2 text-sm bg-card border border-input rounded-xl font-bold text-foreground focus:ring-2 focus:ring-blue-500 ${
+                          isTicketLocked ? "cursor-not-allowed opacity-75" : ""
+                        }`}
                       />
-                      <button
-                        type="button"
-                        onClick={handleAddCustomPart}
-                        className="px-2.5 py-1.5 bg-muted hover:bg-muted/80 text-foreground text-xs font-semibold rounded-lg border border-border"
+                      <span className="text-[10px] text-muted-foreground block">
+                        Jasa pengerjaan & sparepart
+                      </span>
+                    </div>
+
+                    {/* Down Payment (DP) */}
+                    <div className="space-y-1">
+                      <label className="block text-[11px] font-bold text-foreground">
+                        Uang Muka / DP (Rp)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="5000"
+                        disabled={isTicketLocked}
+                        value={editDownPayment}
+                        onChange={(e) => setEditDownPayment(Number(e.target.value))}
+                        className={`w-full px-3 py-2 text-sm bg-card border border-input rounded-xl font-semibold text-foreground focus:ring-2 focus:ring-blue-500 ${
+                          isTicketLocked ? "cursor-not-allowed opacity-75" : ""
+                        }`}
+                      />
+                      <span className="text-[10px] text-muted-foreground block">
+                        Telah dibayar di muka
+                      </span>
+                    </div>
+
+                    {/* Sisa Pelunasan (Auto-Calculated) */}
+                    <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl p-3 flex flex-col justify-between">
+                      <span className="text-[10px] font-bold text-emerald-800 dark:text-emerald-300">
+                        Sisa Pelunasan di Kasir:
+                      </span>
+                      <span className="text-base sm:text-lg font-extrabold text-emerald-700 dark:text-emerald-400">
+                        {formatRupiah(remainingCost)}
+                      </span>
+                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400">
+                        {remainingCost === 0 ? "✓ Lunas / Tidak ada tagihan" : "Tagihan saat unit diambil"}
+                      </span>
+                    </div>
+
+                    {/* Warranty Selector */}
+                    <div className="space-y-1">
+                      <label className="block text-[11px] font-bold text-foreground">
+                        Garansi Servis
+                      </label>
+                      <select
+                        disabled={isTicketLocked}
+                        value={editWarrantyDays}
+                        onChange={(e) => setEditWarrantyDays(Number(e.target.value))}
+                        className={`w-full px-3 py-2 text-xs bg-card border border-input rounded-xl font-semibold text-foreground focus:ring-2 focus:ring-blue-500 ${
+                          isTicketLocked ? "cursor-not-allowed opacity-75" : ""
+                        }`}
                       >
-                        +
-                      </button>
+                        <option value="0">Tanpa Garansi</option>
+                        <option value="7">7 Hari (1 Minggu)</option>
+                        <option value="14">14 Hari (2 Minggu)</option>
+                        <option value="30">30 Hari (1 Bulan)</option>
+                        <option value="60">60 Hari (2 Bulan)</option>
+                        <option value="90">90 Hari (3 Bulan)</option>
+                        <option value="180">180 Hari (6 Bulan)</option>
+                        <option value="365">365 Hari (1 Tahun)</option>
+                      </select>
+                      <span className="text-[10px] text-muted-foreground block">
+                        Jaminan setelah perbaikan
+                      </span>
                     </div>
                   </div>
-                )}
 
-                {/* Parts Table */}
-                {partsList.length > 0 ? (
-                  <div className="space-y-1.5 pt-2 border-t border-border">
-                    {partsList.map((part, idx) => (
-                      <div
-                        key={part.id || idx}
-                        className="flex items-center justify-between text-xs p-2 rounded-lg bg-card border border-border"
-                      >
-                        <span className="font-medium text-foreground">{part.name}</span>
-                        <span className="font-bold text-foreground">
-                          {formatRupiah(part.price * part.qty)}
-                        </span>
-                        {!isTicketLocked && (
-                          <button
-                            type="button"
-                            onClick={() => handleRemovePart(idx)}
-                            className="text-rose-500 hover:text-rose-700 p-1"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                ) : isTicketLocked ? (
-                  <p className="text-xs text-muted-foreground italic">Tidak ada penggantian sparepart tercatat.</p>
-                ) : null}
-              </div>
+                  {/* Technician PIC Row */}
+                  <div className="pt-3 border-t border-border flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-muted-foreground shrink-0">
+                        Teknisi Penanggung Jawab (PIC):
+                      </span>
+                      {users.length > 0 ? (
+                        <select
+                          disabled={isTicketLocked}
+                          value={editTechName}
+                          onChange={(e) => setEditTechName(e.target.value)}
+                          className={`px-3 py-1.5 text-xs bg-card border border-input rounded-lg font-semibold text-foreground ${
+                            isTicketLocked ? "cursor-not-allowed opacity-75" : ""
+                          }`}
+                        >
+                          {users
+                            .filter((u) => u.role === "technician" || u.role === "admin" || u.role === "owner")
+                            .map((u) => (
+                              <option key={u.id} value={u.name}>
+                                {u.name} ({u.role === "technician" ? "Teknisi" : u.role === "admin" ? "Admin" : "Owner"})
+                              </option>
+                            ))}
+                        </select>
+                      ) : (
+                        <input
+                          type="text"
+                          disabled={isTicketLocked}
+                          value={editTechName}
+                          onChange={(e) => setEditTechName(e.target.value)}
+                          className={`px-3 py-1.5 text-xs bg-card border border-input rounded-lg font-semibold text-foreground ${
+                            isTicketLocked ? "cursor-not-allowed opacity-75" : ""
+                          }`}
+                        />
+                      )}
+                    </div>
 
-              {/* Final Cost, DP, Warranty, & Technician Settings */}
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-foreground mb-1">
-                    Total Biaya Akhir (Rp)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="5000"
-                    disabled={isTicketLocked}
-                    value={editFinalCost}
-                    onChange={(e) => setEditFinalCost(Number(e.target.value))}
-                    className={`w-full px-3 py-2 text-sm bg-muted/40 border border-input rounded-lg font-bold text-foreground ${
-                      isTicketLocked ? "cursor-not-allowed opacity-75" : ""
-                    }`}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-foreground mb-1">
-                    Uang Muka / DP (Rp)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="5000"
-                    disabled={isTicketLocked}
-                    value={editDownPayment}
-                    onChange={(e) => setEditDownPayment(Number(e.target.value))}
-                    className={`w-full px-3 py-2 text-sm bg-muted/40 border border-input rounded-lg ${
-                      isTicketLocked ? "cursor-not-allowed opacity-75" : ""
-                    }`}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-foreground mb-1">
-                    Masa Garansi Servis
-                  </label>
-                  <select
-                    disabled={isTicketLocked}
-                    value={editWarrantyDays}
-                    onChange={(e) => setEditWarrantyDays(Number(e.target.value))}
-                    className={`w-full px-3 py-2 text-sm bg-muted/40 border border-input rounded-lg font-semibold ${
-                      isTicketLocked ? "cursor-not-allowed opacity-75" : ""
-                    }`}
-                  >
-                    <option value="0">Tanpa Garansi</option>
-                    <option value="7">7 Hari (1 Minggu)</option>
-                    <option value="14">14 Hari (2 Minggu)</option>
-                    <option value="30">30 Hari (1 Bulan)</option>
-                    <option value="60">60 Hari (2 Bulan)</option>
-                    <option value="90">90 Hari (3 Bulan)</option>
-                    <option value="180">180 Hari (6 Bulan)</option>
-                    <option value="365">365 Hari (1 Tahun)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-foreground mb-1">
-                    Teknisi PIC
-                  </label>
-                  {users.length > 0 ? (
-                    <select
-                      disabled={isTicketLocked}
-                      value={editTechName}
-                      onChange={(e) => setEditTechName(e.target.value)}
-                      className={`w-full px-3 py-2 text-sm bg-muted/40 border border-input rounded-lg font-semibold ${
-                        isTicketLocked ? "cursor-not-allowed opacity-75" : ""
-                      }`}
-                    >
-                      {users
-                        .filter((u) => u.role === "technician" || u.role === "admin" || u.role === "owner")
-                        .map((u) => (
-                          <option key={u.id} value={u.name}>
-                            {u.name} ({u.role === "technician" ? "Teknisi" : u.role === "admin" ? "Admin" : "Owner"})
-                          </option>
-                        ))}
-                    </select>
-                  ) : (
-                    <input
-                      type="text"
-                      disabled={isTicketLocked}
-                      value={editTechName}
-                      onChange={(e) => setEditTechName(e.target.value)}
-                      className={`w-full px-3 py-2 text-sm bg-muted/40 border border-input rounded-lg font-semibold ${
-                        isTicketLocked ? "cursor-not-allowed opacity-75" : ""
-                      }`}
-                    />
-                  )}
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex flex-wrap items-center justify-between gap-2 pt-4 border-t border-border">
-                <div className="flex items-center space-x-2">
-                  <a
-                    href={createWhatsAppUrl(
-                      activeTicket.customerPhone,
-                      getWhatsAppMessage({
-                        ...activeTicket,
-                        status: editStatus,
-                        finalCost: editFinalCost,
-                        downPayment: editDownPayment,
-                        technicianNotes: editTechNotes,
-                        warrantyDays: editWarrantyDays
-                      })
+                    {editWarrantyDays > 0 && (
+                      <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
+                        <ShieldCheck className="w-4 h-4 shrink-0" />
+                        Garansi aktif {editWarrantyDays} hari terhitung sejak tanggal pelunasan/pengambilan.
+                      </span>
                     )}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-colors"
-                  >
-                    <MessageCircle className="h-4 w-4" />
-                    <span>Kirim WA Pelanggan</span>
-                  </a>
+                  </div>
+                </div>
+              </div>
 
+              {/* Action Buttons Footer */}
+              <div className="p-4 sm:p-5 border-t border-border bg-muted/20 shrink-0 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center flex-wrap gap-2">
                   <button
                     type="button"
                     onClick={() =>
                       onPrintTicket(
                         activeTicket,
-                        editStatus === "ready" || editStatus === "completed" ? "invoice" : "intake"
+                        editStatus === "ready" || editStatus === "completed" ? "invoice" : "intake",
+                        "continuous"
                       )
                     }
-                    className="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-xs font-semibold"
+                    className="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-950/60 dark:text-blue-300 text-xs font-bold border border-blue-200 dark:border-blue-800 transition-colors"
                   >
-                    <Printer className="h-4 w-4" />
-                    <span>Cetak Nota</span>
+                    <FileText className="h-4 w-4" />
+                    <span>Cetak Nota SPK</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => onPrintTicket(activeTicket, "intake", "sticker_58mm")}
+                    className="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/60 dark:text-amber-300 text-xs font-bold border border-amber-200 dark:border-amber-800 transition-colors"
+                  >
+                    <Tag className="h-4 w-4" />
+                    <span>Cetak Stiker Unit</span>
                   </button>
 
                   {canDelete && !isTicketLocked && (
@@ -1074,7 +1582,7 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
                       className="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/50 dark:hover:bg-rose-900/50 text-rose-600 dark:text-rose-300 text-xs font-bold transition-colors border border-rose-200 dark:border-rose-900"
                     >
                       <Trash2 className="h-4 w-4" />
-                      <span>Hapus Tiket (Salah Input)</span>
+                      <span>Hapus Tiket</span>
                     </button>
                   )}
                 </div>
@@ -1083,7 +1591,7 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
                   <button
                     type="button"
                     onClick={closeDetailModal}
-                    className="px-4 py-2 text-xs font-medium text-muted-foreground hover:text-foreground"
+                    className="px-4 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground rounded-xl border border-transparent hover:border-border transition-colors"
                   >
                     {isTicketLocked ? "Tutup" : "Batal"}
                   </button>
@@ -1097,9 +1605,10 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
                     <button
                       type="button"
                       onClick={handleSaveTicketUpdates}
-                      className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs shadow-md active:scale-95 transition-all"
+                      className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs shadow-md active:scale-95 transition-all flex items-center gap-1.5"
                     >
-                      Simpan Perubahan
+                      <Check className="w-4 h-4" />
+                      <span>Simpan Perubahan</span>
                     </button>
                   )}
                 </div>

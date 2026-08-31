@@ -21,10 +21,17 @@ import {
   Users,
   FileText,
   Printer,
-  ChevronDown
+  ChevronDown,
+  LayoutGrid,
+  Grid3X3,
+  List,
+  Tag,
+  Boxes
 } from "lucide-react";
 import { Product, CartItem, ServiceTicket, Transaction, ProductCategory } from "../types";
 import { formatRupiah, formatDateIndo } from "../lib/utils";
+
+type POSViewMode = "grid" | "compact" | "list";
 
 interface POSViewProps {
   products: Product[];
@@ -72,6 +79,14 @@ export const POSView: React.FC<POSViewProps> = ({
   const [notes, setNotes] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [showHistoryModal, setShowHistoryModal] = useState<boolean>(false);
+  const [posViewMode, setPosViewMode] = useState<POSViewMode>(() => {
+    return (localStorage.getItem("pos_view_mode") as POSViewMode) || "grid";
+  });
+
+  const handleSetViewMode = (mode: POSViewMode) => {
+    setPosViewMode(mode);
+    localStorage.setItem("pos_view_mode", mode);
+  };
 
   // Handle preloaded ticket from Service view
   React.useEffect(() => {
@@ -459,19 +474,75 @@ export const POSView: React.FC<POSViewProps> = ({
             </div>
           )}
 
-          {/* Search & Category Filter */}
+          {/* Search, Category Filter & Display Mode Switcher */}
           <div className="bg-card border border-border rounded-xl p-4 shadow-xs space-y-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Cari Laptop Baru/Bekas, Core i5, Ryzen, RAM, SSD, atau Jasa..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 text-sm bg-muted/40 border border-input rounded-lg"
-              />
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="Cari Nama Laptop, Kode (LTP-...), Core i5/Ryzen, RAM, SSD, atau Jasa..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 text-sm bg-muted/40 border border-input rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+
+              {/* Layout Switcher */}
+              <div className="flex items-center self-end sm:self-auto bg-muted/50 p-1 rounded-xl border border-border shrink-0">
+                <button
+                  type="button"
+                  title="Tampilan Grid Detail"
+                  onClick={() => handleSetViewMode("grid")}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    posViewMode === "grid"
+                      ? "bg-card text-blue-600 dark:text-blue-400 shadow-xs font-bold"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <LayoutGrid className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Kartu Detail</span>
+                </button>
+
+                <button
+                  type="button"
+                  title="Tampilan Ubin Cepat POS (Touch Keypad)"
+                  onClick={() => handleSetViewMode("compact")}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    posViewMode === "compact"
+                      ? "bg-card text-blue-600 dark:text-blue-400 shadow-xs font-bold"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <Grid3X3 className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Ubin POS</span>
+                </button>
+
+                <button
+                  type="button"
+                  title="Tampilan Daftar / Tabel Barcode"
+                  onClick={() => handleSetViewMode("list")}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    posViewMode === "list"
+                      ? "bg-card text-blue-600 dark:text-blue-400 shadow-xs font-bold"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <List className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Daftar Baris</span>
+                </button>
+              </div>
             </div>
 
+            {/* Category Pills */}
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-xs">
               {[
                 { id: "all", label: "Semua Item" },
@@ -487,7 +558,7 @@ export const POSView: React.FC<POSViewProps> = ({
                   onClick={() => setActiveCategory(cat.id)}
                   className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-colors ${
                     activeCategory === cat.id
-                      ? "bg-blue-600 text-white shadow-xs"
+                      ? "bg-blue-600 text-white shadow-xs font-bold"
                       : "bg-muted/50 text-muted-foreground hover:bg-muted"
                   }`}
                 >
@@ -497,134 +568,341 @@ export const POSView: React.FC<POSViewProps> = ({
             </div>
           </div>
 
-          {/* Product Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[580px] overflow-y-auto pr-1">
-            {filteredProducts.map((product) => {
-              const isLowStock = product.category !== "jasa" && product.stock <= product.minStock;
-              const isLaptop = product.category === "laptop_baru" || product.category === "laptop_bekas";
-              const activePrice =
-                customerType === "reseller" && product.resellerPrice
-                  ? product.resellerPrice
-                  : product.sellPrice;
-              const hasResellerDiscount =
-                product.resellerPrice && product.resellerPrice < product.sellPrice;
+          {/* PRODUCT CATALOG CONTAINER (3 MODES) */}
+          <div className="max-h-[580px] overflow-y-auto pr-1">
+            {/* MODE 1: DETAIL CARDS GRID */}
+            {posViewMode === "grid" && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {filteredProducts.map((product) => {
+                  const isLowStock = product.category !== "jasa" && product.stock <= product.minStock;
+                  const isLaptop = product.category === "laptop_baru" || product.category === "laptop_bekas";
+                  const activePrice =
+                    customerType === "reseller" && product.resellerPrice
+                      ? product.resellerPrice
+                      : product.sellPrice;
+                  const hasResellerDiscount =
+                    product.resellerPrice && product.resellerPrice < product.sellPrice;
 
-              return (
-                <div
-                  key={product.id}
-                  onClick={() => addToCart(product)}
-                  className="bg-card border border-border rounded-xl p-3.5 shadow-xs hover:border-blue-500 hover:shadow-md cursor-pointer transition-all flex flex-col justify-between group"
-                >
-                  <div>
-                    {/* Top Row: Category badge, Stock, Warranty */}
-                    <div className="flex items-center justify-between text-[11px] text-muted-foreground mb-1.5">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-mono font-bold text-blue-600 dark:text-blue-400">
-                          {product.code}
-                        </span>
-                        {product.category === "laptop_baru" && (
-                          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
-                            ✨ Baru
-                          </span>
+                  return (
+                    <div
+                      key={product.id}
+                      onClick={() => addToCart(product)}
+                      className="bg-card border border-border rounded-xl p-3.5 shadow-xs hover:border-blue-500 hover:shadow-md cursor-pointer transition-all flex flex-col justify-between group"
+                    >
+                      <div>
+                        {/* Top Row: Category badge, Stock, Warranty */}
+                        <div className="flex items-center justify-between text-[11px] text-muted-foreground mb-1.5">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono font-bold text-blue-600 dark:text-blue-400">
+                              {product.code}
+                            </span>
+                            {product.category === "laptop_baru" && (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                                ✨ Baru
+                              </span>
+                            )}
+                            {product.category === "laptop_bekas" && (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+                                🔄 Bekas
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-1">
+                            {product.warrantyDays > 0 && (
+                              <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-1.5 py-0.5 rounded">
+                                <ShieldCheck className="w-3 h-3" />
+                                {getWarrantyLabel(product.warrantyDays)}
+                              </span>
+                            )}
+                            {product.category !== "jasa" ? (
+                              <span
+                                className={`font-bold text-[10px] ${
+                                  isLowStock ? "text-rose-500 font-bold" : "text-foreground"
+                                }`}
+                              >
+                                Stok: {product.stock}
+                              </span>
+                            ) : (
+                              <span className="text-purple-600 dark:text-purple-400 text-[10px] font-bold">Jasa</span>
+                            )}
+                          </div>
+                        </div>
+
+                        <h4 className="text-xs font-bold text-foreground line-clamp-2 group-hover:text-blue-600 transition-colors">
+                          {product.name}
+                        </h4>
+
+                        {/* Detailed Specifications for Laptops */}
+                        {isLaptop && (
+                          <div className="mt-2 p-2 bg-muted/40 rounded-lg text-[11px] space-y-1">
+                            {product.conditionGrade && (
+                              <div className="font-bold text-amber-700 dark:text-amber-400 flex items-center gap-1">
+                                <span>🏷️</span>
+                                <span>{product.conditionGrade}</span>
+                              </div>
+                            )}
+                            {product.processor && (
+                              <div className="text-foreground flex items-center gap-1">
+                                <Cpu className="w-3 h-3 text-blue-500 shrink-0" />
+                                <span className="truncate">{product.processor}</span>
+                              </div>
+                            )}
+                            <div className="flex flex-wrap gap-x-2 text-muted-foreground text-[10px]">
+                              {product.ram && <span>🧠 {product.ram}</span>}
+                              {product.storage && <span>💾 {product.storage}</span>}
+                              {product.screenSize && <span>🖥️ {product.screenSize}</span>}
+                            </div>
+                            {product.batteryHealth && (
+                              <div className="text-[10px] text-emerald-600 dark:text-emerald-400">
+                                🔋 {product.batteryHealth}
+                              </div>
+                            )}
+                          </div>
                         )}
-                        {product.category === "laptop_bekas" && (
-                          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300">
-                            🔄 Bekas
-                          </span>
+
+                        {!isLaptop && product.description && (
+                          <p className="text-[11px] text-muted-foreground line-clamp-2 mt-1">
+                            {product.description}
+                          </p>
                         )}
                       </div>
 
-                      <div className="flex items-center gap-1">
-                        {product.warrantyDays > 0 && (
-                          <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-1.5 py-0.5 rounded">
-                            <ShieldCheck className="w-3 h-3" />
-                            {getWarrantyLabel(product.warrantyDays)}
+                      {/* Pricing Bar */}
+                      <div className="mt-3 pt-2.5 border-t border-border/60 flex items-center justify-between">
+                        <div>
+                          <div className="flex items-baseline gap-1.5">
+                            <span className="font-bold text-sm text-blue-600 dark:text-blue-400">
+                              {formatRupiah(activePrice)}
+                            </span>
+                            {customerType === "reseller" && hasResellerDiscount && (
+                              <span className="text-[10px] line-through text-muted-foreground">
+                                {formatRupiah(product.sellPrice)}
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[10px] text-muted-foreground block">
+                            {customerType === "reseller" && product.resellerPrice
+                              ? "🏷️ Harga Reseller Mitra"
+                              : "🏷️ Harga Konsumen Biasa"}
                           </span>
-                        )}
-                        {product.category !== "jasa" ? (
-                          <span
-                            className={`font-bold text-[10px] ${
-                              isLowStock ? "text-rose-500" : "text-foreground"
-                            }`}
-                          >
-                            Stok: {product.stock}
-                          </span>
-                        ) : (
-                          <span className="text-purple-600 text-[10px] font-bold">Jasa</span>
-                        )}
+                        </div>
+
+                        <button className="h-7 px-2.5 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-xs hover:bg-blue-700 transition-colors shadow-2xs">
+                          + Masuk Kasir
+                        </button>
                       </div>
                     </div>
+                  );
+                })}
+              </div>
+            )}
 
-                    <h4 className="text-xs font-bold text-foreground line-clamp-2 group-hover:text-blue-600 transition-colors">
-                      {product.name}
-                    </h4>
+            {/* MODE 2: COMPACT TOUCH KEYPAD TILES */}
+            {posViewMode === "compact" && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
+                {filteredProducts.map((product) => {
+                  const isLowStock = product.category !== "jasa" && product.stock <= product.minStock;
+                  const activePrice =
+                    customerType === "reseller" && product.resellerPrice
+                      ? product.resellerPrice
+                      : product.sellPrice;
 
-                    {/* Detailed Specifications for Laptops */}
-                    {isLaptop && (
-                      <div className="mt-2 p-2 bg-muted/40 rounded-lg text-[11px] space-y-1">
-                        {product.conditionGrade && (
-                          <div className="font-bold text-amber-700 dark:text-amber-400 flex items-center gap-1">
-                            <span>🏷️</span>
-                            <span>{product.conditionGrade}</span>
-                          </div>
-                        )}
-                        {product.processor && (
-                          <div className="text-foreground flex items-center gap-1">
-                            <Cpu className="w-3 h-3 text-blue-500 shrink-0" />
-                            <span className="truncate">{product.processor}</span>
-                          </div>
-                        )}
-                        <div className="flex flex-wrap gap-x-2 text-muted-foreground text-[10px]">
-                          {product.ram && <span>🧠 {product.ram}</span>}
-                          {product.storage && <span>💾 {product.storage}</span>}
-                          {product.screenSize && <span>🖥️ {product.screenSize}</span>}
+                  return (
+                    <div
+                      key={product.id}
+                      onClick={() => addToCart(product)}
+                      className="bg-card border border-border rounded-xl p-3 shadow-2xs hover:border-blue-500 hover:shadow-md cursor-pointer transition-all flex flex-col justify-between group active:scale-95 select-none"
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-[10px]">
+                          <span className="font-mono font-bold text-blue-600 dark:text-blue-400 truncate">
+                            {product.code}
+                          </span>
+                          {product.category !== "jasa" ? (
+                            <span
+                              className={`px-1.5 py-0.2 rounded font-bold ${
+                                isLowStock
+                                  ? "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300"
+                                  : "bg-muted text-muted-foreground"
+                              }`}
+                            >
+                              Stok {product.stock}
+                            </span>
+                          ) : (
+                            <span className="px-1.5 py-0.2 rounded font-bold bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300">
+                              Jasa
+                            </span>
+                          )}
                         </div>
-                        {product.batteryHealth && (
-                          <div className="text-[10px] text-emerald-600 dark:text-emerald-400">
-                            🔋 {product.batteryHealth}
+
+                        <h4 className="text-xs font-bold text-foreground line-clamp-2 leading-tight group-hover:text-blue-600 transition-colors pt-0.5">
+                          {product.name}
+                        </h4>
+
+                        {product.processor && (
+                          <div className="text-[10px] text-muted-foreground truncate">
+                            {product.processor}
                           </div>
                         )}
                       </div>
-                    )}
 
-                    {!isLaptop && product.description && (
-                      <p className="text-[11px] text-muted-foreground line-clamp-2 mt-1">
-                        {product.description}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Pricing Bar */}
-                  <div className="mt-3 pt-2.5 border-t border-border/60 flex items-center justify-between">
-                    <div>
-                      <div className="flex items-baseline gap-1.5">
-                        <span className="font-bold text-sm text-blue-600 dark:text-blue-400">
+                      <div className="mt-2.5 pt-2 border-t border-border/60 flex items-center justify-between">
+                        <span className="font-extrabold text-xs sm:text-sm text-blue-600 dark:text-blue-400">
                           {formatRupiah(activePrice)}
                         </span>
-                        {customerType === "reseller" && hasResellerDiscount && (
-                          <span className="text-[10px] line-through text-muted-foreground">
-                            {formatRupiah(product.sellPrice)}
-                          </span>
-                        )}
+                        <span className="w-6 h-6 rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400 group-hover:bg-blue-600 group-hover:text-white flex items-center justify-center text-xs font-bold transition-colors shrink-0">
+                          +
+                        </span>
                       </div>
-                      <span className="text-[10px] text-muted-foreground block">
-                        {customerType === "reseller" && product.resellerPrice
-                          ? "🏷️ Harga Reseller Mitra"
-                          : "🏷️ Harga Konsumen Biasa"}
-                      </span>
                     </div>
+                  );
+                })}
+              </div>
+            )}
 
-                    <button className="h-7 px-2.5 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-xs hover:bg-blue-700 transition-colors shadow-2xs">
-                      + Masuk Kasir
-                    </button>
-                  </div>
+            {/* MODE 3: DENSE LIST / TABLE VIEW */}
+            {posViewMode === "list" && (
+              <div className="bg-card border border-border rounded-xl overflow-hidden shadow-xs">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-muted/50 border-b border-border text-muted-foreground font-semibold">
+                        <th className="py-2.5 px-3">Kode / Item</th>
+                        <th className="py-2.5 px-2">Kategori</th>
+                        <th className="py-2.5 px-2">Garansi</th>
+                        <th className="py-2.5 px-2 text-center">Stok</th>
+                        <th className="py-2.5 px-3 text-right">Harga</th>
+                        <th className="py-2.5 px-3 text-center">Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {filteredProducts.map((product) => {
+                        const isLowStock = product.category !== "jasa" && product.stock <= product.minStock;
+                        const activePrice =
+                          customerType === "reseller" && product.resellerPrice
+                            ? product.resellerPrice
+                            : product.sellPrice;
+                        const hasResellerDiscount =
+                          product.resellerPrice && product.resellerPrice < product.sellPrice;
+
+                        return (
+                          <tr
+                            key={product.id}
+                            onClick={() => addToCart(product)}
+                            className="hover:bg-blue-50/50 dark:hover:bg-blue-950/20 cursor-pointer transition-colors group"
+                          >
+                            <td className="py-2 px-3">
+                              <div className="font-mono font-bold text-[11px] text-blue-600 dark:text-blue-400">
+                                {product.code}
+                              </div>
+                              <div className="font-bold text-foreground group-hover:text-blue-600">
+                                {product.name}
+                              </div>
+                              {product.processor && (
+                                <div className="text-[10px] text-muted-foreground truncate max-w-xs">
+                                  {product.processor} {product.ram ? `• ${product.ram}` : ""}{" "}
+                                  {product.storage ? `• ${product.storage}` : ""}
+                                </div>
+                              )}
+                            </td>
+
+                            <td className="py-2 px-2 whitespace-nowrap">
+                              {product.category === "laptop_baru" && (
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                                  ✨ Laptop Baru
+                                </span>
+                              )}
+                              {product.category === "laptop_bekas" && (
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+                                  🔄 Laptop Bekas
+                                </span>
+                              )}
+                              {product.category === "komponen_pc" && (
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted text-muted-foreground">
+                                  Komponen PC
+                                </span>
+                              )}
+                              {product.category === "part_laptop" && (
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted text-muted-foreground">
+                                  Part Laptop
+                                </span>
+                              )}
+                              {product.category === "aksesoris" && (
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted text-muted-foreground">
+                                  Aksesoris
+                                </span>
+                              )}
+                              {product.category === "jasa" && (
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300">
+                                  Jasa & Servis
+                                </span>
+                              )}
+                            </td>
+
+                            <td className="py-2 px-2 whitespace-nowrap text-muted-foreground text-[11px]">
+                              {product.warrantyDays > 0 ? (
+                                <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+                                  <ShieldCheck className="w-3 h-3" />
+                                  {getWarrantyLabel(product.warrantyDays)}
+                                </span>
+                              ) : (
+                                "—"
+                              )}
+                            </td>
+
+                            <td className="py-2 px-2 text-center whitespace-nowrap">
+                              {product.category !== "jasa" ? (
+                                <span
+                                  className={`px-2 py-0.5 rounded-full font-bold text-[11px] ${
+                                    isLowStock
+                                      ? "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300"
+                                      : "bg-muted text-foreground"
+                                  }`}
+                                >
+                                  {product.stock}
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground text-[11px]">∞</span>
+                              )}
+                            </td>
+
+                            <td className="py-2 px-3 text-right whitespace-nowrap">
+                              <div className="font-extrabold text-blue-600 dark:text-blue-400 text-xs sm:text-sm">
+                                {formatRupiah(activePrice)}
+                              </div>
+                              {customerType === "reseller" && hasResellerDiscount && (
+                                <div className="text-[10px] line-through text-muted-foreground">
+                                  {formatRupiah(product.sellPrice)}
+                                </div>
+                              )}
+                            </td>
+
+                            <td className="py-2 px-3 text-center">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  addToCart(product);
+                                }}
+                                className="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition-colors shadow-2xs"
+                              >
+                                + Pilih
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
-              );
-            })}
+              </div>
+            )}
 
+            {/* Empty state */}
             {filteredProducts.length === 0 && (
-              <div className="col-span-full py-12 text-center text-muted-foreground text-xs bg-card border border-border rounded-xl">
-                Tidak ada produk yang cocok dengan pencarian / filter.
+              <div className="py-12 text-center text-muted-foreground text-xs bg-card border border-border rounded-xl">
+                Tidak ada produk yang cocok dengan pencarian / filter kategori ini.
               </div>
             )}
           </div>
