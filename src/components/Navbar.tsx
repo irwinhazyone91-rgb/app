@@ -9,7 +9,9 @@ import {
   ShieldCheck,
   Moon,
   Sun,
-  Laptop
+  Laptop,
+  UserCheck,
+  TrendingUp
 } from "lucide-react";
 import { StoreSettings } from "../types";
 
@@ -34,13 +36,15 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     {
       id: "services",
-      label: "Manajemen Servis",
+      label: "Servis",
       icon: Wrench,
       badge: activeTicketsCount > 0 ? activeTicketsCount : undefined
     },
     { id: "pos", label: "Kasir POS", icon: ShoppingCart },
-    { id: "inventory", label: "Sparepart & Stok", icon: Package },
-    { id: "tracking", label: "Cek Servis Online", icon: Search },
+    { id: "inventory", label: "Stok", icon: Package },
+    { id: "customers", label: "Pelanggan", icon: UserCheck },
+    { id: "reports", label: "Laba/Rugi", icon: TrendingUp },
+    { id: "tracking", label: "Cek Servis", icon: Search },
     { id: "settings", label: "Pengaturan", icon: Settings },
   ];
 

@@ -91,6 +91,13 @@ export const PublicTrackingView: React.FC<PublicTrackingViewProps> = ({
     ? Math.max(0, (searchedTicket.finalCost || searchedTicket.estimatedCost) - searchedTicket.downPayment)
     : 0;
 
+  const wDays = searchedTicket ? (searchedTicket.warrantyDays !== undefined ? searchedTicket.warrantyDays : 30) : 30;
+  let effectiveWarrantyUntil = searchedTicket?.warrantyUntil || "";
+  if (searchedTicket && wDays > 0 && !effectiveWarrantyUntil) {
+    const baseDate = new Date(searchedTicket.completedAt || searchedTicket.updatedAt || searchedTicket.createdAt || Date.now());
+    effectiveWarrantyUntil = new Date(baseDate.getTime() + wDays * 86400000).toISOString().split("T")[0];
+  }
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Header Banner */}
@@ -285,10 +292,10 @@ export const PublicTrackingView: React.FC<PublicTrackingViewProps> = ({
                 <div className="flex items-center space-x-2 text-emerald-800 dark:text-emerald-300">
                   <ShieldCheck className="h-4 w-4 text-emerald-600" />
                   <div>
-                    <div className="font-bold">Masa Garansi Servis: {searchedTicket.warrantyDays} Hari</div>
-                    {searchedTicket.warrantyUntil && (
-                      <div className="text-[10px] text-emerald-600 dark:text-emerald-400">
-                        Berlaku sampai: {formatDateIndo(searchedTicket.warrantyUntil)}
+                    <div className="font-bold">Masa Garansi Servis: {wDays} Hari</div>
+                    {effectiveWarrantyUntil && (
+                      <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
+                        Berlaku sampai: {formatDateIndo(effectiveWarrantyUntil)}
                       </div>
                     )}
                   </div>

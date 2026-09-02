@@ -14,7 +14,7 @@ import {
 } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import firebaseConfig from "../../firebase-applet-config.json";
-import { ServiceTicket, Product, Transaction, StoreSettings, User } from "../types";
+import { ServiceTicket, Product, Transaction, StoreSettings, User, Customer, Expense } from "../types";
 
 // Initialize Firebase App
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
@@ -88,6 +88,8 @@ export const COLLECTIONS = {
   TICKETS: "service_tickets",
   PRODUCTS: "products",
   TRANSACTIONS: "transactions",
+  CUSTOMERS: "customers",
+  EXPENSES: "expenses",
   SETTINGS: "settings",
   USERS: "users",
 };
@@ -105,10 +107,12 @@ export const firestoreService = {
   // Direct Fetchers for Cloud Data
   async fetchAllCloudData() {
     try {
-      const [ticketsSnap, productsSnap, txSnap, settingsSnap, usersSnap] = await Promise.all([
+      const [ticketsSnap, productsSnap, txSnap, customersSnap, expensesSnap, settingsSnap, usersSnap] = await Promise.all([
         getDocs(collection(db, COLLECTIONS.TICKETS)).catch(() => null),
         getDocs(collection(db, COLLECTIONS.PRODUCTS)).catch(() => null),
         getDocs(collection(db, COLLECTIONS.TRANSACTIONS)).catch(() => null),
+        getDocs(collection(db, COLLECTIONS.CUSTOMERS)).catch(() => null),
+        getDocs(collection(db, COLLECTIONS.EXPENSES)).catch(() => null),
         getDocs(collection(db, COLLECTIONS.SETTINGS)).catch(() => null),
         getDocs(collection(db, COLLECTIONS.USERS)).catch(() => null)
       ]);
@@ -122,6 +126,12 @@ export const firestoreService = {
       const transactions: Transaction[] = [];
       txSnap?.forEach((d) => transactions.push(d.data() as Transaction));
 
+      const customers: Customer[] = [];
+      customersSnap?.forEach((d) => customers.push(d.data() as Customer));
+
+      const expenses: Expense[] = [];
+      expensesSnap?.forEach((d) => expenses.push(d.data() as Expense));
+
       let settings: StoreSettings | null = null;
       settingsSnap?.forEach((d) => {
         if (d.id === "store_config") settings = d.data() as StoreSettings;
@@ -130,7 +140,7 @@ export const firestoreService = {
       const users: User[] = [];
       usersSnap?.forEach((d) => users.push(d.data() as User));
 
-      return { tickets, products, transactions, settings, users };
+      return { tickets, products, transactions, customers, expenses, settings, users };
     } catch (e) {
       console.warn("Firestore fetchAllCloudData notice:", e);
       return null;
@@ -139,7 +149,6 @@ export const firestoreService = {
 
   // Sync Service Ticket
   async saveTicket(ticket: ServiceTicket): Promise<void> {
-    const path = `${COLLECTIONS.TICKETS}/${ticket.id}`;
     try {
       const clean = sanitizeForFirestore(ticket);
       await setDoc(doc(db, COLLECTIONS.TICKETS, ticket.id), clean, { merge: true });
@@ -149,7 +158,6 @@ export const firestoreService = {
   },
 
   async deleteTicket(ticketId: string): Promise<void> {
-    const path = `${COLLECTIONS.TICKETS}/${ticketId}`;
     try {
       await deleteDoc(doc(db, COLLECTIONS.TICKETS, ticketId));
     } catch (err) {
@@ -159,7 +167,6 @@ export const firestoreService = {
 
   // Sync Product
   async saveProduct(product: Product): Promise<void> {
-    const path = `${COLLECTIONS.PRODUCTS}/${product.id}`;
     try {
       const clean = sanitizeForFirestore(product);
       await setDoc(doc(db, COLLECTIONS.PRODUCTS, product.id), clean, { merge: true });
@@ -169,7 +176,6 @@ export const firestoreService = {
   },
 
   async deleteProduct(productId: string): Promise<void> {
-    const path = `${COLLECTIONS.PRODUCTS}/${productId}`;
     try {
       await deleteDoc(doc(db, COLLECTIONS.PRODUCTS, productId));
     } catch (err) {
@@ -179,7 +185,6 @@ export const firestoreService = {
 
   // Sync Transaction
   async saveTransaction(transaction: Transaction): Promise<void> {
-    const path = `${COLLECTIONS.TRANSACTIONS}/${transaction.id}`;
     try {
       const clean = sanitizeForFirestore(transaction);
       await setDoc(doc(db, COLLECTIONS.TRANSACTIONS, transaction.id), clean, { merge: true });
@@ -189,7 +194,6 @@ export const firestoreService = {
   },
 
   async deleteTransaction(transactionId: string): Promise<void> {
-    const path = `${COLLECTIONS.TRANSACTIONS}/${transactionId}`;
     try {
       await deleteDoc(doc(db, COLLECTIONS.TRANSACTIONS, transactionId));
     } catch (err) {
@@ -197,9 +201,44 @@ export const firestoreService = {
     }
   },
 
+  // Sync Customer
+  async saveCustomer(customer: Customer): Promise<void> {
+    try {
+      const clean = sanitizeForFirestore(customer);
+      await setDoc(doc(db, COLLECTIONS.CUSTOMERS, customer.id), clean, { merge: true });
+    } catch (err) {
+      console.warn("Firestore saveCustomer error:", err);
+    }
+  },
+
+  async deleteCustomer(customerId: string): Promise<void> {
+    try {
+      await deleteDoc(doc(db, COLLECTIONS.CUSTOMERS, customerId));
+    } catch (err) {
+      console.warn("Firestore deleteCustomer error:", err);
+    }
+  },
+
+  // Sync Expense
+  async saveExpense(expense: Expense): Promise<void> {
+    try {
+      const clean = sanitizeForFirestore(expense);
+      await setDoc(doc(db, COLLECTIONS.EXPENSES, expense.id), clean, { merge: true });
+    } catch (err) {
+      console.warn("Firestore saveExpense error:", err);
+    }
+  },
+
+  async deleteExpense(expenseId: string): Promise<void> {
+    try {
+      await deleteDoc(doc(db, COLLECTIONS.EXPENSES, expenseId));
+    } catch (err) {
+      console.warn("Firestore deleteExpense error:", err);
+    }
+  },
+
   // Sync Store Settings
   async saveSettings(settings: StoreSettings): Promise<void> {
-    const path = `${COLLECTIONS.SETTINGS}/store_config`;
     try {
       const clean = sanitizeForFirestore(settings);
       await setDoc(doc(db, COLLECTIONS.SETTINGS, "store_config"), clean, { merge: true });
@@ -210,7 +249,6 @@ export const firestoreService = {
 
   // Sync User
   async saveUser(user: User): Promise<void> {
-    const path = `${COLLECTIONS.USERS}/${user.id}`;
     try {
       const clean = sanitizeForFirestore(user);
       await setDoc(doc(db, COLLECTIONS.USERS, user.id), clean, { merge: true });
@@ -220,7 +258,6 @@ export const firestoreService = {
   },
 
   async deleteUser(userId: string): Promise<void> {
-    const path = `${COLLECTIONS.USERS}/${userId}`;
     try {
       await deleteDoc(doc(db, COLLECTIONS.USERS, userId));
     } catch (err) {
@@ -233,6 +270,8 @@ export const firestoreService = {
     initialTickets: ServiceTicket[],
     initialProducts: Product[],
     initialTransactions: Transaction[],
+    initialCustomers: Customer[],
+    initialExpenses: Expense[],
     initialSettings: StoreSettings,
     initialUsers: User[]
   ): Promise<void> {
@@ -243,6 +282,8 @@ export const firestoreService = {
         initialTickets.forEach(t => batch.set(doc(db, COLLECTIONS.TICKETS, t.id), sanitizeForFirestore(t)));
         initialProducts.forEach(p => batch.set(doc(db, COLLECTIONS.PRODUCTS, p.id), sanitizeForFirestore(p)));
         initialTransactions.forEach(tx => batch.set(doc(db, COLLECTIONS.TRANSACTIONS, tx.id), sanitizeForFirestore(tx)));
+        initialCustomers.forEach(c => batch.set(doc(db, COLLECTIONS.CUSTOMERS, c.id), sanitizeForFirestore(c)));
+        initialExpenses.forEach(e => batch.set(doc(db, COLLECTIONS.EXPENSES, e.id), sanitizeForFirestore(e)));
         batch.set(doc(db, COLLECTIONS.SETTINGS, "store_config"), sanitizeForFirestore(initialSettings));
         initialUsers.forEach(u => batch.set(doc(db, COLLECTIONS.USERS, u.id), sanitizeForFirestore(u)));
         await batch.commit();
@@ -296,6 +337,36 @@ export const firestoreService = {
       }
     }, (err) => {
       console.warn("Transactions snapshot listener notice:", err);
+    });
+  },
+
+  subscribeToCustomers(onUpdate: (customers: Customer[]) => void) {
+    const q = collection(db, COLLECTIONS.CUSTOMERS);
+    return onSnapshot(q, (snapshot) => {
+      const customers: Customer[] = [];
+      snapshot.forEach(doc => {
+        customers.push(doc.data() as Customer);
+      });
+      if (customers.length > 0) {
+        onUpdate(customers);
+      }
+    }, (err) => {
+      console.warn("Customers snapshot listener notice:", err);
+    });
+  },
+
+  subscribeToExpenses(onUpdate: (expenses: Expense[]) => void) {
+    const q = collection(db, COLLECTIONS.EXPENSES);
+    return onSnapshot(q, (snapshot) => {
+      const expenses: Expense[] = [];
+      snapshot.forEach(doc => {
+        expenses.push(doc.data() as Expense);
+      });
+      if (expenses.length > 0) {
+        onUpdate(expenses);
+      }
+    }, (err) => {
+      console.warn("Expenses snapshot listener notice:", err);
     });
   },
 

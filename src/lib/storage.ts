@@ -1,10 +1,12 @@
-import { ServiceTicket, Product, Transaction, StoreSettings, User, DashboardStats } from "../types";
+import { ServiceTicket, Product, Transaction, StoreSettings, User, DashboardStats, Customer, Expense } from "../types";
 
 // Storage Keys
 export const STORAGE_KEYS = {
   TICKETS: "servisku_db_tickets",
   PRODUCTS: "servisku_db_products",
   TRANSACTIONS: "servisku_db_transactions",
+  CUSTOMERS: "servisku_db_customers",
+  EXPENSES: "servisku_db_expenses",
   SETTINGS: "servisku_db_settings",
   USERS: "servisku_db_users",
   ACTIVE_USER: "servisku_active_user",
@@ -22,6 +24,130 @@ export const DEFAULT_SETTINGS: StoreSettings = {
   receiptFooter: "Terima kasih atas kepercayaan Anda. Harap simpan nota ini sebagai bukti garansi yang sah.",
   warrantyTerms: "Garansi servis berlaku sesuai catatan nota. Tidak berlaku untuk kerusakan fisik, terkena cairan, atau segel rusak."
 };
+
+export const DEFAULT_CUSTOMERS: Customer[] = [
+  {
+    id: "cust-1",
+    name: "Budi Santoso",
+    phone: "081234567890",
+    address: "Jl. Gajahmungkur Barat No. 12, Semarang",
+    email: "budi.santoso@gmail.com",
+    type: "regular",
+    notes: "Pelanggan setia servis laptop Asus",
+    createdAt: "2026-08-20T10:30:00.000Z",
+    updatedAt: "2026-08-24T14:15:00.000Z",
+    totalServicesCount: 1,
+    totalTransactionsCount: 0,
+    totalSpent: 175000
+  },
+  {
+    id: "cust-2",
+    name: "Dewi Anggraini",
+    phone: "085698712345",
+    address: "Perumahan Banyumanik Indah B-4, Semarang",
+    email: "dewi.ang@yahoo.com",
+    type: "regular",
+    notes: "Penggantian keyboard Lenovo",
+    createdAt: "2026-08-22T09:10:00.000Z",
+    updatedAt: "2026-08-25T11:00:00.000Z",
+    totalServicesCount: 1,
+    totalTransactionsCount: 0,
+    totalSpent: 350000
+  },
+  {
+    id: "cust-3",
+    name: "Ahmad Rizky",
+    phone: "087812903456",
+    address: "Jl. Pandanaran No. 45 Semarang",
+    email: "ahmad.rizky.pc@gmail.com",
+    type: "regular",
+    notes: "Servis PC Gaming Liquid Cooler",
+    createdAt: "2026-08-25T08:20:00.000Z",
+    updatedAt: "2026-08-25T13:45:00.000Z",
+    totalServicesCount: 1,
+    totalTransactionsCount: 0,
+    totalSpent: 150000
+  },
+  {
+    id: "cust-4",
+    name: "Siti Rahmawati",
+    phone: "081399887766",
+    address: "Jl. MT Haryono No. 102, Semarang",
+    email: "siti.rahma@gmail.com",
+    type: "regular",
+    notes: "Upgrade SSD & Install OS Acer",
+    createdAt: "2026-08-18T11:00:00.000Z",
+    updatedAt: "2026-08-20T10:00:00.000Z",
+    totalServicesCount: 1,
+    totalTransactionsCount: 1,
+    totalSpent: 625000
+  },
+  {
+    id: "cust-5",
+    name: "Hendro Wibowo",
+    phone: "081299988877",
+    address: "Jl. Pahlawan No. 18 Semarang",
+    type: "regular",
+    notes: "Pembelian charger type C & thermal paste",
+    createdAt: "2026-08-24T15:20:00.000Z",
+    updatedAt: "2026-08-24T15:20:00.000Z",
+    totalServicesCount: 0,
+    totalTransactionsCount: 1,
+    totalSpent: 280000
+  },
+  {
+    id: "cust-6",
+    name: "CV. Mitra IT Solution",
+    phone: "081809988112",
+    address: "Kawasan Industri Candi Blok A-9, Semarang",
+    email: "procurement@mitraitsol.co.id",
+    type: "reseller",
+    notes: "Mitra reseller sparepart & jasa servis kantor",
+    createdAt: "2026-08-01T08:00:00.000Z",
+    updatedAt: "2026-08-20T10:00:00.000Z",
+    totalServicesCount: 0,
+    totalTransactionsCount: 0,
+    totalSpent: 0
+  }
+];
+
+export const DEFAULT_EXPENSES: Expense[] = [
+  {
+    id: "exp-1",
+    date: "2026-08-05T09:00:00.000Z",
+    category: "listrik_internet",
+    description: "Tagihan Listrik PLN & Internet IndiHome 100Mbps Bengkel",
+    amount: 750000,
+    recordedBy: "Bambang Kurniawan",
+    notes: "Rutin bulanan operasional"
+  },
+  {
+    id: "exp-2",
+    date: "2026-08-01T08:30:00.000Z",
+    category: "sewa_tempat",
+    description: "Biaya Kontrak & Iuran Keamanan Ruko Toko",
+    amount: 2500000,
+    recordedBy: "H. Suwandi",
+    notes: "Operasional Toko"
+  },
+  {
+    id: "exp-3",
+    date: "2026-08-12T14:00:00.000Z",
+    category: "alat_servis",
+    description: "Pembelian Timah Solder Mechanic, Pasta Flux Amtech & Kuas Antistatik",
+    amount: 320000,
+    recordedBy: "Rian Prasetyo",
+    notes: "Restock perlengkapan meja teknisi"
+  },
+  {
+    id: "exp-4",
+    date: "2026-08-18T10:00:00.000Z",
+    category: "konsumsi",
+    description: "Air Minum Galon & Kopi Teh Snack Front Office",
+    amount: 150000,
+    recordedBy: "Maya Anggraini"
+  }
+];
 
 export const DEFAULT_USERS: User[] = [
   {
@@ -438,6 +564,8 @@ export const loadPersistentData = () => {
     const savedTickets = localStorage.getItem(STORAGE_KEYS.TICKETS);
     const savedProducts = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
     const savedTransactions = localStorage.getItem(STORAGE_KEYS.TRANSACTIONS);
+    const savedCustomers = localStorage.getItem(STORAGE_KEYS.CUSTOMERS);
+    const savedExpenses = localStorage.getItem(STORAGE_KEYS.EXPENSES);
     const savedSettings = localStorage.getItem(STORAGE_KEYS.SETTINGS);
     const savedUsers = localStorage.getItem(STORAGE_KEYS.USERS);
 
@@ -445,6 +573,8 @@ export const loadPersistentData = () => {
       tickets: savedTickets ? (JSON.parse(savedTickets) as ServiceTicket[]) : DEFAULT_TICKETS,
       products: savedProducts ? (JSON.parse(savedProducts) as Product[]) : DEFAULT_PRODUCTS,
       transactions: savedTransactions ? (JSON.parse(savedTransactions) as Transaction[]) : DEFAULT_TRANSACTIONS,
+      customers: savedCustomers ? (JSON.parse(savedCustomers) as Customer[]) : DEFAULT_CUSTOMERS,
+      expenses: savedExpenses ? (JSON.parse(savedExpenses) as Expense[]) : DEFAULT_EXPENSES,
       settings: savedSettings ? (JSON.parse(savedSettings) as StoreSettings) : DEFAULT_SETTINGS,
       users: savedUsers ? (JSON.parse(savedUsers) as User[]) : DEFAULT_USERS,
     };
@@ -454,6 +584,8 @@ export const loadPersistentData = () => {
       tickets: DEFAULT_TICKETS,
       products: DEFAULT_PRODUCTS,
       transactions: DEFAULT_TRANSACTIONS,
+      customers: DEFAULT_CUSTOMERS,
+      expenses: DEFAULT_EXPENSES,
       settings: DEFAULT_SETTINGS,
       users: DEFAULT_USERS,
     };
@@ -484,6 +616,22 @@ export const savePersistentTransactions = (transactions: Transaction[]) => {
   }
 };
 
+export const savePersistentCustomers = (customers: Customer[]) => {
+  try {
+    localStorage.setItem(STORAGE_KEYS.CUSTOMERS, JSON.stringify(customers));
+  } catch (e) {
+    console.error("Failed to save customers to localStorage", e);
+  }
+};
+
+export const savePersistentExpenses = (expenses: Expense[]) => {
+  try {
+    localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(expenses));
+  } catch (e) {
+    console.error("Failed to save expenses to localStorage", e);
+  }
+};
+
 export const savePersistentSettings = (settings: StoreSettings) => {
   try {
     localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
@@ -497,6 +645,81 @@ export const savePersistentUsers = (users: User[]) => {
     localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
   } catch (e) {
     console.error("Failed to save users to localStorage", e);
+  }
+};
+
+/**
+ * Otomatis memperbarui atau mendaftarkan pelanggan dari pendaftaran tiket servis atau transaksi kasir POS.
+ * Jika nama / nomor HP sudah ada, memperbarui data tanpa duplikasi.
+ */
+export const upsertCustomerSync = (
+  customerData: {
+    name: string;
+    phone: string;
+    address?: string;
+    type?: "regular" | "reseller";
+    notes?: string;
+    spentDelta?: number;
+    isService?: boolean;
+    isTransaction?: boolean;
+  },
+  existingCustomers: Customer[]
+): { updatedCustomers: Customer[]; targetCustomer: Customer } => {
+  const nameTrim = customerData.name?.trim();
+  const phoneTrim = customerData.phone?.trim() || "";
+  const cleanPhone = phoneTrim.replace(/[^0-9]/g, "");
+
+  if (!nameTrim && !phoneTrim) {
+    return { updatedCustomers: existingCustomers, targetCustomer: existingCustomers[0] };
+  }
+
+  const list = [...existingCustomers];
+  const now = new Date().toISOString();
+
+  // Find by clean phone first, or by exact name match if phone is general/empty
+  const matchIndex = list.findIndex((c) => {
+    const cCleanPhone = c.phone ? c.phone.replace(/[^0-9]/g, "") : "";
+    if (cleanPhone && cCleanPhone && (cCleanPhone === cleanPhone || cCleanPhone.endsWith(cleanPhone) || cleanPhone.endsWith(cCleanPhone))) {
+      return true;
+    }
+    if (nameTrim && nameTrim.toLowerCase() !== "pelanggan umum" && c.name.toLowerCase() === nameTrim.toLowerCase()) {
+      return true;
+    }
+    return false;
+  });
+
+  if (matchIndex >= 0) {
+    const existing = list[matchIndex];
+    const updated: Customer = {
+      ...existing,
+      name: nameTrim || existing.name,
+      phone: phoneTrim && phoneTrim !== "-" ? phoneTrim : existing.phone,
+      address: customerData.address || existing.address,
+      type: customerData.type || existing.type || "regular",
+      notes: customerData.notes ? `${existing.notes ? existing.notes + " | " : ""}${customerData.notes}` : existing.notes,
+      updatedAt: now,
+      totalServicesCount: (existing.totalServicesCount || 0) + (customerData.isService ? 1 : 0),
+      totalTransactionsCount: (existing.totalTransactionsCount || 0) + (customerData.isTransaction ? 1 : 0),
+      totalSpent: (existing.totalSpent || 0) + (customerData.spentDelta || 0),
+    };
+    list[matchIndex] = updated;
+    return { updatedCustomers: list, targetCustomer: updated };
+  } else {
+    const newCustomer: Customer = {
+      id: `cust-${Date.now()}`,
+      name: nameTrim || "Pelanggan Baru",
+      phone: phoneTrim || "-",
+      address: customerData.address || "",
+      type: customerData.type || "regular",
+      notes: customerData.notes || "",
+      createdAt: now,
+      updatedAt: now,
+      totalServicesCount: customerData.isService ? 1 : 0,
+      totalTransactionsCount: customerData.isTransaction ? 1 : 0,
+      totalSpent: customerData.spentDelta || 0,
+    };
+    list.unshift(newCustomer);
+    return { updatedCustomers: list, targetCustomer: newCustomer };
   }
 };
 
@@ -537,6 +760,12 @@ export const importDatabaseBackup = (jsonString: string): boolean => {
     if (parsed.transactions && Array.isArray(parsed.transactions)) {
       savePersistentTransactions(parsed.transactions);
     }
+    if (parsed.customers && Array.isArray(parsed.customers)) {
+      savePersistentCustomers(parsed.customers);
+    }
+    if (parsed.expenses && Array.isArray(parsed.expenses)) {
+      savePersistentExpenses(parsed.expenses);
+    }
     if (parsed.settings && typeof parsed.settings === "object") {
       savePersistentSettings(parsed.settings);
     }
@@ -554,7 +783,8 @@ export const importDatabaseBackup = (jsonString: string): boolean => {
 export const computeDashboardStats = (
   tickets: ServiceTicket[],
   products: Product[],
-  transactions: Transaction[]
+  transactions: Transaction[],
+  customersCount: number = 0
 ): DashboardStats => {
   const totalRevenue = transactions.reduce((acc, t) => acc + (t.total || 0), 0);
   const activeServices = tickets.filter(
@@ -590,6 +820,7 @@ export const computeDashboardStats = (
     completedServices,
     lowStockCount,
     totalProducts: products.length,
+    totalCustomers: customersCount,
     revenueChart,
     deviceCounts
   };

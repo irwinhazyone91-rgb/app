@@ -14,6 +14,7 @@ import {
   Users,
   ChevronDown,
   UserCheck,
+  TrendingUp,
   Check,
   Lock,
   LogOut
@@ -79,6 +80,18 @@ export const TopBar: React.FC<TopBarProps> = ({
           title: "Inventaris Sparepart & Jasa",
           subtitle: "Kelola stok fisik, harga modal, tarif jasa, dan batas minimum",
           icon: Package
+        };
+      case "customers":
+        return {
+          title: "Database & Daftar Pelanggan",
+          subtitle: "CRM kontak, riwayat servis perorangan, dan akumulasi transaksi",
+          icon: UserCheck
+        };
+      case "reports":
+        return {
+          title: "Laporan Keuangan & Laba Rugi",
+          subtitle: "Laporan Laba/Rugi (P&L), rincian omzet, margin sparepart & beban operasional",
+          icon: TrendingUp
         };
       case "users":
         return {

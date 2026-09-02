@@ -135,12 +135,21 @@ export const CustomerLandingPage: React.FC<CustomerLandingPageProps> = ({
   // Calculate warranty status
   let isWarrantyActive = false;
   let daysLeftWarranty = 0;
-  if (searchedTicket && searchedTicket.warrantyUntil) {
-    const today = new Date();
-    const until = new Date(searchedTicket.warrantyUntil);
-    const diffTime = until.getTime() - today.getTime();
-    daysLeftWarranty = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    isWarrantyActive = daysLeftWarranty >= 0;
+  let effectiveWarrantyUntil = searchedTicket?.warrantyUntil || "";
+
+  if (searchedTicket) {
+    const wDays = searchedTicket.warrantyDays !== undefined ? searchedTicket.warrantyDays : 30;
+    if (wDays > 0) {
+      if (!effectiveWarrantyUntil) {
+        const baseDate = new Date(searchedTicket.completedAt || searchedTicket.updatedAt || searchedTicket.createdAt || Date.now());
+        effectiveWarrantyUntil = new Date(baseDate.getTime() + wDays * 86400000).toISOString().split("T")[0];
+      }
+      const today = new Date();
+      const until = new Date(effectiveWarrantyUntil);
+      const diffTime = until.getTime() - today.getTime();
+      daysLeftWarranty = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      isWarrantyActive = daysLeftWarranty >= 0;
+    }
   }
 
   const quickSampleTickets = ["SRV-202508-001", "SRV-202508-002", "SRV-202508-003"];
@@ -608,13 +617,13 @@ export const CustomerLandingPage: React.FC<CustomerLandingPageProps> = ({
                   <div className="text-xs space-y-1">
                     <div className="flex justify-between">
                       <span>Masa Berlaku Garansi:</span>
-                      <span className="font-bold">{searchedTicket.warrantyDays} Hari</span>
+                      <span className="font-bold">{searchedTicket.warrantyDays || 30} Hari</span>
                     </div>
-                    {searchedTicket.warrantyUntil && (
+                    {effectiveWarrantyUntil && (
                       <div className="flex justify-between">
                         <span>Berlaku Sampai Tanggal:</span>
                         <span className="font-bold font-mono">
-                          {formatDateIndo(searchedTicket.warrantyUntil)}
+                          {formatDateIndo(effectiveWarrantyUntil)}
                         </span>
                       </div>
                     )}

@@ -81,6 +81,7 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
   selectedTicketForDetail,
   onCloseDetail
 }) => {
+  const [viewCategory, setViewCategory] = useState<"active" | "completed" | "all">("active");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
@@ -98,6 +99,11 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
     currentUser?.role === "technician" || currentUser?.role === "admin" || currentUser?.role === "owner"
       ? currentUser.name
       : users.find((u) => u.role === "technician")?.name || currentUser?.name || "Teknisi Utama";
+
+  // Category counts
+  const activeTicketsTotal = tickets.filter((t) => t.status !== "completed" && t.status !== "cancelled").length;
+  const completedTicketsTotal = tickets.filter((t) => t.status === "completed").length;
+  const allTicketsTotal = tickets.length;
 
   // New Ticket Form State
   const [formData, setFormData] = useState({
@@ -164,7 +170,17 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
 
   // Filtered list
   const filteredTickets = tickets.filter((t) => {
+    // 1. Category filter (Separate active vs completed)
+    if (viewCategory === "active") {
+      if (t.status === "completed" || t.status === "cancelled") return false;
+    } else if (viewCategory === "completed") {
+      if (t.status !== "completed") return false;
+    }
+
+    // 2. Sub-status filter
     const matchesStatus = statusFilter === "all" || t.status === statusFilter;
+
+    // 3. Search filter
     const q = searchQuery.toLowerCase();
     const matchesSearch =
       !q ||
@@ -173,6 +189,7 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
       t.customerPhone.includes(q) ||
       t.deviceBrandModel.toLowerCase().includes(q) ||
       (t.serialNumber && t.serialNumber.toLowerCase().includes(q));
+
     return matchesStatus && matchesSearch;
   });
 
@@ -374,6 +391,78 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
         </button>
       </div>
 
+      {/* Primary Category Selector Tabs */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 border-b border-border pb-3">
+        <div className="flex items-center gap-2 bg-muted/60 p-1.5 rounded-2xl border border-border">
+          <button
+            type="button"
+            onClick={() => {
+              setViewCategory("active");
+              setStatusFilter("all");
+            }}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
+              viewCategory === "active"
+                ? "bg-blue-600 text-white shadow-md shadow-blue-500/20"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted"
+            }`}
+          >
+            <span>🔥 Servisan Masuk & Pengerjaan</span>
+            <span
+              className={`px-2 py-0.5 rounded-full text-xs font-black ${
+                viewCategory === "active"
+                  ? "bg-white text-blue-700"
+                  : "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300"
+              }`}
+            >
+              {activeTicketsTotal}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setViewCategory("completed");
+              setStatusFilter("all");
+            }}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
+              viewCategory === "completed"
+                ? "bg-emerald-600 text-white shadow-md shadow-emerald-500/20"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted"
+            }`}
+          >
+            <span>✅ Selesai & Telah Diambil</span>
+            <span
+              className={`px-2 py-0.5 rounded-full text-xs font-black ${
+                viewCategory === "completed"
+                  ? "bg-white text-emerald-700"
+                  : "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+              }`}
+            >
+              {completedTicketsTotal}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setViewCategory("all");
+              setStatusFilter("all");
+            }}
+            className={`hidden md:flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+              viewCategory === "all"
+                ? "bg-zinc-800 text-white dark:bg-zinc-100 dark:text-zinc-900 shadow-xs"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted"
+            }`}
+          >
+            <span>Semua ({allTicketsTotal})</span>
+          </button>
+        </div>
+
+        <div className="text-xs text-muted-foreground flex items-center gap-2 px-1">
+          <span>Menampilkan <strong>{filteredTickets.length}</strong> dari {tickets.length} total tiket</span>
+        </div>
+      </div>
+
       {/* Filter and Search Toolbar */}
       <div className="bg-card border border-border rounded-xl p-4 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
         {/* Search */}
@@ -388,23 +477,38 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
           />
         </div>
 
-        {/* Status Filter */}
+        {/* Status Sub-Filter */}
         <div className="flex items-center space-x-2 overflow-x-auto pb-1 md:pb-0">
           <Filter className="h-4 w-4 text-muted-foreground shrink-0 ml-1" />
-          {[
-            { id: "all", label: "Semua" },
-            { id: "received", label: "Antrean" },
-            { id: "diagnosing", label: "Diagnosa" },
-            { id: "in_progress", label: "Pengerjaan" },
-            { id: "ready", label: "Siap Ambil" },
-            { id: "completed", label: "Selesai" }
-          ].map((s) => (
+          {(viewCategory === "completed"
+            ? [
+                { id: "all", label: "Semua Selesai & Diambil" }
+              ]
+            : viewCategory === "active"
+            ? [
+                { id: "all", label: "Semua Aktif" },
+                { id: "received", label: "Antrean Masuk" },
+                { id: "diagnosing", label: "Diagnosa" },
+                { id: "in_progress", label: "Pengerjaan" },
+                { id: "ready", label: "Siap Diambil" }
+              ]
+            : [
+                { id: "all", label: "Semua" },
+                { id: "received", label: "Antrean" },
+                { id: "diagnosing", label: "Diagnosa" },
+                { id: "in_progress", label: "Pengerjaan" },
+                { id: "ready", label: "Siap Ambil" },
+                { id: "completed", label: "Selesai" }
+              ]
+          ).map((s) => (
             <button
               key={s.id}
               onClick={() => setStatusFilter(s.id)}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
                 statusFilter === s.id
-                  ? "bg-blue-600 text-white"
+                  ? viewCategory === "completed"
+                    ? "bg-emerald-600 text-white"
+                    : "bg-blue-600 text-white"
                   : "bg-muted/50 text-muted-foreground hover:bg-muted"
               }`}
             >
@@ -1116,10 +1220,10 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
                 </div>
 
                 {/* 3. SPAREPARTS & COMPONENTS MANAGEMENT */}
-                <div className="bg-card border border-border rounded-xl p-4 sm:p-5 space-y-4 shadow-xs">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-border">
-                    <div className="flex items-center gap-2">
-                      <div className="p-1.5 rounded-lg bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400">
+                <div className="bg-card border border-border rounded-2xl p-4 sm:p-5 space-y-4 shadow-xs">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border">
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200/60 dark:border-blue-900/60">
                         <Cpu className="w-4 h-4" />
                       </div>
                       <div>
@@ -1127,65 +1231,67 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
                           3. Sparepart & Komponen Pengganti
                         </h3>
                         <p className="text-[11px] text-muted-foreground">
-                          Suku cadang yang terpasang pada unit servis pelanggan
+                          Suku cadang dan komponen yang terpasang pada unit servis pelanggan
                         </p>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-2 self-start sm:self-auto">
-                      <span className="text-xs bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300 px-2.5 py-1 rounded-lg font-bold border border-blue-200 dark:border-blue-800">
+                      <div className="text-xs bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 px-3 py-1.5 rounded-xl font-bold border border-blue-200 dark:border-blue-800">
                         Total Part:{" "}
-                        {formatRupiah(
-                          partsList.reduce((acc, p) => acc + p.price * p.qty, 0)
-                        )}
-                      </span>
+                        <span className="font-extrabold text-blue-800 dark:text-blue-200">
+                          {formatRupiah(
+                            partsList.reduce((acc, p) => acc + p.price * p.qty, 0)
+                          )}
+                        </span>
+                      </div>
                     </div>
                   </div>
 
                   {!isTicketLocked && (
-                    <div className="space-y-3 bg-muted/20 border border-border/80 rounded-xl p-3.5">
+                    <div className="space-y-3 bg-muted/20 border border-border/80 rounded-2xl p-4">
                       {/* Sub-tab Mode Switcher */}
-                      <div className="flex items-center gap-2 border-b border-border/60 pb-2.5">
+                      <div className="flex flex-wrap items-center gap-2 border-b border-border/60 pb-3">
                         <button
                           type="button"
                           onClick={() => setSparepartTab("inventory")}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
                             sparepartTab === "inventory"
-                              ? "bg-blue-600 text-white shadow-2xs"
+                              ? "bg-blue-600 text-white shadow-xs"
                               : "bg-card text-muted-foreground hover:text-foreground border border-border"
                           }`}
                         >
                           <Boxes className="w-3.5 h-3.5" />
-                          <span>Ambil dari Stok Toko</span>
+                          <span>Ambil dari Stok Inventaris Toko</span>
                         </button>
 
                         <button
                           type="button"
                           onClick={() => setSparepartTab("manual")}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
                             sparepartTab === "manual"
-                              ? "bg-blue-600 text-white shadow-2xs"
+                              ? "bg-blue-600 text-white shadow-xs"
                               : "bg-card text-muted-foreground hover:text-foreground border border-border"
                           }`}
                         >
                           <PlusCircle className="w-3.5 h-3.5" />
-                          <span>Input Sparepart Manual / Luar</span>
+                          <span>Input Sparepart / Komponen Manual</span>
                         </button>
                       </div>
 
                       {/* Tab 1: Ambil dari Stok Toko */}
                       {sparepartTab === "inventory" ? (
-                        <div className="space-y-2.5">
+                        <div className="space-y-3">
                           <div>
-                            <label className="block text-[11px] font-semibold text-foreground mb-1">
+                            <label className="block text-[11px] font-bold text-foreground mb-1.5">
                               Pilih Produk / Sparepart dari Inventaris Toko:
                             </label>
                             <select
                               value={selectedSparepartId}
                               onChange={(e) => setSelectedSparepartId(e.target.value)}
-                              className="w-full px-3 py-2 text-xs bg-card border border-input rounded-xl focus:ring-2 focus:ring-blue-500"
+                              className="w-full px-3.5 py-2.5 text-xs bg-card border border-input rounded-xl font-medium focus:ring-2 focus:ring-blue-500"
                             >
-                              <option value="">-- Cari & Pilih Suku Cadang --</option>
+                              <option value="">-- Cari & Pilih Suku Cadang Toko --</option>
                               {products
                                 .filter((p) => p.category !== "jasa")
                                 .map((p) => (
@@ -1196,9 +1302,9 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
                             </select>
                           </div>
 
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-1">
-                            <div className="flex items-center gap-2">
-                              <label className="text-[11px] font-semibold text-muted-foreground shrink-0">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                            <div className="flex items-center gap-3 bg-card p-2.5 rounded-xl border border-input">
+                              <label className="text-xs font-semibold text-muted-foreground shrink-0">
                                 Jumlah (Qty):
                               </label>
                               <input
@@ -1206,18 +1312,18 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
                                 min="1"
                                 value={inventoryPartQty}
                                 onChange={(e) => setInventoryPartQty(Math.max(1, Number(e.target.value)))}
-                                className="w-20 px-2.5 py-1.5 text-xs text-center font-bold bg-card border border-input rounded-lg"
+                                className="w-20 px-2.5 py-1.5 text-xs text-center font-bold bg-muted border border-border rounded-lg"
                               />
                               {selectedSparepartId && (
-                                <span className="text-xs text-muted-foreground">
+                                <div className="text-xs text-muted-foreground ml-auto">
                                   Subtotal:{" "}
-                                  <strong className="text-blue-600 font-bold">
+                                  <strong className="text-blue-600 dark:text-blue-400 font-black">
                                     {formatRupiah(
                                       (products.find((p) => p.id === selectedSparepartId)?.sellPrice || 0) *
                                         inventoryPartQty
                                     )}
                                   </strong>
-                                </span>
+                                </div>
                               )}
                             </div>
 
@@ -1225,51 +1331,51 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
                               type="button"
                               onClick={handleAddPartFromInventory}
                               disabled={!selectedSparepartId}
-                              className={`px-4 py-2 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-colors ${
+                              className={`w-full py-2.5 px-4 text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-all ${
                                 selectedSparepartId
-                                  ? "bg-blue-600 hover:bg-blue-700 text-white shadow-2xs cursor-pointer"
+                                  ? "bg-blue-600 hover:bg-blue-700 text-white shadow-sm active:scale-98 cursor-pointer"
                                   : "bg-muted text-muted-foreground cursor-not-allowed"
                               }`}
                             >
-                              <Plus className="w-3.5 h-3.5" />
-                              <span>+ Tambah ke Daftar Tiket</span>
+                              <Plus className="w-4 h-4" />
+                              <span>Tambahkan ke Daftar Servis</span>
                             </button>
                           </div>
                         </div>
                       ) : (
                         /* Tab 2: Input Part Manual / Luar */
-                        <div className="space-y-2.5">
+                        <div className="space-y-3">
                           <div>
-                            <label className="block text-[11px] font-semibold text-foreground mb-1">
+                            <label className="block text-[11px] font-bold text-foreground mb-1.5">
                               Nama Komponen / Sparepart Khusus:
                             </label>
                             <input
                               type="text"
-                              placeholder="Contoh: IC Power TPS51285B / Kabel Fleksibel eDP 30 pin"
+                              placeholder="Contoh: IC Power TPS51285B / Kabel Fleksibel eDP 30 Pin"
                               value={customPartName}
                               onChange={(e) => setCustomPartName(e.target.value)}
-                              className="w-full px-3 py-2 text-xs bg-card border border-input rounded-xl focus:ring-2 focus:ring-blue-500"
+                              className="w-full px-3.5 py-2.5 text-xs bg-card border border-input rounded-xl focus:ring-2 focus:ring-blue-500"
                             />
                           </div>
 
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                             <div>
-                              <label className="block text-[11px] font-semibold text-foreground mb-1">
+                              <label className="block text-[11px] font-bold text-foreground mb-1">
                                 Harga Satuan (Rp):
                               </label>
                               <input
                                 type="number"
                                 min="0"
                                 step="5000"
-                                placeholder="Harga Satuan"
+                                placeholder="Rp 0"
                                 value={customPartPrice || ""}
                                 onChange={(e) => setCustomPartPrice(Number(e.target.value))}
-                                className="w-full px-3 py-1.5 text-xs bg-card border border-input rounded-xl focus:ring-2 focus:ring-blue-500"
+                                className="w-full px-3 py-2 text-xs bg-card border border-input rounded-xl font-semibold focus:ring-2 focus:ring-blue-500"
                               />
                             </div>
 
                             <div>
-                              <label className="block text-[11px] font-semibold text-foreground mb-1">
+                              <label className="block text-[11px] font-bold text-foreground mb-1">
                                 Jumlah (Qty):
                               </label>
                               <input
@@ -1277,7 +1383,7 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
                                 min="1"
                                 value={customPartQty}
                                 onChange={(e) => setCustomPartQty(Math.max(1, Number(e.target.value)))}
-                                className="w-full px-3 py-1.5 text-xs text-center font-bold bg-card border border-input rounded-xl focus:ring-2 focus:ring-blue-500"
+                                className="w-full px-3 py-2 text-xs text-center font-bold bg-card border border-input rounded-xl focus:ring-2 focus:ring-blue-500"
                               />
                             </div>
 
@@ -1286,14 +1392,14 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
                                 type="button"
                                 onClick={handleAddCustomPart}
                                 disabled={!customPartName.trim() || customPartPrice <= 0}
-                                className={`w-full py-2 px-3 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-colors ${
+                                className={`w-full py-2.5 px-3 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all ${
                                   customPartName.trim() && customPartPrice > 0
-                                    ? "bg-blue-600 hover:bg-blue-700 text-white shadow-2xs cursor-pointer"
+                                    ? "bg-blue-600 hover:bg-blue-700 text-white shadow-sm active:scale-98 cursor-pointer"
                                     : "bg-muted text-muted-foreground cursor-not-allowed"
                                 }`}
                               >
-                                <Plus className="w-3.5 h-3.5" />
-                                <span>+ Tambah Manual</span>
+                                <Plus className="w-4 h-4" />
+                                <span>Tambah Manual</span>
                               </button>
                             </div>
                           </div>

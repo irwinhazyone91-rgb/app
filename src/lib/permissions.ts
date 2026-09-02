@@ -24,6 +24,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermission> = {
       "pos",
       "transactions",
       "inventory",
+      "customers",
+      "reports",
       "tracking",
       "users",
       "settings"
@@ -46,6 +48,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermission> = {
       "pos",
       "transactions",
       "inventory",
+      "customers",
+      "reports",
       "tracking",
       "users",
       "settings"
@@ -62,7 +66,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermission> = {
   technician: {
     role: "technician",
     label: "Teknisi Servis",
-    allowedTabs: ["services", "inventory", "pos", "transactions", "tracking"],
+    allowedTabs: ["services", "inventory", "customers", "pos", "transactions", "tracking"],
     defaultTab: "services",
     canViewDashboardFinancials: false,
     canManageUsers: false,
@@ -75,7 +79,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermission> = {
   cashier: {
     role: "cashier",
     label: "Kasir POS",
-    allowedTabs: ["pos", "transactions", "services", "inventory", "tracking"],
+    allowedTabs: ["pos", "transactions", "customers", "services", "inventory", "tracking"],
     defaultTab: "pos",
     canViewDashboardFinancials: false,
     canManageUsers: false,

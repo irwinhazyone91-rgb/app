@@ -8,22 +8,29 @@ import {
   StoreSettings,
   DashboardStats,
   CartItem,
-  User
+  User,
+  Customer,
+  Expense
 } from "./types";
 import {
   loadPersistentData,
   savePersistentTickets,
   savePersistentProducts,
   savePersistentTransactions,
+  savePersistentCustomers,
+  savePersistentExpenses,
   savePersistentSettings,
   savePersistentUsers,
+  upsertCustomerSync,
   computeDashboardStats,
   importDatabaseBackup,
   DEFAULT_SETTINGS,
   DEFAULT_USERS,
   DEFAULT_PRODUCTS,
   DEFAULT_TICKETS,
-  DEFAULT_TRANSACTIONS
+  DEFAULT_TRANSACTIONS,
+  DEFAULT_CUSTOMERS,
+  DEFAULT_EXPENSES
 } from "./lib/storage";
 import { firestoreService, testFirestoreConnection } from "./lib/firebase";
 import { Sidebar } from "./components/Sidebar";
@@ -33,6 +40,8 @@ import { ServiceManagementView } from "./components/ServiceManagementView";
 import { POSView } from "./components/POSView";
 import { TransactionHistoryView } from "./components/TransactionHistoryView";
 import { InventoryView } from "./components/InventoryView";
+import { CustomersView } from "./components/CustomersView";
+import { FinancialReportsView } from "./components/FinancialReportsView";
 import { CustomerLandingPage } from "./components/CustomerLandingPage";
 import { SettingsView } from "./components/SettingsView";
 import { UsersView } from "./components/UsersView";
@@ -61,11 +70,13 @@ export function App() {
   const [tickets, setTickets] = useState<ServiceTicket[]>(initialData.tickets);
   const [products, setProducts] = useState<Product[]>(initialData.products);
   const [transactions, setTransactions] = useState<Transaction[]>(initialData.transactions);
+  const [customers, setCustomers] = useState<Customer[]>(initialData.customers || DEFAULT_CUSTOMERS);
+  const [expenses, setExpenses] = useState<Expense[]>(initialData.expenses || DEFAULT_EXPENSES);
   const [users, setUsers] = useState<User[]>(initialData.users);
   const [settings, setSettings] = useState<StoreSettings>(initialData.settings);
 
   const [stats, setStats] = useState<DashboardStats>(() =>
-    computeDashboardStats(initialData.tickets, initialData.products, initialData.transactions)
+    computeDashboardStats(initialData.tickets, initialData.products, initialData.transactions, (initialData.customers || DEFAULT_CUSTOMERS).length)
   );
 
   // Current Active User
@@ -134,11 +145,12 @@ export function App() {
   const refreshStats = useCallback((
     currentTickets: ServiceTicket[],
     currentProducts: Product[],
-    currentTransactions: Transaction[]
+    currentTransactions: Transaction[],
+    customersCount: number = customers.length
   ) => {
-    const newStats = computeDashboardStats(currentTickets, currentProducts, currentTransactions);
+    const newStats = computeDashboardStats(currentTickets, currentProducts, currentTransactions, customersCount);
     setStats(newStats);
-  }, []);
+  }, [customers.length]);
 
   // Modal / Transition states
   const [receiptModal, setReceiptModal] = useState<{
@@ -194,6 +206,16 @@ export function App() {
           savePersistentTransactions(cloudData.transactions);
           hasAnyCloudData = true;
         }
+        if (cloudData.customers && cloudData.customers.length > 0) {
+          setCustomers(cloudData.customers);
+          savePersistentCustomers(cloudData.customers);
+          hasAnyCloudData = true;
+        }
+        if (cloudData.expenses && cloudData.expenses.length > 0) {
+          setExpenses(cloudData.expenses);
+          savePersistentExpenses(cloudData.expenses);
+          hasAnyCloudData = true;
+        }
         if (cloudData.settings && cloudData.settings.storeName) {
           setSettings(cloudData.settings);
           savePersistentSettings(cloudData.settings);
@@ -209,43 +231,52 @@ export function App() {
           refreshStats(
             cloudData.tickets || tickets,
             cloudData.products || products,
-            cloudData.transactions || transactions
+            cloudData.transactions || transactions,
+            (cloudData.customers || customers).length
           );
           return;
         }
       }
 
       // 2. Fallback to API if Firestore was empty on first setup
-      const [resTickets, resProducts, resTx, resSettings, resUsers] = await Promise.all([
+      const [resTickets, resProducts, resTx, resSettings, resUsers, resCust, resExp] = await Promise.all([
         axios.get("/api/services").catch(() => ({ data: null })),
         axios.get("/api/products").catch(() => ({ data: null })),
         axios.get("/api/transactions").catch(() => ({ data: null })),
         axios.get("/api/settings").catch(() => ({ data: null })),
-        axios.get("/api/users").catch(() => ({ data: null }))
+        axios.get("/api/users").catch(() => ({ data: null })),
+        axios.get("/api/customers").catch(() => ({ data: null })),
+        axios.get("/api/expenses").catch(() => ({ data: null }))
       ]);
 
       const persistent = loadPersistentData();
       const currentT = (resTickets?.data && Array.isArray(resTickets.data)) ? resTickets.data : persistent.tickets;
       const currentP = (resProducts?.data && Array.isArray(resProducts.data)) ? resProducts.data : persistent.products;
       const currentTx = (resTx?.data && Array.isArray(resTx.data)) ? resTx.data : persistent.transactions;
+      const currentCust = (resCust?.data && Array.isArray(resCust.data)) ? resCust.data : persistent.customers;
+      const currentExp = (resExp?.data && Array.isArray(resExp.data)) ? resExp.data : persistent.expenses;
       const currentSettings = (resSettings?.data && resSettings.data.storeName) ? resSettings.data : persistent.settings;
       const currentUsers = (resUsers?.data && Array.isArray(resUsers.data)) ? resUsers.data : persistent.users;
 
       setTickets(currentT);
       setProducts(currentP);
       setTransactions(currentTx);
+      setCustomers(currentCust);
+      setExpenses(currentExp);
       setSettings(currentSettings);
       setUsers(currentUsers);
-      refreshStats(currentT, currentP, currentTx);
+      refreshStats(currentT, currentP, currentTx, currentCust.length);
     } catch (err) {
       // Fallback to local storage
       const local = loadPersistentData();
       setTickets(local.tickets);
       setProducts(local.products);
       setTransactions(local.transactions);
+      setCustomers(local.customers);
+      setExpenses(local.expenses);
       setSettings(local.settings);
       setUsers(local.users);
-      refreshStats(local.tickets, local.products, local.transactions);
+      refreshStats(local.tickets, local.products, local.transactions, local.customers.length);
     }
   };
 
@@ -260,6 +291,8 @@ export function App() {
         local.tickets,
         local.products,
         local.transactions,
+        local.customers,
+        local.expenses,
         local.settings,
         local.users
       );
@@ -284,6 +317,20 @@ export function App() {
       if (cloudTx && cloudTx.length > 0) {
         setTransactions(cloudTx);
         savePersistentTransactions(cloudTx);
+      }
+    });
+
+    const unsubCust = firestoreService.subscribeToCustomers((cloudCust) => {
+      if (cloudCust && cloudCust.length > 0) {
+        setCustomers(cloudCust);
+        savePersistentCustomers(cloudCust);
+      }
+    });
+
+    const unsubExp = firestoreService.subscribeToExpenses((cloudExp) => {
+      if (cloudExp && cloudExp.length > 0) {
+        setExpenses(cloudExp);
+        savePersistentExpenses(cloudExp);
       }
     });
 
@@ -314,6 +361,8 @@ export function App() {
       unsubTickets();
       unsubProducts();
       unsubTx();
+      unsubCust();
+      unsubExp();
       unsubSettings();
       unsubUsers();
       window.removeEventListener("focus", handleSyncEvent);
@@ -479,9 +528,29 @@ export function App() {
     const updated = [newTicket, ...tickets];
     setTickets(updated);
     savePersistentTickets(updated);
-    refreshStats(updated, products, transactions);
 
-    toast.success(`Tiket servis ${newTicket.ticketNumber} berhasil didaftarkan! Data tersimpan.`);
+    // Otomatis sinkronkan & daftarkan pelanggan baru ke database Pelanggan CRM
+    let updatedCustomerList = customers;
+    if (newTicket.customerName && newTicket.customerName.trim() !== "") {
+      const { updatedCustomers, targetCustomer } = upsertCustomerSync(
+        {
+          name: newTicket.customerName,
+          phone: newTicket.customerPhone,
+          address: newTicket.customerAddress,
+          isService: true,
+          spentDelta: newTicket.downPayment || 0
+        },
+        customers
+      );
+      updatedCustomerList = updatedCustomers;
+      setCustomers(updatedCustomers);
+      savePersistentCustomers(updatedCustomers);
+      firestoreService.saveCustomer(targetCustomer).catch(() => null);
+    }
+
+    refreshStats(updated, products, transactions, updatedCustomerList.length);
+
+    toast.success(`Tiket servis ${newTicket.ticketNumber} berhasil didaftarkan! Pelanggan tersimpan.`);
 
     // Auto open print modal for intake continuous form (21cm x 15cm)
     setReceiptModal({
@@ -730,7 +799,26 @@ export function App() {
     const updatedTx = [newTx, ...transactions];
     setTransactions(updatedTx);
     savePersistentTransactions(updatedTx);
-    refreshStats(updatedTickets, updatedProducts, updatedTx);
+
+    // Auto sync customer spent & transaction count to Customer Database
+    let updatedCustomerList = customers;
+    if (newTx.customerName && newTx.customerName !== "Pelanggan Umum") {
+      const { updatedCustomers, targetCustomer } = upsertCustomerSync(
+        {
+          name: newTx.customerName,
+          phone: newTx.customerPhone,
+          isTransaction: true,
+          spentDelta: newTx.total
+        },
+        customers
+      );
+      updatedCustomerList = updatedCustomers;
+      setCustomers(updatedCustomers);
+      savePersistentCustomers(updatedCustomers);
+      firestoreService.saveCustomer(targetCustomer).catch(() => null);
+    }
+
+    refreshStats(updatedTickets, updatedProducts, updatedTx, updatedCustomerList.length);
 
     toast.success(`Transaksi ${newTx.invoiceNumber} berhasil disimpan!`);
 
@@ -746,6 +834,102 @@ export function App() {
     }
 
     return newTx;
+  };
+
+  // CRUD Customers
+  const handleSaveCustomer = async (custData: Customer) => {
+    let savedCust: Customer | null = null;
+    const existingIndex = customers.findIndex(c => c.id === custData.id);
+    let updated: Customer[];
+    if (existingIndex >= 0) {
+      updated = customers.map(c => c.id === custData.id ? { ...c, ...custData, updatedAt: new Date().toISOString() } : c);
+      savedCust = updated[existingIndex];
+      toast.success(`Data pelanggan "${custData.name}" berhasil diperbarui.`);
+    } else {
+      const newCust: Customer = {
+        ...custData,
+        id: custData.id || `cust-${Date.now()}`,
+        createdAt: custData.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      savedCust = newCust;
+      updated = [newCust, ...customers];
+      toast.success(`Pelanggan baru "${newCust.name}" berhasil didaftarkan!`);
+    }
+    setCustomers(updated);
+    savePersistentCustomers(updated);
+    refreshStats(tickets, products, transactions, updated.length);
+
+    if (savedCust) {
+      try {
+        await Promise.all([
+          axios.post("/api/customers", savedCust).catch(() => null),
+          firestoreService.saveCustomer(savedCust).catch(() => null)
+        ]);
+      } catch (e) {}
+    }
+  };
+
+  const handleDeleteCustomer = async (customerId: string) => {
+    const updated = customers.filter(c => c.id !== customerId);
+    setCustomers(updated);
+    savePersistentCustomers(updated);
+    refreshStats(tickets, products, transactions, updated.length);
+    toast.success("Data pelanggan berhasil dihapus.");
+
+    try {
+      await Promise.all([
+        axios.delete(`/api/customers/${customerId}`).catch(() => null),
+        firestoreService.deleteCustomer(customerId).catch(() => null)
+      ]);
+    } catch (e) {}
+  };
+
+  // CRUD Expenses
+  const handleSaveExpense = async (expenseData: Expense) => {
+    let savedExp: Expense | null = null;
+    const existingIndex = expenses.findIndex(e => e.id === expenseData.id);
+    let updated: Expense[];
+    if (existingIndex >= 0) {
+      updated = expenses.map(e => e.id === expenseData.id ? { ...e, ...expenseData } : e);
+      savedExp = updated[existingIndex];
+      toast.success("Catatan pengeluaran operasional berhasil diperbarui.");
+    } else {
+      const newExp: Expense = {
+        ...expenseData,
+        id: expenseData.id || `exp-${Date.now()}`,
+        date: expenseData.date || new Date().toISOString(),
+        recordedBy: expenseData.recordedBy || currentUser.name || "Admin"
+      };
+      savedExp = newExp;
+      updated = [newExp, ...expenses];
+      toast.success("Pengeluaran operasional berhasil dicatat!");
+    }
+    setExpenses(updated);
+    savePersistentExpenses(updated);
+
+    if (savedExp) {
+      try {
+        await Promise.all([
+          axios.post("/api/expenses", savedExp).catch(() => null),
+          firestoreService.saveExpense(savedExp).catch(() => null)
+        ]);
+      } catch (e) {}
+    }
+  };
+
+  const handleDeleteExpense = async (expenseId: string) => {
+    const updated = expenses.filter(e => e.id !== expenseId);
+    setExpenses(updated);
+    savePersistentExpenses(updated);
+    toast.success("Catatan pengeluaran berhasil dihapus.");
+
+    try {
+      await Promise.all([
+        axios.delete(`/api/expenses/${expenseId}`).catch(() => null),
+        firestoreService.deleteExpense(expenseId).catch(() => null)
+      ]);
+    } catch (e) {}
   };
 
   // Delete / Void Transaction (Owner & Admin only with inventory & ticket restoration)
@@ -853,9 +1037,11 @@ export function App() {
       setTickets(refreshed.tickets);
       setProducts(refreshed.products);
       setTransactions(refreshed.transactions);
+      setCustomers(refreshed.customers);
+      setExpenses(refreshed.expenses);
       setSettings(refreshed.settings);
       setUsers(refreshed.users);
-      refreshStats(refreshed.tickets, refreshed.products, refreshed.transactions);
+      refreshStats(refreshed.tickets, refreshed.products, refreshed.transactions, refreshed.customers.length);
 
       try {
         axios.post("/api/backup/import", refreshed).catch(() => {});
@@ -871,15 +1057,19 @@ export function App() {
       savePersistentTickets(DEFAULT_TICKETS);
       savePersistentProducts(DEFAULT_PRODUCTS);
       savePersistentTransactions(DEFAULT_TRANSACTIONS);
+      savePersistentCustomers(DEFAULT_CUSTOMERS);
+      savePersistentExpenses(DEFAULT_EXPENSES);
       savePersistentSettings(DEFAULT_SETTINGS);
       savePersistentUsers(DEFAULT_USERS);
 
       setTickets(DEFAULT_TICKETS);
       setProducts(DEFAULT_PRODUCTS);
       setTransactions(DEFAULT_TRANSACTIONS);
+      setCustomers(DEFAULT_CUSTOMERS);
+      setExpenses(DEFAULT_EXPENSES);
       setSettings(DEFAULT_SETTINGS);
       setUsers(DEFAULT_USERS);
-      refreshStats(DEFAULT_TICKETS, DEFAULT_PRODUCTS, DEFAULT_TRANSACTIONS);
+      refreshStats(DEFAULT_TICKETS, DEFAULT_PRODUCTS, DEFAULT_TRANSACTIONS, DEFAULT_CUSTOMERS.length);
       toast.success("Data berhasil direset ke standar demo.");
     }
   };
@@ -1189,6 +1379,37 @@ export function App() {
               onCreateProduct={handleCreateProduct}
               onUpdateProduct={handleUpdateProduct}
               onDeleteProduct={handleDeleteProduct}
+            />
+          )}
+
+          {isTabAllowedForRole(currentTab, currentUser.role) && currentTab === "customers" && (
+            <CustomersView
+              customers={customers}
+              tickets={tickets}
+              transactions={transactions}
+              currentUser={currentUser}
+              onSaveCustomer={handleSaveCustomer}
+              onDeleteCustomer={handleDeleteCustomer}
+              onSelectCustomerForService={(cust) => {
+                setCurrentTab("services");
+              }}
+              onSelectCustomerForPOS={(cust) => {
+                setCurrentTab("pos");
+              }}
+            />
+          )}
+
+          {isTabAllowedForRole(currentTab, currentUser.role) && (currentTab === "reports" || currentTab === "financial") && (
+            <FinancialReportsView
+              tickets={tickets}
+              products={products}
+              transactions={transactions}
+              expenses={expenses}
+              settings={settings}
+              users={users}
+              currentUser={currentUser}
+              onSaveExpense={handleSaveExpense}
+              onDeleteExpense={handleDeleteExpense}
             />
           )}
 

@@ -21,6 +21,7 @@ import {
   Sparkles,
   Users,
   UserCheck,
+  TrendingUp,
   Lock,
   LogOut
 } from "lucide-react";
@@ -98,6 +99,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
           label: "Sparepart & Stok",
           subtitle: "Katalog & Jasa",
           icon: Package,
+        },
+        {
+          id: "customers",
+          label: "Daftar Pelanggan",
+          subtitle: "CRM & Riwayat Konsumen",
+          icon: UserCheck,
+        },
+        {
+          id: "reports",
+          label: "Laporan Laba / Rugi",
+          subtitle: "P&L, Omzet & Beban",
+          icon: TrendingUp,
         },
       ],
     },

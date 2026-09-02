@@ -126,6 +126,41 @@ export interface Transaction {
   notes?: string;
 }
 
+export interface Customer {
+  id: string;
+  name: string;
+  phone: string;
+  address?: string;
+  email?: string;
+  type?: "regular" | "reseller";
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+  totalServicesCount?: number;
+  totalTransactionsCount?: number;
+  totalSpent?: number;
+}
+
+export type ExpenseCategory =
+  | "listrik_internet"
+  | "sewa_tempat"
+  | "gaji_karyawan"
+  | "alat_servis"
+  | "operasional"
+  | "transport_logistik"
+  | "konsumsi"
+  | "lainnya";
+
+export interface Expense {
+  id: string;
+  date: string;
+  category: ExpenseCategory;
+  description: string;
+  amount: number;
+  recordedBy: string;
+  notes?: string;
+}
+
 export interface StoreSettings {
   storeName: string;
   tagline: string;
@@ -143,6 +178,7 @@ export interface DashboardStats {
   completedServices: number;
   lowStockCount: number;
   totalProducts: number;
+  totalCustomers: number;
   revenueChart: { name: string; pos: number; service: number; total: number }[];
   deviceCounts: { laptop: number; pc: number; printer: number; other: number };
 }
