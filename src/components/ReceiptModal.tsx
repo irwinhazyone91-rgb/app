@@ -266,51 +266,51 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
         <div ref={printAreaRef} className="print-area">
           {/* FORMAT 1: DOKUMEN NOTA KONSUMEN / SPK SERVIS (1 RANGKAP SAJA) */}
           {selectedFormat === "continuous" && ticket && (
-            <div className="print-21x15 print-continuous bg-white text-zinc-950 p-4 sm:p-5 rounded-lg border border-zinc-500 font-mono text-[10.5px] leading-tight space-y-2.5 shadow-xs max-w-[210mm] mx-auto">
+            <div className="print-21x15 print-continuous bg-white text-zinc-950 p-2.5 sm:p-3 rounded-lg border border-zinc-500 font-mono text-[9px] leading-tight space-y-1.5 shadow-xs max-w-[202mm] mx-auto overflow-hidden">
               {/* Form Header Line */}
-              <div className="flex justify-between items-center border-b border-zinc-600 pb-1.5 text-[9.5px] text-zinc-700">
+              <div className="flex justify-between items-center border-b border-zinc-600 pb-1 text-[9px] text-zinc-700">
                 <span className="font-extrabold tracking-wider uppercase text-zinc-900">
                   ★★★ TANDA TERIMA & NOTA SERVIS RESMI ★★★
                 </span>
-                <span className="font-bold px-2 py-0.5 border border-zinc-800 bg-zinc-100 text-zinc-900 text-[9px] uppercase">
+                <span className="font-bold px-1.5 py-0.2 border border-zinc-800 bg-zinc-100 text-zinc-900 text-[8.5px] uppercase">
                   {mode === "intake_service" ? "1 RANGKAP - SPK PENERIMAAN" : "1 RANGKAP - NOTA PELUNASAN"}
                 </span>
               </div>
 
               {/* Header: Company & Ticket Info */}
-              <div className="flex justify-between items-start gap-3 border-b border-zinc-400 pb-2">
-                <div className="space-y-0.5 max-w-[66%]">
-                  <h2 className="font-black text-sm tracking-wider uppercase text-zinc-950">
+              <div className="flex justify-between items-start gap-2 border-b border-zinc-400 pb-1.5">
+                <div className="space-y-0.2 max-w-[66%]">
+                  <h2 className="font-black text-xs tracking-wider uppercase text-zinc-950">
                     {settings.storeName}
                   </h2>
-                  <p className="text-[10px] text-zinc-800 font-semibold leading-none">{settings.tagline}</p>
-                  <p className="text-[9px] text-zinc-600 leading-tight">{settings.address}</p>
-                  <p className="text-[9px] text-zinc-800 font-bold">
+                  <p className="text-[9px] text-zinc-800 font-semibold leading-none">{settings.tagline}</p>
+                  <p className="text-[8.5px] text-zinc-600 leading-tight">{settings.address}</p>
+                  <p className="text-[8.5px] text-zinc-800 font-bold">
                     Telp: {settings.phone} | WA: {settings.whatsapp}
                   </p>
                 </div>
 
                 {/* Right: Boxed Ticket & Barcode */}
-                <div className="text-right space-y-0.5">
-                  <div className="border-2 border-zinc-950 px-2.5 py-1 rounded-xs bg-zinc-50 text-center">
-                    <span className="block text-[8px] uppercase font-bold text-zinc-600 leading-none">
+                <div className="text-right space-y-0.2">
+                  <div className="border-2 border-zinc-950 px-2 py-0.5 rounded-xs bg-zinc-50 text-center">
+                    <span className="block text-[7.5px] uppercase font-bold text-zinc-600 leading-none">
                       NO. TIKET SERVIS
                     </span>
                     <span className="block text-xs font-black tracking-wider text-zinc-950 font-mono">
                       {ticket.ticketNumber}
                     </span>
                   </div>
-                  <div className="text-[9px] text-zinc-700 text-right font-medium">
+                  <div className="text-[8.5px] text-zinc-700 text-right font-medium">
                     Tgl: <span className="font-bold">{formatDateIndo(ticket.createdAt)}</span>
                   </div>
                 </div>
               </div>
 
               {/* Two Column Customer & Unit Details */}
-              <div className="grid grid-cols-2 gap-2 border border-zinc-400 p-2 rounded-xs bg-zinc-50/70 text-[10px]">
+              <div className="grid grid-cols-2 gap-2 border border-zinc-400 p-1.5 rounded-xs bg-zinc-50/70 text-[9px]">
                 {/* Left: Customer Data */}
-                <div className="space-y-0.5">
-                  <div className="font-bold uppercase text-zinc-950 border-b border-dashed border-zinc-400 pb-0.5 text-[9px]">
+                <div className="space-y-0.2">
+                  <div className="font-bold uppercase text-zinc-950 border-b border-dashed border-zinc-400 pb-0.2 text-[8.5px]">
                     [ DATA PELANGGAN ]
                   </div>
                   <div className="grid grid-cols-3 gap-0.5">
@@ -328,8 +328,8 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                 </div>
 
                 {/* Right: Device Data */}
-                <div className="space-y-0.5">
-                  <div className="font-bold uppercase text-zinc-950 border-b border-dashed border-zinc-400 pb-0.5 text-[9px]">
+                <div className="space-y-0.2">
+                  <div className="font-bold uppercase text-zinc-950 border-b border-dashed border-zinc-400 pb-0.2 text-[8.5px]">
                     [ DATA PERANGKAT ]
                   </div>
                   <div className="grid grid-cols-3 gap-0.5">
@@ -348,53 +348,53 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
               </div>
 
               {/* Complaints & Symptoms */}
-              <div className="border border-zinc-400 px-2 py-1 rounded-xs space-y-0.5 text-[9.5px]">
-                <div className="font-bold uppercase text-zinc-900 text-[8.5px]">
+              <div className="border border-zinc-400 px-2 py-1 rounded-xs space-y-0.2 text-[8.5px]">
+                <div className="font-bold uppercase text-zinc-900 text-[8px]">
                   KELUHAN / GEJALA KERUSAKAN:
                 </div>
-                <div className="font-medium text-zinc-950 text-[9.5px]">
+                <div className="font-medium text-zinc-950 text-[8.5px]">
                   {ticket.complaints}
                 </div>
               </div>
 
               {/* Technician Diagnosis & Action Table */}
-              <div className="space-y-0.5">
-                <div className="font-bold text-[9px] uppercase text-zinc-900 flex justify-between items-center">
+              <div className="space-y-0.2">
+                <div className="font-bold text-[8.5px] uppercase text-zinc-900 flex justify-between items-center">
                   <span>RINCIAN JASA SERVIS & SPAREPART:</span>
                   <span className="text-zinc-800 font-bold">Teknisi PIC: {resolvedTechnicianName}</span>
                 </div>
-                <table className="w-full text-[9.5px] border-collapse border border-zinc-400">
+                <table className="w-full text-[8.5px] border-collapse border border-zinc-400">
                   <thead>
-                    <tr className="bg-zinc-100 border-b border-zinc-400 text-[9px]">
-                      <th className="py-0.5 px-1.5 text-left border-r border-zinc-400 w-6">No</th>
-                      <th className="py-0.5 px-1.5 text-left border-r border-zinc-400">Uraian Pekerjaan / Sparepart</th>
-                      <th className="py-0.5 px-1.5 text-center border-r border-zinc-400 w-10">Qty</th>
-                      <th className="py-0.5 px-1.5 text-right border-r border-zinc-400 w-20">Harga (Rp)</th>
-                      <th className="py-0.5 px-1.5 text-right w-24">Subtotal (Rp)</th>
+                    <tr className="bg-zinc-100 border-b border-zinc-400 text-[8px]">
+                      <th className="py-0.2 px-1 text-left border-r border-zinc-400 w-6">No</th>
+                      <th className="py-0.2 px-1 text-left border-r border-zinc-400">Uraian Pekerjaan / Sparepart</th>
+                      <th className="py-0.2 px-1 text-center border-r border-zinc-400 w-10">Qty</th>
+                      <th className="py-0.2 px-1 text-right border-r border-zinc-400 w-20">Harga (Rp)</th>
+                      <th className="py-0.2 px-1 text-right w-24">Subtotal (Rp)</th>
                     </tr>
                   </thead>
                   <tbody>
                     {ticket.partsUsed && ticket.partsUsed.length > 0 ? (
                       ticket.partsUsed.map((p, i) => (
                         <tr key={i} className="border-b border-zinc-300">
-                          <td className="py-0.5 px-1.5 text-center border-r border-zinc-300">{i + 1}</td>
-                          <td className="py-0.5 px-1.5 border-r border-zinc-300 font-medium">{p.name}</td>
-                          <td className="py-0.5 px-1.5 text-center border-r border-zinc-300">{p.qty}</td>
-                          <td className="py-0.5 px-1.5 text-right border-r border-zinc-300">{formatRupiah(p.price)}</td>
-                          <td className="py-0.5 px-1.5 text-right font-semibold">{formatRupiah(p.price * p.qty)}</td>
+                          <td className="py-0.2 px-1 text-center border-r border-zinc-300">{i + 1}</td>
+                          <td className="py-0.2 px-1 border-r border-zinc-300 font-medium">{p.name}</td>
+                          <td className="py-0.2 px-1 text-center border-r border-zinc-300">{p.qty}</td>
+                          <td className="py-0.2 px-1 text-right border-r border-zinc-300">{formatRupiah(p.price)}</td>
+                          <td className="py-0.2 px-1 text-right font-semibold">{formatRupiah(p.price * p.qty)}</td>
                         </tr>
                       ))
                     ) : (
                       <tr className="border-b border-zinc-300">
-                        <td className="py-0.5 px-1.5 text-center border-r border-zinc-300">1</td>
-                        <td className="py-0.5 px-1.5 border-r border-zinc-300 font-medium">
+                        <td className="py-0.2 px-1 text-center border-r border-zinc-300">1</td>
+                        <td className="py-0.2 px-1 border-r border-zinc-300 font-medium">
                           {ticket.technicianNotes || "Jasa Diagnosa, Reparasi & Quality Control"}
                         </td>
-                        <td className="py-0.5 px-1.5 text-center border-r border-zinc-300">1</td>
-                        <td className="py-0.5 px-1.5 text-right border-r border-zinc-300">
+                        <td className="py-0.2 px-1 text-center border-r border-zinc-300">1</td>
+                        <td className="py-0.2 px-1 text-right border-r border-zinc-300">
                           {formatRupiah(ticket.finalCost || ticket.estimatedCost)}
                         </td>
-                        <td className="py-0.5 px-1.5 text-right font-semibold">
+                        <td className="py-0.2 px-1 text-right font-semibold">
                           {formatRupiah(ticket.finalCost || ticket.estimatedCost)}
                         </td>
                       </tr>
@@ -404,13 +404,13 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
               </div>
 
               {/* Financial Calculation & Direct Tracking QR Code */}
-              <div className="flex justify-between items-start gap-3 pt-0.5">
+              <div className="flex justify-between items-start gap-2 pt-0.5">
                 {/* QR Code directly linked to warranty & service tracking */}
-                <div className="flex items-center gap-2 border border-zinc-400 p-1.5 rounded-xs bg-zinc-50 max-w-[58%]">
+                <div className="flex items-center gap-1.5 border border-zinc-400 p-1 rounded-xs bg-zinc-50 max-w-[58%]">
                   <div className="p-0.5 bg-white border border-zinc-900 rounded-xs shrink-0">
-                    <QRCode value={getTrackingUrl(ticket.ticketNumber)} size={56} level="M" />
+                    <QRCode value={getTrackingUrl(ticket.ticketNumber)} size={48} level="M" />
                   </div>
-                  <div className="text-[8px] text-zinc-700 space-y-0.5">
+                  <div className="text-[7.5px] text-zinc-700 space-y-0.2">
                     <span className="font-black text-zinc-950 block">QR TRACKING & GARANSI ONLINE:</span>
                     <span className="leading-tight block font-medium">
                       Scan dengan kamera HP untuk lacak status servis & cek masa aktif garansi secara langsung.
@@ -419,7 +419,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                 </div>
 
                 {/* Totals Table */}
-                <div className="w-56 space-y-0.5 text-[9.5px] border border-zinc-400 p-1.5 rounded-xs bg-zinc-50">
+                <div className="w-52 space-y-0.2 text-[8.5px] border border-zinc-400 p-1 rounded-xs bg-zinc-50">
                   <div className="flex justify-between">
                     <span className="text-zinc-600">Total Biaya:</span>
                     <span className="font-bold text-zinc-950">
@@ -430,7 +430,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                     <span className="text-zinc-600">Uang Muka (DP):</span>
                     <span className="font-semibold text-zinc-950">{formatRupiah(ticket.downPayment)}</span>
                   </div>
-                  <div className="flex justify-between font-black text-[10.5px] border-t border-zinc-950 pt-0.5 text-zinc-950">
+                  <div className="flex justify-between font-black text-[9.5px] border-t border-zinc-950 pt-0.5 text-zinc-950">
                     <span>SISA PELUNASAN:</span>
                     <span>
                       {formatRupiah(
@@ -442,7 +442,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
               </div>
 
               {/* Warranty & Terms */}
-              <div className="text-[8px] text-zinc-700 border-t border-zinc-400 pt-1 space-y-0.5">
+              <div className="text-[7.5px] text-zinc-700 border-t border-zinc-400 pt-0.5 space-y-0.2">
                 <div className="flex justify-between font-bold text-zinc-950">
                   <span>KETENTUAN GARANSI & PENGAMBILAN UNIT:</span>
                   {ticket.warrantyDays > 0 && (
@@ -456,26 +456,26 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
               </div>
 
               {/* 3 Signatures Standard with Accurate Staff & Technician Names */}
-              <div className="grid grid-cols-3 gap-2 text-center text-[9px] pt-1.5 border-t border-zinc-950">
-                <div className="space-y-6">
-                  <span className="text-zinc-600 block text-[8.5px]">Tanda Tangan Pelanggan,</span>
+              <div className="grid grid-cols-3 gap-2 text-center text-[8.5px] pt-1 border-t border-zinc-950">
+                <div className="space-y-4">
+                  <span className="text-zinc-600 block text-[8px]">Tanda Tangan Pelanggan,</span>
                   <div className="border-b border-zinc-900 w-2/3 mx-auto"></div>
-                  <span className="font-bold block text-[8.5px]">( {ticket.customerName} )</span>
+                  <span className="font-bold block text-[8px]">( {ticket.customerName} )</span>
                 </div>
-                <div className="space-y-6">
-                  <span className="text-zinc-600 block text-[8.5px]">Penerima / Petugas Kasir,</span>
+                <div className="space-y-4">
+                  <span className="text-zinc-600 block text-[8px]">Penerima / Petugas Kasir,</span>
                   <div className="border-b border-zinc-900 w-2/3 mx-auto"></div>
-                  <span className="font-bold block text-[8.5px]">( {resolvedCashierName} )</span>
+                  <span className="font-bold block text-[8px]">( {resolvedCashierName} )</span>
                 </div>
-                <div className="space-y-6">
-                  <span className="text-zinc-600 block text-[8.5px]">Teknisi Pemeriksa,</span>
+                <div className="space-y-4">
+                  <span className="text-zinc-600 block text-[8px]">Teknisi Pemeriksa,</span>
                   <div className="border-b border-zinc-900 w-2/3 mx-auto"></div>
-                  <span className="font-bold block text-[8.5px]">( {resolvedTechnicianName} )</span>
+                  <span className="font-bold block text-[8px]">( {resolvedTechnicianName} )</span>
                 </div>
               </div>
 
               {/* Single Copy Footnote without paper size text */}
-              <div className="text-[7.5px] text-zinc-500 text-center pt-1 border-t border-dashed border-zinc-300">
+              <div className="text-[7px] text-zinc-500 text-center pt-0.5 border-t border-dashed border-zinc-300">
                 [ DOKUMEN RESMI 1 RANGKAP — {settings.storeName.toUpperCase()} ]
               </div>
             </div>
@@ -483,51 +483,51 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
 
           {/* FORMAT 1B: DOKUMEN NOTA FORM CONTINUOUS UNTUK TRANSAKSI POS (LAPTOP BARU, LAPTOP BEKAS & SERVIS) */}
           {selectedFormat === "continuous" && transaction && (
-            <div className="print-21x15 print-continuous bg-white text-zinc-950 p-4 sm:p-5 rounded-lg border border-zinc-500 font-mono text-[10.5px] leading-tight space-y-2.5 shadow-xs max-w-[210mm] mx-auto">
+            <div className="print-21x15 print-continuous bg-white text-zinc-950 p-2.5 sm:p-3 rounded-lg border border-zinc-500 font-mono text-[9px] leading-tight space-y-1.5 shadow-xs max-w-[202mm] mx-auto overflow-hidden">
               {/* Form Header Line */}
-              <div className="flex justify-between items-center border-b border-zinc-600 pb-1.5 text-[9.5px] text-zinc-700">
+              <div className="flex justify-between items-center border-b border-zinc-600 pb-1 text-[9px] text-zinc-700">
                 <span className="font-extrabold tracking-wider uppercase text-zinc-900">
                   ★★★ FAKTUR PENJUALAN & NOTA TRANSAKSI RESMI ★★★
                 </span>
-                <span className="font-bold px-2 py-0.5 border border-zinc-800 bg-zinc-100 text-zinc-900 text-[9px] uppercase">
+                <span className="font-bold px-1.5 py-0.2 border border-zinc-800 bg-zinc-100 text-zinc-900 text-[8.5px] uppercase">
                   1 RANGKAP - NOTA KONSUMEN
                 </span>
               </div>
 
               {/* Header: Company & Invoice Info */}
-              <div className="flex justify-between items-start gap-3 border-b border-zinc-400 pb-2">
-                <div className="space-y-0.5 max-w-[66%]">
-                  <h2 className="font-black text-sm tracking-wider uppercase text-zinc-950">
+              <div className="flex justify-between items-start gap-2 border-b border-zinc-400 pb-1.5">
+                <div className="space-y-0.2 max-w-[66%]">
+                  <h2 className="font-black text-xs tracking-wider uppercase text-zinc-950">
                     {settings.storeName}
                   </h2>
-                  <p className="text-[10px] text-zinc-800 font-semibold leading-none">{settings.tagline}</p>
-                  <p className="text-[9px] text-zinc-600 leading-tight">{settings.address}</p>
-                  <p className="text-[9px] text-zinc-800 font-bold">
+                  <p className="text-[9px] text-zinc-800 font-semibold leading-none">{settings.tagline}</p>
+                  <p className="text-[8.5px] text-zinc-600 leading-tight">{settings.address}</p>
+                  <p className="text-[8.5px] text-zinc-800 font-bold">
                     Telp: {settings.phone} | WA: {settings.whatsapp}
                   </p>
                 </div>
 
                 {/* Right: Boxed Invoice Number */}
-                <div className="text-right space-y-0.5">
-                  <div className="border-2 border-zinc-950 px-2.5 py-1 rounded-xs bg-zinc-50 text-center">
-                    <span className="block text-[8px] uppercase font-bold text-zinc-600 leading-none">
+                <div className="text-right space-y-0.2">
+                  <div className="border-2 border-zinc-950 px-2 py-0.5 rounded-xs bg-zinc-50 text-center">
+                    <span className="block text-[7.5px] uppercase font-bold text-zinc-600 leading-none">
                       NO. FAKTUR PENJUALAN
                     </span>
                     <span className="block text-xs font-black tracking-wider text-zinc-950 font-mono">
                       {transaction.invoiceNumber}
                     </span>
                   </div>
-                  <div className="text-[9px] text-zinc-700 text-right font-medium">
+                  <div className="text-[8.5px] text-zinc-700 text-right font-medium">
                     Tgl: <span className="font-bold">{formatDateIndo(transaction.date)}</span>
                   </div>
                 </div>
               </div>
 
               {/* Two Column Customer & Cashier Details */}
-              <div className="grid grid-cols-2 gap-2 border border-zinc-400 p-2 rounded-xs bg-zinc-50/70 text-[10px]">
+              <div className="grid grid-cols-2 gap-2 border border-zinc-400 p-1.5 rounded-xs bg-zinc-50/70 text-[9px]">
                 {/* Left: Customer Data */}
-                <div className="space-y-0.5">
-                  <div className="font-bold uppercase text-zinc-950 border-b border-dashed border-zinc-400 pb-0.5 text-[9px]">
+                <div className="space-y-0.2">
+                  <div className="font-bold uppercase text-zinc-950 border-b border-dashed border-zinc-400 pb-0.2 text-[8.5px]">
                     [ DATA PELANGGAN ]
                   </div>
                   <div className="grid grid-cols-3 gap-0.5">
@@ -547,8 +547,8 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                 </div>
 
                 {/* Right: Payment & Cashier Metadata */}
-                <div className="space-y-0.5">
-                  <div className="font-bold uppercase text-zinc-950 border-b border-dashed border-zinc-400 pb-0.5 text-[9px]">
+                <div className="space-y-0.2">
+                  <div className="font-bold uppercase text-zinc-950 border-b border-dashed border-zinc-400 pb-0.2 text-[8.5px]">
                     [ DETAIL TRANSAKSI ]
                   </div>
                   <div className="grid grid-cols-3 gap-0.5">
@@ -571,54 +571,54 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
               </div>
 
               {/* Items Table with Full Specs, Condition, Warranty */}
-              <div className="space-y-0.5">
-                <div className="font-bold text-[9px] uppercase text-zinc-900 flex justify-between items-center">
+              <div className="space-y-0.2">
+                <div className="font-bold text-[8.5px] uppercase text-zinc-900 flex justify-between items-center">
                   <span>DAFTAR BARANG / UNIT LAPTOP / JASA SERVIS:</span>
-                  <span className="text-zinc-700 text-[8.5px]">Total Item: {transaction.items.length}</span>
+                  <span className="text-zinc-700 text-[8px]">Total Item: {transaction.items.length}</span>
                 </div>
-                <table className="w-full text-[9.5px] border-collapse border border-zinc-400">
+                <table className="w-full text-[8.5px] border-collapse border border-zinc-400">
                   <thead>
-                    <tr className="bg-zinc-100 border-b border-zinc-400 text-[9px]">
-                      <th className="py-0.5 px-1.5 text-left border-r border-zinc-400 w-6">No</th>
-                      <th className="py-0.5 px-1.5 text-left border-r border-zinc-400">Nama Item & Spesifikasi Detail</th>
-                      <th className="py-0.5 px-1.5 text-center border-r border-zinc-400 w-20">Garansi</th>
-                      <th className="py-0.5 px-1.5 text-center border-r border-zinc-400 w-10">Qty</th>
-                      <th className="py-0.5 px-1.5 text-right border-r border-zinc-400 w-24">Harga (Rp)</th>
-                      <th className="py-0.5 px-1.5 text-right w-24">Subtotal (Rp)</th>
+                    <tr className="bg-zinc-100 border-b border-zinc-400 text-[8px]">
+                      <th className="py-0.2 px-1 text-left border-r border-zinc-400 w-6">No</th>
+                      <th className="py-0.2 px-1 text-left border-r border-zinc-400">Nama Item & Spesifikasi Detail</th>
+                      <th className="py-0.2 px-1 text-center border-r border-zinc-400 w-20">Garansi</th>
+                      <th className="py-0.2 px-1 text-center border-r border-zinc-400 w-10">Qty</th>
+                      <th className="py-0.2 px-1 text-right border-r border-zinc-400 w-24">Harga (Rp)</th>
+                      <th className="py-0.2 px-1 text-right w-24">Subtotal (Rp)</th>
                     </tr>
                   </thead>
                   <tbody>
                     {transaction.items.map((item, i) => (
                       <tr key={i} className="border-b border-zinc-300">
-                        <td className="py-1 px-1.5 text-center border-r border-zinc-300 align-top">{i + 1}</td>
-                        <td className="py-1 px-1.5 border-r border-zinc-300">
+                        <td className="py-0.5 px-1 text-center border-r border-zinc-300 align-top">{i + 1}</td>
+                        <td className="py-0.5 px-1 border-r border-zinc-300">
                           <div className="font-bold text-zinc-950">{item.name}</div>
                           {item.conditionGrade && (
-                            <div className="text-[8.5px] text-amber-800 font-bold">
+                            <div className="text-[8px] text-amber-800 font-bold">
                               ★ Kondisi: {item.conditionGrade}
                             </div>
                           )}
                           {item.specsSummary && (
-                            <div className="text-[8.5px] text-zinc-700 leading-tight">
+                            <div className="text-[7.5px] text-zinc-700 leading-tight">
                               {item.specsSummary}
                             </div>
                           )}
                           {item.priceType === "reseller" && (
-                            <span className="inline-block text-[8px] bg-indigo-50 border border-indigo-200 text-indigo-700 px-1 py-0.1 rounded-xs font-semibold">
+                            <span className="inline-block text-[7.5px] bg-indigo-50 border border-indigo-200 text-indigo-700 px-1 py-0.1 rounded-xs font-semibold">
                               Tarif Reseller/Mitra
                             </span>
                           )}
                         </td>
-                        <td className="py-1 px-1.5 text-center border-r border-zinc-300 font-semibold text-[9px] align-top">
+                        <td className="py-0.5 px-1 text-center border-r border-zinc-300 font-semibold text-[8px] align-top">
                           {item.warrantyDays && item.warrantyDays > 0 ? (
                             <span className="text-emerald-800 font-bold">🛡️ {item.warrantyDays} Hari</span>
                           ) : (
                             <span className="text-zinc-500">-</span>
                           )}
                         </td>
-                        <td className="py-1 px-1.5 text-center border-r border-zinc-300 align-top font-semibold">{item.qty}</td>
-                        <td className="py-1 px-1.5 text-right border-r border-zinc-300 align-top">{formatRupiah(item.price)}</td>
-                        <td className="py-1 px-1.5 text-right font-bold align-top">{formatRupiah(item.subtotal)}</td>
+                        <td className="py-0.5 px-1 text-center border-r border-zinc-300 align-top font-semibold">{item.qty}</td>
+                        <td className="py-0.5 px-1 text-right border-r border-zinc-300 align-top">{formatRupiah(item.price)}</td>
+                        <td className="py-0.5 px-1 text-right font-bold align-top">{formatRupiah(item.subtotal)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -626,13 +626,13 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
               </div>
 
               {/* Financial Calculation & Direct Verification QR Code */}
-              <div className="flex justify-between items-start gap-3 pt-0.5">
+              <div className="flex justify-between items-start gap-2 pt-0.5">
                 {/* QR Code directly linked to invoice & warranty verification */}
-                <div className="flex items-center gap-2 border border-zinc-400 p-1.5 rounded-xs bg-zinc-50 max-w-[58%]">
+                <div className="flex items-center gap-1.5 border border-zinc-400 p-1 rounded-xs bg-zinc-50 max-w-[58%]">
                   <div className="p-0.5 bg-white border border-zinc-900 rounded-xs shrink-0">
-                    <QRCode value={getTrackingUrl(transaction.invoiceNumber)} size={56} level="M" />
+                    <QRCode value={getTrackingUrl(transaction.invoiceNumber)} size={48} level="M" />
                   </div>
-                  <div className="text-[8px] text-zinc-700 space-y-0.5">
+                  <div className="text-[7.5px] text-zinc-700 space-y-0.2">
                     <span className="font-black text-zinc-950 block">QR VERIFIKASI & GARANSI ONLINE:</span>
                     <span className="leading-tight block font-medium">
                       Scan QR dengan kamera HP untuk verifikasi keaslian nota & cek masa aktif garansi pembelian.
@@ -641,7 +641,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                 </div>
 
                 {/* Totals Table */}
-                <div className="w-56 space-y-0.5 text-[9.5px] border border-zinc-400 p-1.5 rounded-xs bg-zinc-50">
+                <div className="w-52 space-y-0.2 text-[8.5px] border border-zinc-400 p-1 rounded-xs bg-zinc-50">
                   <div className="flex justify-between">
                     <span className="text-zinc-600">Subtotal:</span>
                     <span className="font-semibold text-zinc-950">{formatRupiah(transaction.subtotal)}</span>
@@ -652,15 +652,15 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                       <span>-{formatRupiah(transaction.discount)}</span>
                     </div>
                   )}
-                  <div className="flex justify-between font-black text-[10.5px] border-t border-zinc-950 pt-0.5 text-zinc-950">
+                  <div className="flex justify-between font-black text-[9.5px] border-t border-zinc-950 pt-0.5 text-zinc-950">
                     <span>TOTAL BAYAR:</span>
                     <span>{formatRupiah(transaction.total)}</span>
                   </div>
-                  <div className="flex justify-between text-[9px]">
+                  <div className="flex justify-between text-[8px]">
                     <span className="text-zinc-600">Bayar ({transaction.paymentMethod}):</span>
                     <span className="font-semibold text-zinc-950">{formatRupiah(transaction.amountPaid)}</span>
                   </div>
-                  <div className="flex justify-between text-[9px]">
+                  <div className="flex justify-between text-[8px]">
                     <span className="text-zinc-600">Kembalian:</span>
                     <span className="font-semibold text-zinc-950">{formatRupiah(transaction.change)}</span>
                   </div>
@@ -668,7 +668,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
               </div>
 
               {/* Warranty & Terms */}
-              <div className="text-[8px] text-zinc-700 border-t border-zinc-400 pt-1 space-y-0.5">
+              <div className="text-[7.5px] text-zinc-700 border-t border-zinc-400 pt-0.5 space-y-0.2">
                 <div className="flex justify-between font-bold text-zinc-950">
                   <span>KETENTUAN GARANSI & TRANSAKSI:</span>
                   <span className="text-blue-900 font-black">
@@ -680,21 +680,21 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
               </div>
 
               {/* 2 Signatures Standard: Customer & Cashier */}
-              <div className="grid grid-cols-2 gap-4 text-center text-[9px] pt-1.5 border-t border-zinc-950">
-                <div className="space-y-6">
-                  <span className="text-zinc-600 block text-[8.5px]">Tanda Terima Konsumen / Pembeli,</span>
+              <div className="grid grid-cols-2 gap-4 text-center text-[8.5px] pt-1 border-t border-zinc-950">
+                <div className="space-y-4">
+                  <span className="text-zinc-600 block text-[8px]">Tanda Terima Konsumen / Pembeli,</span>
                   <div className="border-b border-zinc-900 w-1/2 mx-auto"></div>
-                  <span className="font-bold block text-[8.5px]">( {transaction.customerName} )</span>
+                  <span className="font-bold block text-[8px]">( {transaction.customerName} )</span>
                 </div>
-                <div className="space-y-6">
-                  <span className="text-zinc-600 block text-[8.5px]">Hormat Kami (Kasir / Petugas Toko),</span>
+                <div className="space-y-4">
+                  <span className="text-zinc-600 block text-[8px]">Hormat Kami (Kasir / Petugas Toko),</span>
                   <div className="border-b border-zinc-900 w-1/2 mx-auto"></div>
-                  <span className="font-bold block text-[8.5px]">( {resolvedCashierName} )</span>
+                  <span className="font-bold block text-[8px]">( {resolvedCashierName} )</span>
                 </div>
               </div>
 
               {/* Single Copy Footnote without paper size text */}
-              <div className="text-[7.5px] text-zinc-500 text-center pt-1 border-t border-dashed border-zinc-300">
+              <div className="text-[7px] text-zinc-500 text-center pt-0.5 border-t border-dashed border-zinc-300">
                 [ DOKUMEN RESMI 1 RANGKAP — {settings.storeName.toUpperCase()} ]
               </div>
             </div>
@@ -796,7 +796,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
 
           {/* FORMAT 3: STRUK KASIR POS (1 RANGKAP SAJA) */}
           {selectedFormat === "thermal" && (
-            <div className="mx-auto max-w-[320px] bg-white text-zinc-900 p-4 rounded-xl border border-zinc-400 font-mono text-xs space-y-3 shadow-xs">
+            <div className="print-thermal mx-auto max-w-[320px] bg-white text-zinc-900 p-3 sm:p-4 rounded-xl border border-zinc-400 font-mono text-xs space-y-2.5 shadow-xs overflow-hidden">
               {/* Header */}
               <div className="text-center space-y-0.5 border-b border-dashed border-zinc-400 pb-2.5">
                 <h3 className="font-bold text-sm tracking-wide text-zinc-950 uppercase">

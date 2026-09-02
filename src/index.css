@@ -58,11 +58,27 @@
   }
 }
 
-/* Print Specific Rules for A4 Portrait Dibagi 2 (210mm x 148.5mm - 1 Rangkap), Thermal, and 58mm Stickers */
+/* Print Specific Rules for 1 Single Sheet Only (A4 Portrait Dibagi 2: 210mm x 148.5mm, Thermal POS, and 58mm Stickers) */
 @media print {
   @page {
-    size: 210mm 148.5mm;
-    margin: 3.5mm;
+    size: auto;
+    margin: 2mm;
+  }
+  html, body {
+    height: 100% !important;
+    max-height: 100vh !important;
+    overflow: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+  #root {
+    height: 100% !important;
+    max-height: 100vh !important;
+    overflow: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
   body * {
     visibility: hidden !important;
@@ -71,38 +87,64 @@
     visibility: visible !important;
   }
   .print-area {
-    position: absolute;
-    left: 0;
-    top: 0;
-    margin: 0 auto;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    margin: 0 auto !important;
     padding: 0 !important;
     background: #ffffff !important;
     color: #000000 !important;
     box-shadow: none !important;
     border: none !important;
-    width: 210mm !important;
-  }
-  .print-58mm {
-    width: 54mm !important;
-    max-width: 58mm !important;
-    padding: 2mm !important;
-    font-size: 8.5px !important;
-    margin: 0 auto !important;
+    width: 100% !important;
+    max-height: 100vh !important;
+    overflow: hidden !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
   }
   .print-21x15, .print-continuous {
     width: 202mm !important;
     max-width: 202mm !important;
-    min-height: 138mm !important;
-    max-height: 141.5mm !important;
-    padding: 3.5mm !important;
-    font-size: 9.5px !important;
-    line-height: 1.22 !important;
+    min-height: 130mm !important;
+    max-height: 139mm !important;
+    padding: 2.5mm 3.5mm !important;
+    font-size: 8.8px !important;
+    line-height: 1.16 !important;
     box-sizing: border-box !important;
     margin: 0 auto !important;
     overflow: hidden !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
     page-break-after: avoid !important;
+    break-after: avoid !important;
+  }
+  .print-58mm {
+    width: 54mm !important;
+    max-width: 56mm !important;
+    padding: 1.5mm !important;
+    font-size: 8px !important;
+    line-height: 1.15 !important;
+    margin: 0 auto !important;
+    overflow: hidden !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+  }
+  .print-thermal {
+    width: 72mm !important;
+    max-width: 76mm !important;
+    padding: 2mm !important;
+    font-size: 9px !important;
+    line-height: 1.18 !important;
+    margin: 0 auto !important;
+    overflow: hidden !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
   }
   .no-print {
     display: none !important;

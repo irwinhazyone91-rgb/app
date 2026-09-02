@@ -28,9 +28,13 @@ import {
   ChevronDown,
   ShieldAlert,
   SlidersHorizontal,
-  ExternalLink
+  ExternalLink,
+  Receipt,
+  Tag,
+  PackageCheck,
+  ShoppingBag
 } from "lucide-react";
-import { ServiceTicket, StoreSettings } from "../types";
+import { ServiceTicket, StoreSettings, Transaction } from "../types";
 import {
   formatRupiah,
   formatDateIndo,
@@ -40,25 +44,34 @@ import {
 
 interface CustomerLandingPageProps {
   onSearchTicket: (query: string) => Promise<ServiceTicket | null>;
+  onSearchTracking?: (query: string) => Promise<{ ticket?: ServiceTicket | null; transaction?: Transaction | null } | null>;
   onOpenQRScanner: () => void;
   onOpenLoginStaff: () => void;
   onPrintTicket?: (ticket: ServiceTicket) => void;
+  onPrintTransaction?: (tx: Transaction) => void;
   settings: StoreSettings;
   prefilledTicket?: ServiceTicket | null;
+  prefilledTransaction?: Transaction | null;
 }
 
 export const CustomerLandingPage: React.FC<CustomerLandingPageProps> = ({
   onSearchTicket,
+  onSearchTracking,
   onOpenQRScanner,
   onOpenLoginStaff,
   onPrintTicket,
+  onPrintTransaction,
   settings,
-  prefilledTicket
+  prefilledTicket,
+  prefilledTransaction
 }) => {
   const [searchMode, setSearchMode] = useState<"service" | "warranty">("service");
   const [query, setQuery] = useState("");
   const [searchedTicket, setSearchedTicket] = useState<ServiceTicket | null>(
     prefilledTicket || null
+  );
+  const [searchedTransaction, setSearchedTransaction] = useState<Transaction | null>(
+    prefilledTransaction || null
   );
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -68,8 +81,27 @@ export const CustomerLandingPage: React.FC<CustomerLandingPageProps> = ({
     if (prefilledTicket) {
       setSearchedTicket(prefilledTicket);
       setQuery(prefilledTicket.ticketNumber);
+      setTimeout(() => {
+        const resElement = document.getElementById("search-results-section");
+        if (resElement) {
+          resElement.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }, 100);
     }
   }, [prefilledTicket]);
+
+  useEffect(() => {
+    if (prefilledTransaction) {
+      setSearchedTransaction(prefilledTransaction);
+      setQuery(prefilledTransaction.invoiceNumber);
+      setTimeout(() => {
+        const resElement = document.getElementById("search-results-section");
+        if (resElement) {
+          resElement.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }, 100);
+    }
+  }, [prefilledTransaction]);
 
   const handleSearch = async (e?: React.FormEvent, customQuery?: string) => {
     if (e) e.preventDefault();
@@ -79,9 +111,22 @@ export const CustomerLandingPage: React.FC<CustomerLandingPageProps> = ({
     setLoading(true);
     setErrorMsg(null);
     try {
-      const ticket = await onSearchTicket(q.trim());
-      if (ticket) {
-        setSearchedTicket(ticket);
+      let ticketRes: ServiceTicket | null = null;
+      let txRes: Transaction | null = null;
+
+      if (onSearchTracking) {
+        const res = await onSearchTracking(q.trim());
+        if (res) {
+          ticketRes = res.ticket || null;
+          txRes = res.transaction || null;
+        }
+      } else {
+        ticketRes = await onSearchTicket(q.trim());
+      }
+
+      if (ticketRes || txRes) {
+        setSearchedTicket(ticketRes);
+        setSearchedTransaction(txRes);
         // Scroll smoothly to results
         setTimeout(() => {
           const resElement = document.getElementById("search-results-section");
@@ -91,10 +136,11 @@ export const CustomerLandingPage: React.FC<CustomerLandingPageProps> = ({
         }, 100);
       } else {
         setSearchedTicket(null);
+        setSearchedTransaction(null);
         setErrorMsg(
           searchMode === "warranty"
-            ? `Data garansi untuk "${q}" tidak ditemukan. Pastikan Nomor Tiket, Serial Number, atau No. WhatsApp sudah sesuai.`
-            : `Data tiket servis "${q}" tidak ditemukan di database. Pastikan Nomor Tiket (misal: SRV-202508-001) atau No. WhatsApp Anda benar.`
+            ? `Data garansi untuk "${q}" tidak ditemukan. Pastikan Nomor Tiket Servis (SRV-...), No. Faktur (INV-...), Serial Number, atau No. WhatsApp sudah sesuai.`
+            : `Data tiket servis atau faktur penjualan "${q}" tidak ditemukan. Pastikan Nomor Tiket (misal: SRV-202508-001), No. Faktur (INV-...), atau No. WhatsApp Anda benar.`
         );
       }
     } catch {
@@ -656,6 +702,216 @@ export const CustomerLandingPage: React.FC<CustomerLandingPageProps> = ({
                   <span>Hubungi CS WhatsApp Toko</span>
                 </a>
               </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* RESULT CARD IF INVOICE TRANSACTION FOUND */}
+      {searchedTransaction && (
+        <section id="search-invoice-results-section" className="py-8 px-4 sm:px-6">
+          <div className="max-w-4xl mx-auto bg-card border-2 border-emerald-500/30 dark:border-emerald-500/20 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6">
+            {/* Invoice Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-border">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 flex items-center gap-1.5">
+                    <Receipt className="h-3.5 w-3.5" />
+                    Faktur Penjualan & Garansi Resmi
+                  </span>
+                </div>
+                <h2 className="text-2xl sm:text-3xl font-black tracking-tight font-mono text-foreground">
+                  {searchedTransaction.invoiceNumber}
+                </h2>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground pt-1">
+                  <span className="flex items-center gap-1">
+                    <Calendar className="h-3.5 w-3.5 text-blue-500" />
+                    {formatDateIndo(searchedTransaction.date)}
+                  </span>
+                  <span>•</span>
+                  <span>
+                    Kasir: <strong className="text-foreground">{searchedTransaction.cashierName}</strong>
+                  </span>
+                  <span>•</span>
+                  <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 font-bold uppercase text-[10px]">
+                    Lunas ({searchedTransaction.paymentMethod})
+                  </span>
+                </div>
+              </div>
+
+              {onPrintTransaction && (
+                <button
+                  type="button"
+                  onClick={() => onPrintTransaction(searchedTransaction)}
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-muted hover:bg-muted/80 text-foreground text-xs font-bold rounded-xl border border-border transition-colors shadow-2xs cursor-pointer"
+                >
+                  <Printer className="h-4 w-4 text-emerald-600" />
+                  <span>Cetak Nota Penjualan</span>
+                </button>
+              )}
+            </div>
+
+            {/* Customer & Transaction Info */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-2xl bg-muted/30 border border-border text-xs">
+              <div className="space-y-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Identitas Pelanggan
+                </span>
+                <p className="text-sm font-bold text-foreground">
+                  {searchedTransaction.customerName}
+                </p>
+                <p className="text-muted-foreground flex items-center gap-1">
+                  <Phone className="h-3.5 w-3.5 text-emerald-600" />
+                  {searchedTransaction.customerPhone || "-"}
+                </p>
+              </div>
+
+              <div className="space-y-1.5 sm:text-right">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Total Nilai Transaksi
+                </span>
+                <p className="text-lg font-black text-emerald-600 dark:text-emerald-400">
+                  {formatRupiah(searchedTransaction.total)}
+                </p>
+                <p className="text-muted-foreground text-[11px]">
+                  Dibayar: {formatRupiah(searchedTransaction.amountPaid)} (Kembali: {formatRupiah(searchedTransaction.change)})
+                </p>
+              </div>
+            </div>
+
+            {/* Purchased Items & Warranty Status List */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-extrabold text-foreground flex items-center gap-2">
+                <PackageCheck className="h-4 w-4 text-blue-500" />
+                Rincian Barang & Status Garansi Toko
+              </h3>
+
+              <div className="space-y-3">
+                {searchedTransaction.items.map((item, idx) => {
+                  const wDays = item.warrantyDays || 0;
+                  let isItemWarrantyActive = false;
+                  let itemDaysLeft = 0;
+                  let itemExpiryDate = "";
+
+                  if (wDays > 0) {
+                    const baseDate = new Date(searchedTransaction.date || Date.now());
+                    itemExpiryDate = new Date(baseDate.getTime() + wDays * 86400000).toISOString().split("T")[0];
+                    const today = new Date();
+                    const until = new Date(itemExpiryDate);
+                    const diffTime = until.getTime() - today.getTime();
+                    itemDaysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                    isItemWarrantyActive = itemDaysLeft >= 0;
+                  }
+
+                  return (
+                    <div
+                      key={idx}
+                      className="p-4 rounded-2xl bg-card border border-border hover:border-emerald-500/40 transition-colors shadow-2xs space-y-3"
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
+                        <div className="space-y-1 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="font-bold text-sm text-foreground">
+                              {item.name}
+                            </h4>
+                            {item.conditionGrade && (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-muted text-muted-foreground border border-border">
+                                Kondisi: {item.conditionGrade}
+                              </span>
+                            )}
+                            {item.isService && (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300">
+                                Jasa Servis
+                              </span>
+                            )}
+                          </div>
+                          {item.specsSummary && (
+                            <p className="text-xs text-muted-foreground line-clamp-2">
+                              {item.specsSummary}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="text-left sm:text-right shrink-0">
+                          <span className="text-xs text-muted-foreground block">
+                            {item.qty} x {formatRupiah(item.price)}
+                          </span>
+                          <span className="text-sm font-bold text-foreground">
+                            {formatRupiah(item.subtotal)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Warranty Status Box per Item */}
+                      <div className={`p-3 rounded-xl border text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 ${
+                        wDays > 0 && isItemWarrantyActive
+                          ? "bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800 text-emerald-950 dark:text-emerald-200"
+                          : wDays > 0
+                          ? "bg-amber-50/80 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800 text-amber-950 dark:text-amber-200"
+                          : "bg-muted/40 border-border text-muted-foreground"
+                      }`}>
+                        <div className="flex items-center gap-2">
+                          <ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                          <div>
+                            <span className="font-bold block">
+                              {wDays > 0 ? `Masa Garansi Toko: ${wDays} Hari` : "Garansi Toko Standar"}
+                            </span>
+                            {itemExpiryDate && (
+                              <span className="text-[11px] opacity-80">
+                                Berlaku s/d: <strong>{formatDateIndo(itemExpiryDate)}</strong>
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div>
+                          {wDays > 0 && isItemWarrantyActive ? (
+                            <span className="px-2.5 py-1 rounded-md text-[11px] font-black bg-emerald-600 text-white flex items-center gap-1 w-fit">
+                              🛡️ GARANSI AKTIF (SISA {itemDaysLeft} HARI)
+                            </span>
+                          ) : wDays > 0 ? (
+                            <span className="px-2.5 py-1 rounded-md text-[11px] font-bold bg-amber-600 text-white w-fit">
+                              GARANSI TELAH BERAKHIR
+                            </span>
+                          ) : (
+                            <span className="text-[11px]">Sesuai nota pembelian</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Warranty Terms & WhatsApp Claim Action */}
+            <div className="p-4 rounded-2xl bg-muted/40 border border-border space-y-2 text-xs">
+              <span className="font-bold text-foreground flex items-center gap-1.5">
+                <ShieldAlert className="h-4 w-4 text-emerald-600" />
+                Ketentuan Garansi & Bantuan Klaim Toko
+              </span>
+              <p className="text-muted-foreground text-[11px] leading-relaxed">
+                {settings.warrantyTerms || "Garansi berlaku untuk kerusakan fungsi wajar hardware. Segel garansi toko pada unit harus dalam kondisi utuh dan tidak rusak/sobek."}
+              </p>
+            </div>
+
+            <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-border text-xs">
+              <span className="text-muted-foreground text-center sm:text-left">
+                Ingin melakukan klaim garansi atau konfirmasi faktur pembelian?
+              </span>
+
+              <a
+                href={createWhatsAppUrl(
+                  settings.whatsapp,
+                  `Halo Admin ${settings.storeName}, saya ingin menanyakan klaim garansi untuk Faktur Pembelian *${searchedTransaction.invoiceNumber}* atas nama *${searchedTransaction.customerName}*. Terima kasih.`
+                )}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center justify-center space-x-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition-all shadow-md w-full sm:w-auto"
+              >
+                <MessageCircle className="h-4 w-4" />
+                <span>Hubungi CS WhatsApp Toko</span>
+              </a>
             </div>
           </div>
         </section>

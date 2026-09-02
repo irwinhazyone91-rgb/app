@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Search,
   QrCode,
@@ -12,9 +12,12 @@ import {
   MessageCircle,
   HelpCircle,
   Calendar,
-  Sparkles
+  Sparkles,
+  Receipt,
+  PackageCheck,
+  ShieldAlert
 } from "lucide-react";
-import { ServiceTicket, StoreSettings } from "../types";
+import { ServiceTicket, StoreSettings, Transaction } from "../types";
 import {
   formatRupiah,
   formatDateIndo,
@@ -24,23 +27,44 @@ import {
 
 interface PublicTrackingViewProps {
   onSearchTicket: (query: string) => Promise<ServiceTicket | null>;
+  onSearchTracking?: (query: string) => Promise<{ ticket?: ServiceTicket | null; transaction?: Transaction | null } | null>;
   onOpenQRScanner: () => void;
   settings: StoreSettings;
   prefilledTicket?: ServiceTicket | null;
+  prefilledTransaction?: Transaction | null;
 }
 
 export const PublicTrackingView: React.FC<PublicTrackingViewProps> = ({
   onSearchTicket,
+  onSearchTracking,
   onOpenQRScanner,
   settings,
-  prefilledTicket
+  prefilledTicket,
+  prefilledTransaction
 }) => {
   const [query, setQuery] = useState("");
   const [searchedTicket, setSearchedTicket] = useState<ServiceTicket | null>(
     prefilledTicket || null
   );
+  const [searchedTransaction, setSearchedTransaction] = useState<Transaction | null>(
+    prefilledTransaction || null
+  );
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (prefilledTicket) {
+      setSearchedTicket(prefilledTicket);
+      setQuery(prefilledTicket.ticketNumber);
+    }
+  }, [prefilledTicket]);
+
+  useEffect(() => {
+    if (prefilledTransaction) {
+      setSearchedTransaction(prefilledTransaction);
+      setQuery(prefilledTransaction.invoiceNumber);
+    }
+  }, [prefilledTransaction]);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,12 +73,26 @@ export const PublicTrackingView: React.FC<PublicTrackingViewProps> = ({
     setLoading(true);
     setErrorMsg(null);
     try {
-      const ticket = await onSearchTicket(query.trim());
-      if (ticket) {
-        setSearchedTicket(ticket);
+      let ticketRes: ServiceTicket | null = null;
+      let txRes: Transaction | null = null;
+
+      if (onSearchTracking) {
+        const res = await onSearchTracking(query.trim());
+        if (res) {
+          ticketRes = res.ticket || null;
+          txRes = res.transaction || null;
+        }
+      } else {
+        ticketRes = await onSearchTicket(query.trim());
+      }
+
+      if (ticketRes || txRes) {
+        setSearchedTicket(ticketRes);
+        setSearchedTransaction(txRes);
       } else {
         setSearchedTicket(null);
-        setErrorMsg("Data servis tidak ditemukan. Mohon periksa kembali Nomor Tiket atau No. WhatsApp Anda.");
+        setSearchedTransaction(null);
+        setErrorMsg("Data servis atau faktur penjualan tidak ditemukan. Mohon periksa kembali Nomor Tiket (SRV-...), No. Faktur (INV-...), atau No. WhatsApp Anda.");
       }
     } catch {
       setErrorMsg("Gagal menghubungi server. Silakan coba lagi.");
@@ -320,6 +358,132 @@ export const PublicTrackingView: React.FC<PublicTrackingViewProps> = ({
             >
               <MessageCircle className="h-4 w-4" />
               <span>Hubungi CS WhatsApp Toko</span>
+            </a>
+          </div>
+        </div>
+      )}
+
+      {/* RESULT CARD IF INVOICE TRANSACTION FOUND */}
+      {searchedTransaction && (
+        <div className="bg-card border-2 border-emerald-500/30 rounded-2xl p-6 shadow-md space-y-6 animate-in fade-in duration-300">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 flex items-center gap-1">
+                  <Receipt className="h-3 w-3" />
+                  Faktur Penjualan POS
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  • {formatDateIndo(searchedTransaction.date)}
+                </span>
+              </div>
+              <h2 className="text-xl font-bold font-mono text-foreground mt-1">
+                {searchedTransaction.invoiceNumber}
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Pelanggan: <span className="font-semibold text-foreground">{searchedTransaction.customerName}</span> ({searchedTransaction.customerPhone || "-"})
+              </p>
+            </div>
+
+            <div className="flex flex-col sm:items-end">
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                LUNAS ({searchedTransaction.paymentMethod.toUpperCase()})
+              </span>
+              <span className="text-[11px] text-muted-foreground mt-1">
+                Kasir: {searchedTransaction.cashierName}
+              </span>
+            </div>
+          </div>
+
+          {/* Purchased Items List */}
+          <div className="space-y-3">
+            <h3 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5">
+              <PackageCheck className="h-4 w-4 text-blue-500" />
+              Item & Status Garansi Toko:
+            </h3>
+
+            <div className="space-y-2.5">
+              {searchedTransaction.items.map((item, idx) => {
+                const wDays = item.warrantyDays || 0;
+                let isItemWarrantyActive = false;
+                let itemDaysLeft = 0;
+                let itemExpiryDate = "";
+
+                if (wDays > 0) {
+                  const baseDate = new Date(searchedTransaction.date || Date.now());
+                  itemExpiryDate = new Date(baseDate.getTime() + wDays * 86400000).toISOString().split("T")[0];
+                  const today = new Date();
+                  const until = new Date(itemExpiryDate);
+                  const diffTime = until.getTime() - today.getTime();
+                  itemDaysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                  isItemWarrantyActive = itemDaysLeft >= 0;
+                }
+
+                return (
+                  <div
+                    key={idx}
+                    className="p-3.5 rounded-xl bg-muted/30 border border-border space-y-2 text-xs"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-foreground">{item.name}</span>
+                          {item.conditionGrade && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] bg-muted border text-muted-foreground">
+                              {item.conditionGrade}
+                            </span>
+                          )}
+                        </div>
+                        {item.specsSummary && (
+                          <p className="text-[11px] text-muted-foreground mt-0.5">{item.specsSummary}</p>
+                        )}
+                      </div>
+                      <div className="text-right shrink-0">
+                        <span className="text-muted-foreground block">{item.qty} x {formatRupiah(item.price)}</span>
+                        <span className="font-bold text-foreground">{formatRupiah(item.subtotal)}</span>
+                      </div>
+                    </div>
+
+                    <div className={`p-2 rounded-lg border text-[11px] flex items-center justify-between gap-2 ${
+                      wDays > 0 && isItemWarrantyActive
+                        ? "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200"
+                        : wDays > 0
+                        ? "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200"
+                        : "bg-muted/40 border-border text-muted-foreground"
+                    }`}>
+                      <div className="flex items-center gap-1.5">
+                        <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+                        <span>Garansi: {wDays > 0 ? `${wDays} Hari (s/d ${formatDateIndo(itemExpiryDate)})` : "Standar Toko"}</span>
+                      </div>
+                      {wDays > 0 && isItemWarrantyActive ? (
+                        <span className="font-bold text-emerald-600 dark:text-emerald-400">AKTIF ({itemDaysLeft} hari lagi)</span>
+                      ) : wDays > 0 ? (
+                        <span className="font-bold text-amber-600 dark:text-amber-400">BERAKHIR</span>
+                      ) : null}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Transaction Summary */}
+          <div className="p-4 rounded-xl bg-muted/40 border border-border flex justify-between items-center text-xs">
+            <div>
+              <span className="text-muted-foreground block">Total Pembayaran:</span>
+              <span className="text-base font-bold text-emerald-600">{formatRupiah(searchedTransaction.total)}</span>
+            </div>
+            <a
+              href={createWhatsAppUrl(
+                settings.whatsapp,
+                `Halo Admin ${settings.storeName}, saya ingin menanyakan klaim garansi untuk Faktur Pembelian *${searchedTransaction.invoiceNumber}* atas nama *${searchedTransaction.customerName}*. Terima kasih.`
+              )}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center space-x-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition-colors shadow-xs"
+            >
+              <MessageCircle className="h-4 w-4" />
+              <span>Klaim Garansi via WA</span>
             </a>
           </div>
         </div>

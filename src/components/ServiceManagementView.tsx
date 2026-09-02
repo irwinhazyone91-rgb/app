@@ -40,9 +40,10 @@ import {
   PlusCircle,
   Minus,
   Calculator,
-  RotateCcw
+  RotateCcw,
+  Save
 } from "lucide-react";
-import { ServiceTicket, ServiceStatus, Product, ServicePart, User } from "../types";
+import { ServiceTicket, ServiceStatus, Product, ServicePart, User, Customer } from "../types";
 import {
   formatRupiah,
   formatDateIndo,
@@ -53,11 +54,13 @@ import {
 interface ServiceManagementViewProps {
   tickets: ServiceTicket[];
   products: Product[];
+  customers?: Customer[];
   users?: User[];
   currentUser?: User;
   onCreateTicket: (ticketData: Partial<ServiceTicket>) => void;
   onUpdateTicket: (id: string, updates: Partial<ServiceTicket>) => void;
   onDeleteTicket: (id: string) => void;
+  onSaveCustomer?: (customer: Customer) => void;
   onPrintTicket: (
     ticket: ServiceTicket,
     mode: "intake" | "invoice",
@@ -71,11 +74,13 @@ interface ServiceManagementViewProps {
 export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
   tickets,
   products,
+  customers = [],
   users = [],
   currentUser,
   onCreateTicket,
   onUpdateTicket,
   onDeleteTicket,
+  onSaveCustomer,
   onPrintTicket,
   onPayInPOS,
   selectedTicketForDetail,
@@ -89,6 +94,11 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
     selectedTicketForDetail || null
   );
   const [ticketToDelete, setTicketToDelete] = useState<ServiceTicket | null>(null);
+
+  // Customer search & autocomplete inside New Ticket Modal
+  const [customerSearchInput, setCustomerSearchInput] = useState("");
+  const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false);
+  const [selectedCustomerBadge, setSelectedCustomerBadge] = useState<Customer | null>(null);
 
   const isOwner = currentUser?.role === "owner";
 
@@ -193,10 +203,90 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
     return matchesStatus && matchesSearch;
   });
 
+  // Customer suggestions for autocomplete
+  const filteredCustomerSuggestions = (customers || []).filter((c) => {
+    const q = (customerSearchInput || "").trim().toLowerCase();
+    if (!q) return false;
+    const cleanQ = q.replace(/[^0-9]/g, "");
+    const cleanPhone = (c.phone || "").replace(/[^0-9]/g, "");
+    return (
+      c.name.toLowerCase().includes(q) ||
+      (cleanQ && cleanPhone && cleanPhone.includes(cleanQ)) ||
+      (c.address && c.address.toLowerCase().includes(q))
+    );
+  });
+
+  const handleSelectCustomer = (c: Customer) => {
+    setFormData((prev) => ({
+      ...prev,
+      customerName: c.name,
+      customerPhone: c.phone !== "-" ? c.phone : "",
+      customerAddress: c.address || ""
+    }));
+    setSelectedCustomerBadge(c);
+    setCustomerSearchInput("");
+    setIsCustomerDropdownOpen(false);
+    toast.success(`Data pelanggan "${c.name}" berhasil dipilih & dimuat.`);
+  };
+
+  const handleResetCustomerSelection = () => {
+    setSelectedCustomerBadge(null);
+    setCustomerSearchInput("");
+    setFormData((prev) => ({
+      ...prev,
+      customerName: "",
+      customerPhone: "",
+      customerAddress: ""
+    }));
+  };
+
+  const handleSaveCustomerDirect = () => {
+    const name = (formData.customerName || "").trim();
+    const phone = (formData.customerPhone || "").trim();
+    const address = (formData.customerAddress || "").trim();
+
+    if (!name) {
+      toast.error("Silakan isi Nama Pelanggan terlebih dahulu sebelum menyimpan.");
+      return;
+    }
+    if (!phone) {
+      toast.error("Silakan isi No. WhatsApp Pelanggan sebelum menyimpan.");
+      return;
+    }
+
+    const cleanPhone = phone.replace(/[^0-9]/g, "");
+    const existing = (customers || []).find((c) => {
+      const existingClean = (c.phone || "").replace(/[^0-9]/g, "");
+      if (cleanPhone.length >= 7 && existingClean.length >= 7 && cleanPhone === existingClean) return true;
+      return c.name.trim().toLowerCase() === name.toLowerCase();
+    });
+
+    const custObj: Customer = {
+      id: existing ? existing.id : `cust-${Date.now()}`,
+      name: name,
+      phone: phone,
+      address: address,
+      type: existing?.type || "regular",
+      createdAt: existing?.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      totalServicesCount: existing?.totalServicesCount || 0,
+      totalSpent: existing?.totalSpent || 0
+    };
+
+    if (onSaveCustomer) {
+      onSaveCustomer(custObj);
+    }
+    setSelectedCustomerBadge(custObj);
+    toast.success(`Data pelanggan "${name}" berhasil disimpan ke daftar CRM!`);
+  };
+
   const handleCreateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onCreateTicket(formData);
     setIsNewModalOpen(false);
+    setSelectedCustomerBadge(null);
+    setCustomerSearchInput("");
+    setIsCustomerDropdownOpen(false);
     setFormData({
       customerName: "",
       customerPhone: "",
@@ -729,33 +819,164 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
             </div>
 
             <form onSubmit={handleCreateSubmit} className="space-y-4">
-              {/* Customer Info */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-foreground mb-1">
-                    Nama Pelanggan *
+              {/* Customer Search / Selection Box */}
+              <div className="bg-muted/30 border border-border/80 rounded-xl p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                    <Search className="h-3.5 w-3.5 text-blue-500" />
+                    Cari & Pilih Pelanggan Terdaftar (CRM)
                   </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Contoh: Budi Santoso"
-                    value={formData.customerName}
-                    onChange={(e) => setFormData({ ...formData, customerName: e.target.value })}
-                    className="w-full px-3 py-2 text-sm bg-muted/40 border border-input rounded-lg"
-                  />
+                  {selectedCustomerBadge && (
+                    <button
+                      type="button"
+                      onClick={handleResetCustomerSelection}
+                      className="text-[11px] font-semibold text-rose-500 hover:text-rose-600 hover:underline"
+                    >
+                      ✕ Reset / Input Pelanggan Baru
+                    </button>
+                  )}
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold text-foreground mb-1">
-                    No. WhatsApp *
-                  </label>
-                  <input
-                    type="tel"
-                    required
-                    placeholder="Contoh: 081234567890"
-                    value={formData.customerPhone}
-                    onChange={(e) => setFormData({ ...formData, customerPhone: e.target.value })}
-                    className="w-full px-3 py-2 text-sm bg-muted/40 border border-input rounded-lg"
-                  />
+
+                {selectedCustomerBadge ? (
+                  <div className="flex items-center justify-between bg-blue-500/10 border border-blue-500/30 rounded-lg p-2.5 text-xs">
+                    <div className="space-y-0.5">
+                      <div className="font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
+                        <UserIcon className="h-3.5 w-3.5" />
+                        {selectedCustomerBadge.name}
+                        {selectedCustomerBadge.type === "reseller" && (
+                          <span className="text-[10px] bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 px-1.5 py-0.2 rounded-xs font-semibold">
+                            Reseller/Mitra
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-muted-foreground text-[11px]">
+                        WA: <span className="font-semibold text-foreground">{selectedCustomerBadge.phone}</span>
+                        {selectedCustomerBadge.address && ` • ${selectedCustomerBadge.address}`}
+                        {selectedCustomerBadge.totalServicesCount !== undefined && (
+                          <span className="ml-2 text-emerald-600 dark:text-emerald-400 font-medium">
+                            ({selectedCustomerBadge.totalServicesCount}x Servis)
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <span className="text-[11px] bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 px-2 py-1 rounded-md font-semibold border border-emerald-500/30">
+                      ✓ Terhubung
+                    </span>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <input
+                        type="text"
+                        placeholder="Ketik Nama, No. WhatsApp, atau Alamat untuk mencari pelanggan lama..."
+                        value={customerSearchInput}
+                        onChange={(e) => {
+                          setCustomerSearchInput(e.target.value);
+                          setIsCustomerDropdownOpen(true);
+                        }}
+                        onFocus={() => setIsCustomerDropdownOpen(true)}
+                        className="w-full pl-9 pr-3 py-2 text-sm bg-background border border-input rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                      />
+                    </div>
+
+                    {isCustomerDropdownOpen && customerSearchInput.trim() !== "" && (
+                      <div className="absolute z-20 top-full left-0 right-0 mt-1 max-h-56 overflow-y-auto bg-card border border-border rounded-xl shadow-xl divide-y divide-border">
+                        {filteredCustomerSuggestions.length > 0 ? (
+                          filteredCustomerSuggestions.map((c) => (
+                            <button
+                              key={c.id}
+                              type="button"
+                              onClick={() => handleSelectCustomer(c)}
+                              className="w-full text-left px-3 py-2.5 hover:bg-muted/60 transition-colors flex items-center justify-between group"
+                            >
+                              <div>
+                                <div className="font-semibold text-xs text-foreground group-hover:text-blue-500 flex items-center gap-1.5">
+                                  {c.name}
+                                  {c.type === "reseller" && (
+                                    <span className="text-[9px] bg-indigo-500/10 text-indigo-600 px-1 rounded-xs">
+                                      Reseller
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-[11px] text-muted-foreground">
+                                  <span>{c.phone}</span>
+                                  {c.address && <span className="ml-1.5 opacity-80 truncate">| {c.address}</span>}
+                                </div>
+                              </div>
+                              <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded-md">
+                                {c.totalServicesCount || 0}x Servis
+                              </span>
+                            </button>
+                          ))
+                        ) : (
+                          <div className="p-3 text-center text-xs text-muted-foreground">
+                            Pelanggan belum ada di database. Silakan isi form nama & nomor WA di bawah untuk otomatis mendaftarkannya.
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Customer Info Form */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                    <UserIcon className="h-3.5 w-3.5 text-blue-500" />
+                    Data Identitas Pelanggan
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleSaveCustomerDirect}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:text-emerald-300 dark:hover:bg-emerald-900/60 border border-emerald-300 dark:border-emerald-800 rounded-lg transition-all shadow-2xs active:scale-95 cursor-pointer"
+                    title="Simpan data nama & kontak pelanggan ini ke database CRM Toko"
+                  >
+                    <Save className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                    <span>Simpan Pelanggan ke CRM</span>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-foreground mb-1">
+                      Nama Pelanggan *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Contoh: Budi Santoso"
+                      value={formData.customerName}
+                      onChange={(e) => setFormData({ ...formData, customerName: e.target.value })}
+                      className="w-full px-3 py-2 text-sm bg-muted/40 border border-input rounded-lg"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-foreground mb-1">
+                      No. WhatsApp *
+                    </label>
+                    <input
+                      type="tel"
+                      required
+                      placeholder="Contoh: 081234567890"
+                      value={formData.customerPhone}
+                      onChange={(e) => setFormData({ ...formData, customerPhone: e.target.value })}
+                      className="w-full px-3 py-2 text-sm bg-muted/40 border border-input rounded-lg"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-semibold text-foreground mb-1">
+                      Alamat Pelanggan (Opsional)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Contoh: Jl. Pemuda No. 88, Semarang"
+                      value={formData.customerAddress}
+                      onChange={(e) => setFormData({ ...formData, customerAddress: e.target.value })}
+                      className="w-full px-3 py-2 text-sm bg-muted/40 border border-input rounded-lg"
+                    />
+                  </div>
                 </div>
               </div>
 

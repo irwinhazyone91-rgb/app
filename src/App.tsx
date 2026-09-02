@@ -172,6 +172,7 @@ export function App() {
   const [selectedTicketForDetail, setSelectedTicketForDetail] = useState<ServiceTicket | null>(null);
   const [preloadedTicketForPOS, setPreloadedTicketForPOS] = useState<ServiceTicket | null>(null);
   const [prefilledTicketForTracking, setPrefilledTicketForTracking] = useState<ServiceTicket | null>(null);
+  const [prefilledTransactionForTracking, setPrefilledTransactionForTracking] = useState<Transaction | null>(null);
 
   // Sync Dark Mode Class
   useEffect(() => {
@@ -379,34 +380,54 @@ export function App() {
       const hashParams = new URLSearchParams(window.location.hash.replace(/^#\/?/, ""));
       const trackCode =
         urlParams.get("track") ||
+        urlParams.get("invoice") ||
+        urlParams.get("inv") ||
         urlParams.get("ticket") ||
         urlParams.get("garansi") ||
         hashParams.get("track") ||
+        hashParams.get("invoice") ||
         hashParams.get("ticket");
 
       if (trackCode && trackCode.trim()) {
         const cleanCode = trackCode.trim();
         setIsCustomerTrackingDirect(true);
 
+        const q = cleanCode.toLowerCase();
+        const cleanPhone = cleanCode.replace(/[^0-9]/g, "");
+
         // Find immediately from current tickets
-        const match = tickets.find((t) => {
-          const q = cleanCode.toLowerCase();
+        const matchTicket = tickets.find((t) => {
           return (
             t.ticketNumber.toLowerCase() === q ||
             t.id === cleanCode ||
-            (t.customerPhone && t.customerPhone.replace(/[^0-9]/g, "").includes(q.replace(/[^0-9]/g, ""))) ||
+            (cleanPhone.length >= 7 && t.customerPhone && t.customerPhone.replace(/[^0-9]/g, "").includes(cleanPhone)) ||
             (t.serialNumber && t.serialNumber.toLowerCase() === q)
           );
         });
 
-        if (match) {
-          setPrefilledTicketForTracking(match);
-        } else {
+        // Find immediately from current transactions
+        const matchTx = transactions.find((t) => {
+          return (
+            t.invoiceNumber.toLowerCase() === q ||
+            t.id === cleanCode ||
+            (cleanPhone.length >= 7 && t.customerPhone && t.customerPhone.replace(/[^0-9]/g, "").includes(cleanPhone))
+          );
+        });
+
+        if (matchTicket) {
+          setPrefilledTicketForTracking(matchTicket);
+        }
+        if (matchTx) {
+          setPrefilledTransactionForTracking(matchTx);
+        }
+
+        if (!matchTicket && !matchTx) {
           // If not yet loaded in local state, fetch from server / cloud
-          handleSearchTicket(cleanCode)
+          handleSearchTracking(cleanCode)
             .then((res) => {
               if (res) {
-                setPrefilledTicketForTracking(res);
+                if (res.ticket) setPrefilledTicketForTracking(res.ticket);
+                if (res.transaction) setPrefilledTransactionForTracking(res.transaction);
               }
             })
             .catch(() => {});
@@ -415,7 +436,7 @@ export function App() {
     } catch (e) {
       console.warn("Error parsing URL tracking parameter:", e);
     }
-  }, [tickets.length]);
+  }, [tickets.length, transactions.length]);
 
   // CRUD Users
   const handleCreateUser = async (userData: Partial<User>) => {
@@ -1074,39 +1095,75 @@ export function App() {
     }
   };
 
-  // Search Ticket (for Public Tracking)
-  const handleSearchTicket = async (query: string): Promise<ServiceTicket | null> => {
+  // Unified Search for Tracking & Warranty (Tickets SRV-... and Invoices INV-...)
+  const handleSearchTracking = async (
+    query: string
+  ): Promise<{ ticket?: ServiceTicket | null; transaction?: Transaction | null } | null> => {
     const q = query.trim().toLowerCase();
     const cleanPhone = q.replace(/[^0-9]/g, "");
 
-    // Search in persistent local memory first
-    const found = tickets.find((s) => {
-      const matchTicket = s.ticketNumber.toLowerCase() === q;
-      const matchPhone = cleanPhone && s.customerPhone.replace(/[^0-9]/g, "").includes(cleanPhone);
-      const matchSerial = s.serialNumber && s.serialNumber.toLowerCase() === q;
-      return matchTicket || matchPhone || matchSerial;
+    // 1. Check in-memory state first
+    const matchTicket = tickets.find((s) => {
+      const matchT = s.ticketNumber.toLowerCase() === q || s.id.toLowerCase() === q;
+      const matchP = cleanPhone.length >= 7 && s.customerPhone && s.customerPhone.replace(/[^0-9]/g, "").includes(cleanPhone);
+      const matchS = s.serialNumber && s.serialNumber.toLowerCase() === q;
+      return matchT || matchP || matchS;
     });
 
-    if (found) return found;
+    const matchTx = transactions.find((t) => {
+      const matchI = t.invoiceNumber.toLowerCase() === q || t.id.toLowerCase() === q;
+      const matchP = cleanPhone.length >= 7 && t.customerPhone && t.customerPhone.replace(/[^0-9]/g, "").includes(cleanPhone);
+      return matchI || matchP;
+    });
 
-    // Fallback to server search
-    try {
-      const res = await axios.get(`/api/services/track/${encodeURIComponent(query)}`);
-      return res.data;
-    } catch (e) {
-      throw new Error("Data tiket tidak ditemukan");
+    if (matchTicket || matchTx) {
+      return { ticket: matchTicket || null, transaction: matchTx || null };
     }
+
+    // 2. Query server
+    try {
+      const res = await axios.get(`/api/track/${encodeURIComponent(query)}`);
+      if (res.data) {
+        return res.data;
+      }
+    } catch (e) {
+      try {
+        const res = await axios.get(`/api/services/track/${encodeURIComponent(query)}`);
+        if (res.data) {
+          if (res.data.invoiceNumber) {
+            return { transaction: res.data };
+          }
+          return { ticket: res.data };
+        }
+      } catch (err) {}
+    }
+
+    return null;
+  };
+
+  // Search Ticket (for Public Tracking)
+  const handleSearchTicket = async (query: string): Promise<ServiceTicket | null> => {
+    const res = await handleSearchTracking(query);
+    if (res && res.ticket) return res.ticket;
+    return null;
   };
 
   // QR Code Scanner Action
   const handleQRScanSuccess = async (scannedCode: string) => {
     setIsQRScannerOpen(false);
     try {
-      const ticket = await handleSearchTicket(scannedCode);
-      if (ticket) {
-        setPrefilledTicketForTracking(ticket);
+      const result = await handleSearchTracking(scannedCode);
+      if (result && (result.ticket || result.transaction)) {
+        setPrefilledTicketForTracking(result.ticket || null);
+        setPrefilledTransactionForTracking(result.transaction || null);
         setCurrentTab("tracking");
-        toast.success(`Tiket ${ticket.ticketNumber} berhasil dideteksi dari QR Code!`);
+        if (result.transaction) {
+          toast.success(`Faktur ${result.transaction.invoiceNumber} berhasil dideteksi dari QR Code!`);
+        } else if (result.ticket) {
+          toast.success(`Tiket ${result.ticket.ticketNumber} berhasil dideteksi dari QR Code!`);
+        }
+      } else {
+        toast.error(`QR Code terdeteksi: "${scannedCode}". Data tidak ditemukan.`);
       }
     } catch (err: any) {
       toast.error(`QR Code terdeteksi: "${scannedCode}". Data tidak ditemukan di sistem.`);
@@ -1159,6 +1216,7 @@ export function App() {
         {/* Customer Dedicated Landing Page */}
         <CustomerLandingPage
           onSearchTicket={handleSearchTicket}
+          onSearchTracking={handleSearchTracking}
           onOpenQRScanner={() => setIsQRScannerOpen(true)}
           onOpenLoginStaff={() => setIsCustomerTrackingDirect(false)}
           onPrintTicket={(ticket) => {
@@ -1170,8 +1228,19 @@ export function App() {
               defaultFormat: "continuous"
             });
           }}
+          onPrintTransaction={(tx) => {
+            const autoFormat = getFormatForTransaction(tx);
+            setReceiptModal({
+              isOpen: true,
+              mode: "pos_transaction",
+              transaction: tx,
+              ticket: null,
+              defaultFormat: autoFormat
+            });
+          }}
           settings={settings}
           prefilledTicket={prefilledTicketForTracking}
+          prefilledTransaction={prefilledTransactionForTracking}
         />
 
         {/* QR Scanner for Customer */}
@@ -1309,11 +1378,13 @@ export function App() {
             <ServiceManagementView
               tickets={tickets}
               products={products}
+              customers={customers}
               users={users}
               currentUser={currentUser}
               onCreateTicket={handleCreateTicket}
               onUpdateTicket={handleUpdateTicket}
               onDeleteTicket={handleDeleteTicket}
+              onSaveCustomer={handleSaveCustomer}
               onPrintTicket={(ticket, mode, format) => {
                 setReceiptModal({
                   isOpen: true,
@@ -1429,6 +1500,7 @@ export function App() {
           {isTabAllowedForRole(currentTab, currentUser.role) && currentTab === "tracking" && (
             <CustomerLandingPage
               onSearchTicket={handleSearchTicket}
+              onSearchTracking={handleSearchTracking}
               onOpenQRScanner={() => setIsQRScannerOpen(true)}
               onOpenLoginStaff={() => setCurrentTab(getDefaultTabForRole(currentUser.role))}
               onPrintTicket={(ticket) => {
@@ -1440,8 +1512,19 @@ export function App() {
                   defaultFormat: "continuous"
                 });
               }}
+              onPrintTransaction={(tx) => {
+                const autoFormat = getFormatForTransaction(tx);
+                setReceiptModal({
+                  isOpen: true,
+                  mode: "pos_transaction",
+                  transaction: tx,
+                  ticket: null,
+                  defaultFormat: autoFormat
+                });
+              }}
               settings={settings}
               prefilledTicket={prefilledTicketForTracking}
+              prefilledTransaction={prefilledTransactionForTracking}
             />
           )}
 

@@ -140,6 +140,18 @@ export interface StoreSettings {
 
 export type UserRole = "owner" | "admin" | "technician" | "cashier";
 
+export interface Customer {
+  id: string;
+  name: string;
+  phone: string;
+  address?: string;
+  notes?: string;
+  type?: "regular" | "reseller" | "corporate";
+  createdAt: string;
+  totalServicesCount?: number;
+  totalSpent?: number;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -619,6 +631,49 @@ let transactions: Transaction[] = [
   }
 ];
 
+let customers: Customer[] = [
+  {
+    id: "cust-1",
+    name: "Hendro Wibowo",
+    phone: "081299988877",
+    address: "Jl. Gajah Mada No. 88, Semarang",
+    type: "regular",
+    createdAt: "2026-08-01T10:00:00.000Z",
+    totalServicesCount: 1,
+    totalSpent: 430000
+  },
+  {
+    id: "cust-2",
+    name: "Dewi Lestari",
+    phone: "085712345678",
+    address: "Jl. Pahlawan No. 12, Semarang",
+    type: "regular",
+    createdAt: "2026-08-05T14:30:00.000Z",
+    totalServicesCount: 1,
+    totalSpent: 450000
+  },
+  {
+    id: "cust-3",
+    name: "Ahmad Rizky",
+    phone: "087812903456",
+    address: "Jl. Pandanaran No. 45 Semarang",
+    type: "regular",
+    createdAt: "2026-08-10T09:15:00.000Z",
+    totalServicesCount: 1,
+    totalSpent: 0
+  },
+  {
+    id: "cust-4",
+    name: "Siti Rahmawati",
+    phone: "081399887766",
+    address: "Jl. MT Haryono No. 102",
+    type: "regular",
+    createdAt: "2026-08-15T11:00:00.000Z",
+    totalServicesCount: 1,
+    totalSpent: 625000
+  }
+];
+
 // Initial Load from Disk if exists
 function loadFromDisk() {
   try {
@@ -631,6 +686,7 @@ function loadFromDisk() {
       if (parsed.products && Array.isArray(parsed.products)) products = parsed.products;
       if (parsed.serviceTickets && Array.isArray(parsed.serviceTickets)) serviceTickets = parsed.serviceTickets;
       if (parsed.transactions && Array.isArray(parsed.transactions)) transactions = parsed.transactions;
+      if (parsed.customers && Array.isArray(parsed.customers)) customers = parsed.customers;
       console.log("ServisKu Database loaded successfully from disk:", DB_FILE);
     } else {
       saveToDisk();
@@ -649,6 +705,7 @@ function saveToDisk() {
       products,
       serviceTickets,
       transactions,
+      customers,
       lastSaved: new Date().toISOString()
     };
     fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), "utf-8");
@@ -886,23 +943,58 @@ app.get("/api/services", (req: Request, res: Response) => {
   res.json(result);
 });
 
-// Public Tracking by Ticket Number or Phone
+// Unified Public Tracking (Tickets SRV-... and Invoices INV-... or Phone)
+app.get("/api/track/:query", (req: Request, res: Response) => {
+  const q = req.params.query.trim().toLowerCase();
+  const cleanPhone = q.replace(/[^0-9]/g, "");
+
+  const matchTicket = serviceTickets.find((s) => {
+    const matchT = s.ticketNumber.toLowerCase() === q || s.id.toLowerCase() === q;
+    const matchP = cleanPhone.length >= 7 && s.customerPhone.replace(/[^0-9]/g, "").includes(cleanPhone);
+    const matchS = s.serialNumber && s.serialNumber.toLowerCase() === q;
+    return matchT || matchP || matchS;
+  });
+
+  const matchTx = transactions.find((t) => {
+    const matchI = t.invoiceNumber.toLowerCase() === q || t.id.toLowerCase() === q;
+    const matchP = cleanPhone.length >= 7 && t.customerPhone.replace(/[^0-9]/g, "").includes(cleanPhone);
+    return matchI || matchP;
+  });
+
+  if (!matchTicket && !matchTx) {
+    return res.status(404).json({ error: "Data servis atau faktur penjualan tidak ditemukan. Mohon periksa kembali Nomor Tiket / No. Faktur (INV-...) atau No. WhatsApp Anda." });
+  }
+
+  res.json({ ticket: matchTicket || null, transaction: matchTx || null });
+});
+
+// Backward-compatible Public Tracking by Ticket Number, Invoice Number, or Phone
 app.get("/api/services/track/:query", (req: Request, res: Response) => {
   const q = req.params.query.trim().toLowerCase();
   const cleanPhone = q.replace(/[^0-9]/g, "");
 
-  const match = serviceTickets.find((s) => {
-    const matchTicket = s.ticketNumber.toLowerCase() === q;
-    const matchPhone = cleanPhone && s.customerPhone.replace(/[^0-9]/g, "").includes(cleanPhone);
-    const matchSerial = s.serialNumber && s.serialNumber.toLowerCase() === q;
-    return matchTicket || matchPhone || matchSerial;
+  const matchTicket = serviceTickets.find((s) => {
+    const matchT = s.ticketNumber.toLowerCase() === q || s.id.toLowerCase() === q;
+    const matchP = cleanPhone.length >= 7 && s.customerPhone.replace(/[^0-9]/g, "").includes(cleanPhone);
+    const matchS = s.serialNumber && s.serialNumber.toLowerCase() === q;
+    return matchT || matchP || matchS;
   });
 
-  if (!match) {
-    return res.status(404).json({ error: "Data servis tidak ditemukan. Mohon periksa kembali Nomor Tiket atau No. WhatsApp Anda." });
+  if (matchTicket) {
+    return res.json(matchTicket);
   }
 
-  res.json(match);
+  const matchTx = transactions.find((t) => {
+    const matchI = t.invoiceNumber.toLowerCase() === q || t.id.toLowerCase() === q;
+    const matchP = cleanPhone.length >= 7 && t.customerPhone.replace(/[^0-9]/g, "").includes(cleanPhone);
+    return matchI || matchP;
+  });
+
+  if (matchTx) {
+    return res.json(matchTx);
+  }
+
+  return res.status(404).json({ error: "Data servis atau faktur penjualan tidak ditemukan. Mohon periksa kembali Nomor Tiket atau No. WhatsApp Anda." });
 });
 
 app.get("/api/services/:id", (req: Request, res: Response) => {
@@ -942,9 +1034,102 @@ app.post("/api/services", (req: Request, res: Response) => {
     updatedAt: req.body.updatedAt || now.toISOString()
   };
 
+  // Auto upsert customer to customers database
+  if (newTicket.customerName && newTicket.customerName.trim() !== "") {
+    const cleanPhone = (newTicket.customerPhone || "").replace(/[^0-9]/g, "");
+    const cIndex = customers.findIndex((c) => {
+      const existingClean = (c.phone || "").replace(/[^0-9]/g, "");
+      if (cleanPhone.length >= 7 && existingClean.length >= 7 && cleanPhone === existingClean) return true;
+      return c.name.trim().toLowerCase() === newTicket.customerName.trim().toLowerCase();
+    });
+
+    if (cIndex !== -1) {
+      customers[cIndex] = {
+        ...customers[cIndex],
+        totalServicesCount: (customers[cIndex].totalServicesCount || 0) + 1,
+        totalSpent: (customers[cIndex].totalSpent || 0) + (newTicket.downPayment || 0),
+        address: newTicket.customerAddress || customers[cIndex].address,
+        phone: newTicket.customerPhone || customers[cIndex].phone
+      };
+    } else {
+      customers.unshift({
+        id: `cust-${Date.now()}`,
+        name: newTicket.customerName.trim(),
+        phone: newTicket.customerPhone || "-",
+        address: newTicket.customerAddress || "",
+        type: "regular",
+        createdAt: now.toISOString(),
+        totalServicesCount: 1,
+        totalSpent: newTicket.downPayment || 0
+      });
+    }
+  }
+
   serviceTickets.unshift(newTicket);
   saveToDisk();
   res.status(201).json(newTicket);
+});
+
+// Customers CRM Endpoints
+app.get("/api/customers", (req: Request, res: Response) => {
+  const { search } = req.query;
+  let result = [...customers];
+  if (search && typeof search === "string") {
+    const q = search.toLowerCase();
+    const cleanQ = q.replace(/[^0-9]/g, "");
+    result = result.filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        (cleanQ && (c.phone || "").replace(/[^0-9]/g, "").includes(cleanQ)) ||
+        (c.address && c.address.toLowerCase().includes(q))
+    );
+  }
+  res.json(result);
+});
+
+app.post("/api/customers", (req: Request, res: Response) => {
+  const newCust: Customer = {
+    id: req.body.id || `cust-${Date.now()}`,
+    name: req.body.name,
+    phone: req.body.phone || "-",
+    address: req.body.address || "",
+    notes: req.body.notes || "",
+    type: req.body.type || "regular",
+    createdAt: req.body.createdAt || new Date().toISOString(),
+    totalServicesCount: Number(req.body.totalServicesCount) || 0,
+    totalSpent: Number(req.body.totalSpent) || 0
+  };
+
+  const existingIdx = customers.findIndex((c) => c.id === newCust.id);
+  if (existingIdx >= 0) {
+    customers[existingIdx] = { ...customers[existingIdx], ...newCust };
+  } else {
+    customers.unshift(newCust);
+  }
+  saveToDisk();
+  res.status(201).json(newCust);
+});
+
+app.put("/api/customers/:id", (req: Request, res: Response) => {
+  const { id } = req.params;
+  const index = customers.findIndex((c) => c.id === id);
+  if (index === -1) {
+    return res.status(404).json({ error: "Pelanggan tidak ditemukan" });
+  }
+
+  customers[index] = {
+    ...customers[index],
+    ...req.body
+  };
+  saveToDisk();
+  res.json(customers[index]);
+});
+
+app.delete("/api/customers/:id", (req: Request, res: Response) => {
+  const { id } = req.params;
+  customers = customers.filter((c) => c.id !== id);
+  saveToDisk();
+  res.json({ success: true, message: "Pelanggan berhasil dihapus" });
 });
 
 app.put("/api/services/:id", (req: Request, res: Response) => {
