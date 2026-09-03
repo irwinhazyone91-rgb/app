@@ -144,15 +144,15 @@
   }
   /* Format 2: STRUK KASIR THERMAL 58MM (Dikalibrasi Khusus Printer MP58 EcoPrint & Mini Bluetooth) */
   .print-thermal-58mm {
-    width: var(--thermal-58-width, 44mm) !important;
-    max-width: var(--thermal-58-width, 44mm) !important;
+    width: var(--thermal-58-width, 50mm) !important;
+    max-width: var(--thermal-58-width, 50mm) !important;
     margin: 0 !important;
     margin-left: var(--thermal-58-offset, 0mm) !important;
     margin-right: auto !important;
-    padding: 0 0.5mm 2mm 0.5mm !important;
-    font-size: 8.8px !important;
-    line-height: 1.22 !important;
-    font-family: 'Courier New', Courier, monospace !important;
+    padding: 0 0.5mm 3mm 0.5mm !important;
+    font-size: 9px !important;
+    line-height: 1.25 !important;
+    font-family: var(--thermal-58-font-family, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif) !important;
     font-weight: 700 !important;
     overflow: visible !important;
     word-break: break-word !important;
@@ -163,6 +163,8 @@
     break-after: avoid !important;
     color: #000000 !important;
     background: #ffffff !important;
+    border: none !important;
+    box-shadow: none !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }

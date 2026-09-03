@@ -87,33 +87,48 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
   );
 
   // Thermal 58mm calibration state (remembered in localStorage for MP58 and other mini thermal printers)
-  const [thermal58Width, setThermal58Width] = useState<"44mm" | "45mm" | "46mm" | "48mm">(() => {
+  const [thermal58Width, setThermal58Width] = useState<"48mm" | "50mm" | "52mm" | "54mm">(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("servisku_thermal58_width");
-      if (saved === "44mm" || saved === "45mm" || saved === "46mm" || saved === "48mm") return saved;
+      if (saved === "48mm" || saved === "50mm" || saved === "52mm" || saved === "54mm") return saved;
     }
-    return "44mm";
+    return "50mm";
   });
 
-  const [thermal58Offset, setThermal58Offset] = useState<"0mm" | "1mm" | "2mm">(() => {
+  const [thermal58Offset, setThermal58Offset] = useState<"0mm" | "1mm" | "2mm" | "3mm">(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("servisku_thermal58_offset");
-      if (saved === "0mm" || saved === "1mm" || saved === "2mm") return saved;
+      if (saved === "0mm" || saved === "1mm" || saved === "2mm" || saved === "3mm") return saved;
     }
     return "0mm";
   });
 
-  const handleWidthChange = (val: "44mm" | "45mm" | "46mm" | "48mm") => {
+  const [thermal58Font, setThermal58Font] = useState<"sans" | "mono">(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("servisku_thermal58_font");
+      if (saved === "sans" || saved === "mono") return saved;
+    }
+    return "sans";
+  });
+
+  const handleWidthChange = (val: "48mm" | "50mm" | "52mm" | "54mm") => {
     setThermal58Width(val);
     if (typeof window !== "undefined") {
       localStorage.setItem("servisku_thermal58_width", val);
     }
   };
 
-  const handleOffsetChange = (val: "0mm" | "1mm" | "2mm") => {
+  const handleOffsetChange = (val: "0mm" | "1mm" | "2mm" | "3mm") => {
     setThermal58Offset(val);
     if (typeof window !== "undefined") {
       localStorage.setItem("servisku_thermal58_offset", val);
+    }
+  };
+
+  const handleFontChange = (val: "sans" | "mono") => {
+    setThermal58Font(val);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("servisku_thermal58_font", val);
     }
   };
 
@@ -334,62 +349,98 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800 pb-2">
               <div className="flex items-center space-x-2 font-bold text-amber-400">
                 <Sliders className="h-4 w-4 text-amber-400" />
-                <span>Kalibrasi Khusus Thermal Printer MP58 (Anti-Terpotong & Hitam Pekat)</span>
+                <span>Kalibrasi Khusus Thermal Printer MP58 (Pas Kertas & Hitam Pekat)</span>
               </div>
-              <div className="flex items-center space-x-1.5 text-[11px] bg-emerald-950/80 text-emerald-300 font-bold px-2 py-0.5 rounded-full border border-emerald-600/60">
-                <Check className="h-3 w-3 text-emerald-400" />
-                <span>Format MP58 Aktif: {thermal58Width} / Offset {thermal58Offset}</span>
+              <div className="flex items-center space-x-1.5 text-[11px] bg-emerald-950/80 text-emerald-300 font-bold px-2.5 py-0.5 rounded-full border border-emerald-600/60">
+                <Check className="h-3.5 w-3.5 text-emerald-400" />
+                <span>Aktif: {thermal58Width} / Offset {thermal58Offset} / Font {thermal58Font === "sans" ? "Modern POS" : "Mono"}</span>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+              {/* 1. Lebar Kertas */}
               <div>
                 <label className="block text-[11px] font-bold text-zinc-300 mb-1">
                   Lebar Area Cetak (Print Width):
                 </label>
-                <div className="grid grid-cols-3 gap-1.5">
-                  {(["44mm", "46mm", "48mm"] as const).map((w) => (
+                <div className="grid grid-cols-4 gap-1">
+                  {(["48mm", "50mm", "52mm", "54mm"] as const).map((w) => (
                     <button
                       key={w}
                       type="button"
                       onClick={() => handleWidthChange(w)}
-                      className={`py-1.5 px-2 rounded-lg text-xs font-bold text-center border transition-all ${
+                      className={`py-1.5 px-1 rounded-lg text-xs font-bold text-center border transition-all ${
                         thermal58Width === w
                           ? "bg-amber-500 text-zinc-950 border-amber-400 shadow-sm"
                           : "bg-zinc-800 text-zinc-300 border-zinc-700 hover:bg-zinc-700"
                       }`}
                     >
-                      {w} {w === "44mm" && "(MP58 Pas)"}
+                      {w}
                     </button>
                   ))}
                 </div>
                 <p className="text-[10px] text-zinc-400 mt-1">
-                  *Pilih <strong>44mm</strong> agar teks sebelah kanan (00, nama, harga) tidak terpotong oleh head printer MP58.
+                  *Default <strong>50mm</strong> atau <strong>52mm</strong> agar teks mengisi penuh kertas roll 58mm tanpa sisa kosong di kanan.
                 </p>
               </div>
 
+              {/* 2. Gaya Font Thermal */}
               <div>
                 <label className="block text-[11px] font-bold text-zinc-300 mb-1">
-                  Margin Kiri (Head Offset):
+                  Model Huruf (Ketajaman Thermal):
                 </label>
-                <div className="grid grid-cols-3 gap-1.5">
-                  {(["0mm", "1mm", "2mm"] as const).map((off) => (
+                <div className="grid grid-cols-2 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => handleFontChange("sans")}
+                    className={`py-1.5 px-2 rounded-lg text-xs font-bold text-center border transition-all ${
+                      thermal58Font === "sans"
+                        ? "bg-amber-500 text-zinc-950 border-amber-400 shadow-sm"
+                        : "bg-zinc-800 text-zinc-300 border-zinc-700 hover:bg-zinc-700"
+                    }`}
+                  >
+                    Modern (Tebal & Jelas)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleFontChange("mono")}
+                    className={`py-1.5 px-2 rounded-lg text-xs font-bold text-center border transition-all ${
+                      thermal58Font === "mono"
+                        ? "bg-amber-500 text-zinc-950 border-amber-400 shadow-sm"
+                        : "bg-zinc-800 text-zinc-300 border-zinc-700 hover:bg-zinc-700"
+                    }`}
+                  >
+                    Monospace (Klasik)
+                  </button>
+                </div>
+                <p className="text-[10px] text-zinc-400 mt-1">
+                  *Gunakan <strong>Modern</strong> untuk cetakan hitam pekat, tebal, dan sangat mudah dibaca.
+                </p>
+              </div>
+
+              {/* 3. Margin Kiri */}
+              <div>
+                <label className="block text-[11px] font-bold text-zinc-300 mb-1">
+                  Posisi / Geser Kiri (Offset):
+                </label>
+                <div className="grid grid-cols-4 gap-1">
+                  {(["0mm", "1mm", "2mm", "3mm"] as const).map((off) => (
                     <button
                       key={off}
                       type="button"
                       onClick={() => handleOffsetChange(off)}
-                      className={`py-1.5 px-2 rounded-lg text-xs font-bold text-center border transition-all ${
+                      className={`py-1.5 px-1 rounded-lg text-xs font-bold text-center border transition-all ${
                         thermal58Offset === off
                           ? "bg-amber-500 text-zinc-950 border-amber-400 shadow-sm"
                           : "bg-zinc-800 text-zinc-300 border-zinc-700 hover:bg-zinc-700"
                       }`}
                     >
-                      {off} {off === "0mm" && "(Rata Kiri)"}
+                      {off}
                     </button>
                   ))}
                 </div>
                 <p className="text-[10px] text-zinc-400 mt-1">
-                  *Pilih <strong>0mm</strong> agar cetakan tepat di tepi awal roll thermal tanpa tergeser ke kanan.
+                  *Gunakan <strong>0mm</strong> jika printer sudah rata kiri, atau <strong>1-2mm</strong> untuk menggeser ke tengah.
                 </p>
               </div>
             </div>
@@ -405,6 +456,10 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
           style={{
             ["--thermal-58-width" as any]: thermal58Width,
             ["--thermal-58-offset" as any]: thermal58Offset,
+            ["--thermal-58-font-family" as any]:
+              thermal58Font === "sans"
+                ? "system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+                : "'Courier New', Courier, monospace",
           }}
         >
           {/* FORMAT 1: DOKUMEN NOTA KONSUMEN / SPK SERVIS (1 RANGKAP SAJA) */}
@@ -954,30 +1009,38 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                 width: thermal58Width,
                 maxWidth: thermal58Width,
                 marginLeft: thermal58Offset,
+                fontFamily:
+                  thermal58Font === "sans"
+                    ? "system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+                    : "'Courier New', Courier, monospace",
               }}
-              className="print-thermal-58mm mx-auto bg-white text-black p-1 rounded-none border border-black font-mono text-[8.8px] leading-tight space-y-1 shadow-xs overflow-visible"
+              className={`print-thermal-58mm mx-auto bg-white text-black py-1 px-0.5 border-none leading-tight space-y-1 overflow-visible ${
+                thermal58Font === "sans" ? "font-sans font-bold text-[9px]" : "font-mono font-bold text-[8.8px]"
+              }`}
             >
-              {/* Header Toko */}
-              <div className="text-center space-y-0.5 border-b-2 border-dashed border-black pb-1">
-                <h3 className="font-black text-[12px] tracking-tight text-black uppercase leading-tight">
+              {/* Header Toko - Bersih & Rapi Tanpa Kotak Luar */}
+              <div className="text-center space-y-0.5 border-b border-dashed border-black pb-1.5 mb-1">
+                <h3 className="font-black text-[13px] tracking-tight text-black uppercase leading-tight">
                   {settings.storeName}
                 </h3>
-                <p className="text-[8px] text-black font-bold leading-tight">{settings.tagline}</p>
-                <p className="text-[7.8px] text-black font-semibold leading-tight break-words">{settings.address}</p>
-                <p className="text-[8.5px] text-black font-black leading-tight">WA: {settings.whatsapp}</p>
+                {settings.tagline && (
+                  <p className="text-[8.5px] text-black font-semibold leading-tight">{settings.tagline}</p>
+                )}
+                <p className="text-[8px] text-black font-medium leading-tight break-words px-1">{settings.address}</p>
+                <p className="text-[8.8px] text-black font-black leading-tight">WA: {settings.whatsapp}</p>
               </div>
 
-              {/* Title Dokumen */}
-              <div className="text-center py-0.5 my-0.5">
-                <span className="font-black text-[8.5px] uppercase px-1.5 py-0.5 border-2 border-black inline-block text-black">
-                  {mode === "intake_service" && "TANDA TERIMA SERVIS (58MM)"}
-                  {mode === "invoice_service" && "NOTA PELUNASAN SERVIS (58MM)"}
-                  {mode === "pos_transaction" && "STRUK TRANSAKSI KASIR (58MM)"}
+              {/* Title Dokumen - Elegan dengan Garis Putus-Putus */}
+              <div className="text-center py-1 my-0.5 border-y border-dashed border-black">
+                <span className="font-black text-[9.5px] uppercase tracking-wider text-black">
+                  {mode === "intake_service" && "TANDA TERIMA SERVIS"}
+                  {mode === "invoice_service" && "NOTA PELUNASAN SERVIS"}
+                  {mode === "pos_transaction" && "STRUK TRANSAKSI KASIR"}
                 </span>
               </div>
 
               {/* Metadata Transaksi / Servis */}
-              <div className="space-y-0.5 text-[8.5px] border-b-2 border-dashed border-black pb-1 text-black">
+              <div className="space-y-0.5 text-[8.8px] border-b border-dashed border-black pb-1 text-black">
                 {ticket && (
                   <>
                     <div className="flex justify-between items-baseline gap-1">
@@ -1033,7 +1096,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
 
               {/* Details (Service or POS Items) */}
               {ticket && (
-                <div className="space-y-0.5 text-[8.5px] border-b-2 border-dashed border-black pb-1 text-black">
+                <div className="space-y-0.5 text-[8.8px] border-b border-dashed border-black pb-1 text-black">
                   <div>
                     <span className="font-bold text-[8px] block">Unit Perangkat:</span>
                     <span className="font-black block">{ticket.deviceBrandModel}</span>
@@ -1050,9 +1113,12 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                   )}
                   {ticket.partsUsed && ticket.partsUsed.length > 0 && (
                     <div className="pt-0.5">
-                      <span className="font-black block text-[8px] border-b border-black pb-0.5">Part / Jasa:</span>
+                      <div className="flex justify-between font-black text-[8px] border-b border-black pb-0.5 uppercase">
+                        <span>PART / JASA</span>
+                        <span>TOTAL</span>
+                      </div>
                       {ticket.partsUsed.map((p, i) => (
-                        <div key={i} className="flex justify-between items-baseline text-[8px] py-0.5">
+                        <div key={i} className="flex justify-between items-baseline text-[8.5px] py-0.5">
                           <span className="truncate pr-1">{p.name}</span>
                           <span className="font-bold shrink-0">{formatRupiah(p.price * p.qty)}</span>
                         </div>
@@ -1063,21 +1129,22 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
               )}
 
               {transaction && (
-                <div className="space-y-1 text-[8.5px] border-b-2 border-dashed border-black pb-1 text-black">
-                  <div className="font-black text-[8px] border-b border-black pb-0.5 uppercase tracking-tight">
-                    DAFTAR ITEM:
+                <div className="space-y-1 text-[8.8px] border-b border-dashed border-black pb-1 text-black">
+                  <div className="flex justify-between font-black text-[8px] border-b border-black pb-0.5 uppercase tracking-wider">
+                    <span>ITEM</span>
+                    <span>TOTAL</span>
                   </div>
                   {transaction.items.map((item, idx) => (
                     <div key={idx} className="py-0.5 border-b border-dotted border-black/30 last:border-none">
-                      <div className="font-black text-[8.8px] leading-tight break-words text-black">
+                      <div className="font-black text-[9px] leading-tight break-words text-black">
                         {item.name}
                       </div>
-                      <div className="flex justify-between items-baseline text-[8.5px] font-bold text-black mt-0.5">
+                      <div className="flex justify-between items-baseline text-[8.8px] font-bold text-black mt-0.5">
                         <span>{item.qty} x {formatRupiah(item.price)}</span>
                         <span className="font-black text-right shrink-0">{formatRupiah(item.subtotal)}</span>
                       </div>
                       {item.warrantyDays !== undefined && item.warrantyDays > 0 && (
-                        <div className="text-[7.5px] font-black text-black">
+                        <div className="text-[7.8px] font-black text-black">
                           [Garansi: {item.warrantyDays} Hari]
                         </div>
                       )}
@@ -1087,11 +1154,11 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
               )}
 
               {/* Totals Section */}
-              <div className="space-y-0.5 text-[8.8px] border-b-2 border-dashed border-black pb-1 text-black font-bold">
+              <div className="space-y-0.5 text-[9px] border-b border-dashed border-black pb-1 text-black font-bold">
                 {ticket && (
                   <>
                     <div className="flex justify-between items-baseline">
-                      <span>Biaya / Est:</span>
+                      <span>Biaya Servis:</span>
                       <span className="font-black">
                         {formatRupiah(ticket.finalCost || ticket.estimatedCost)}
                       </span>
@@ -1102,7 +1169,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                         <span className="font-bold">{formatRupiah(ticket.downPayment)}</span>
                       </div>
                     )}
-                    <div className="flex justify-between items-baseline font-black text-[10px] pt-1 mt-0.5 border-t-2 border-black">
+                    <div className="flex justify-between items-baseline font-black text-[11.5px] pt-1 mt-0.5 border-t-2 border-b-2 border-black py-0.5">
                       <span>Sisa Pelunasan:</span>
                       <span>
                         {formatRupiah(
@@ -1125,15 +1192,15 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                         <span className="font-bold">-{formatRupiah(transaction.discount)}</span>
                       </div>
                     )}
-                    <div className="flex justify-between items-baseline font-black text-[10.5px] pt-1 mt-0.5 border-t-2 border-b-2 border-black py-0.5">
+                    <div className="flex justify-between items-baseline font-black text-[12px] pt-1 mt-0.5 border-t-2 border-b-2 border-black py-1">
                       <span>TOTAL:</span>
                       <span>{formatRupiah(transaction.total)}</span>
                     </div>
-                    <div className="flex justify-between items-baseline text-[8.5px] pt-0.5">
+                    <div className="flex justify-between items-baseline text-[8.8px] pt-0.5">
                       <span className="capitalize">Bayar ({transaction.paymentMethod}):</span>
                       <span className="font-bold">{formatRupiah(transaction.amountPaid)}</span>
                     </div>
-                    <div className="flex justify-between items-baseline text-[8.5px]">
+                    <div className="flex justify-between items-baseline text-[8.8px]">
                       <span>Kembalian:</span>
                       <span className="font-black">{formatRupiah(transaction.change)}</span>
                     </div>
@@ -1141,29 +1208,29 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                 )}
               </div>
 
-              {/* QR Code in 58mm: 60px, solid black high contrast for 203 DPI thermal printers */}
+              {/* QR Code in 58mm: Bersih tanpa kotak ganda, solid high contrast */}
               <div className="flex flex-col items-center justify-center py-1 space-y-0.5">
-                <div className="p-1 bg-white border-2 border-black">
+                <div className="p-0.5 bg-white">
                   <QRCode
                     value={getTrackingUrl(ticket ? ticket.ticketNumber : transaction?.invoiceNumber || "")}
-                    size={60}
+                    size={64}
                     level="M"
                   />
                 </div>
-                <span className="text-[7.5px] text-black text-center font-black tracking-tight uppercase mt-0.5">
-                  SCAN QR: LACAK & GARANSI ONLINE
+                <span className="text-[7.8px] text-black text-center font-black tracking-tight uppercase mt-0.5">
+                  SCAN QR: STATUS & GARANSI
                 </span>
               </div>
 
               {/* Footer */}
-              <div className="text-center text-[7.8px] text-black space-y-0.5 pt-0.5 font-bold leading-tight">
+              <div className="text-center text-[8px] text-black space-y-0.5 pt-0.5 font-bold leading-tight">
                 {ticket && ticket.warrantyDays > 0 && (
                   <p className="font-black text-black">
-                    🛡️ GARANSI: {ticket.warrantyDays} HARI
+                    🛡️ GARANSI RESMI: {ticket.warrantyDays} HARI
                   </p>
                 )}
-                <p className="leading-tight font-semibold">{settings.receiptFooter}</p>
-                <p className="text-[7px] font-black text-black pt-0.5">[ 1 LEMBAR - THERMAL 58MM MP58 ]</p>
+                <p className="leading-tight font-semibold">{settings.receiptFooter || "Terima kasih atas kunjungan Anda"}</p>
+                <p className="text-[7.5px] font-medium text-black">Simpan struk ini sebagai bukti transaksi yang sah</p>
               </div>
             </div>
           )}
