@@ -169,6 +169,7 @@ export interface StoreSettings {
   whatsapp: string;
   receiptFooter: string;
   warrantyTerms: string;
+  defaultThermalSize?: "58mm" | "80mm";
 }
 
 export interface DashboardStats {
@@ -182,3 +183,5 @@ export interface DashboardStats {
   revenueChart: { name: string; pos: number; service: number; total: number }[];
   deviceCounts: { laptop: number; pc: number; printer: number; other: number };
 }
+
+export type PrintFormat = "continuous" | "sticker_58mm" | "thermal_58mm" | "thermal_80mm" | "thermal";

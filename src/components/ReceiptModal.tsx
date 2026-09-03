@@ -17,7 +17,7 @@ import {
   Layers,
   Scissors
 } from "lucide-react";
-import { ServiceTicket, Transaction, StoreSettings, User, Product } from "../types";
+import { ServiceTicket, Transaction, StoreSettings, User, Product, PrintFormat } from "../types";
 import {
   formatRupiah,
   formatDateIndo,
@@ -25,9 +25,8 @@ import {
   getStatusConfig
 } from "../lib/utils";
 
-export type PrintFormat = "continuous" | "sticker_58mm" | "thermal";
-
-interface ReceiptModalProps {
+export type { PrintFormat };
+export interface ReceiptModalProps {
   isOpen: boolean;
   onClose: () => void;
   mode: "intake_service" | "invoice_service" | "pos_transaction";
@@ -70,20 +69,24 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
     )
   );
 
+  // Helper to resolve print format with 58mm/80mm thermal default awareness
+  const resolvePrintFormat = (fmt?: PrintFormat): PrintFormat => {
+    if (fmt === "thermal") {
+      return settings.defaultThermalSize === "80mm" ? "thermal_80mm" : "thermal_58mm";
+    }
+    if (fmt) return fmt;
+    if (hasLaptopOrService) return "continuous";
+    return settings.defaultThermalSize === "80mm" ? "thermal_80mm" : "thermal_58mm";
+  };
+
   // Select active print format
-  const [selectedFormat, setSelectedFormat] = useState<PrintFormat>(
-    defaultFormat || (hasLaptopOrService ? "continuous" : "thermal")
+  const [selectedFormat, setSelectedFormat] = useState<PrintFormat>(() =>
+    resolvePrintFormat(defaultFormat)
   );
 
   useEffect(() => {
-    if (defaultFormat) {
-      setSelectedFormat(defaultFormat);
-    } else if (hasLaptopOrService) {
-      setSelectedFormat("continuous");
-    } else {
-      setSelectedFormat("thermal");
-    }
-  }, [defaultFormat, mode, isOpen, hasLaptopOrService]);
+    setSelectedFormat(resolvePrintFormat(defaultFormat));
+  }, [defaultFormat, mode, isOpen, hasLaptopOrService, settings.defaultThermalSize]);
 
   const printAreaRef = useRef<HTMLDivElement>(null);
 
@@ -158,22 +161,26 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
               <h3 className="font-bold text-foreground text-sm sm:text-base flex items-center gap-2">
                 <span>
                   {selectedFormat === "sticker_58mm"
-                    ? "🏷️ Cetak Stiker Tempel Unit Servis"
+                    ? "🏷️ Cetak Stiker Tempel Unit Servis (58mm)"
                     : selectedFormat === "continuous"
                     ? mode === "intake_service"
                       ? "📄 Cetak Tanda Terima SPK Servis (A4 Dibagi 2 / 1 Rangkap)"
                       : mode === "invoice_service"
                       ? "🧾 Cetak Nota Pelunasan Servis (A4 Dibagi 2 / 1 Rangkap)"
                       : "📄 Cetak Faktur Penjualan (A4 Dibagi 2 / 1 Rangkap)"
-                    : "🧾 Cetak Struk Kasir POS (Thermal 58mm/80mm)"}
+                    : selectedFormat === "thermal_58mm" || (selectedFormat === "thermal" && settings.defaultThermalSize !== "80mm")
+                    ? "🧾 Cetak Struk Kasir Thermal (Ukuran 58mm Roll Kecil)"
+                    : "🧾 Cetak Struk Kasir Thermal (Ukuran 80mm Roll Standar)"}
                 </span>
               </h3>
               <p className="text-xs text-muted-foreground">
                 {selectedFormat === "sticker_58mm"
-                  ? "Format label stiker khusus untuk ditempelkan pada fisik unit/casing barang pelanggan."
+                  ? "Format label stiker 58mm (printable ~48mm-50mm) untuk ditempelkan pada fisik casing unit barang pelanggan."
                   : selectedFormat === "continuous"
                   ? "Format dokumen resmi ukuran A4 portrait dibagi 2 ke bawah (1 rangkap) untuk servis, laptop baru & bekas, lengkap dengan spesifikasi/keluhan, rincian biaya & DP, garansi, tanda tangan, dan QR code."
-                  : "Format struk kasir thermal (58mm / 80mm) untuk transaksi sparepart, aksesoris & komponen."}
+                  : selectedFormat === "thermal_58mm" || (selectedFormat === "thermal" && settings.defaultThermalSize !== "80mm")
+                  ? "Format struk thermal roll 58mm (lebar cetak ~48mm-50mm, font 8.5px, QR code 64px) untuk printer bluetooth mini kasir."
+                  : "Format struk thermal roll 80mm (lebar cetak ~72mm-74mm, font 10px, QR code 80px) untuk printer kasir desktop POS standar."}
               </p>
             </div>
           </div>
@@ -193,56 +200,80 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
             </span>
             <span className="text-[11px] text-blue-600 dark:text-blue-400 font-medium">
               {selectedFormat === "sticker_58mm"
-                ? "🏷️ Mode: Stiker Fisik Barang"
+                ? "🏷️ Mode: Stiker Unit 58mm"
                 : selectedFormat === "continuous"
                 ? "📄 Mode: A4 Dibagi 2 (1 Rangkap)"
-                : "🧾 Mode: Struk Kasir (58mm / 80mm)"}
+                : selectedFormat === "thermal_58mm" || (selectedFormat === "thermal" && settings.defaultThermalSize !== "80mm")
+                ? "🧾 Mode: Struk Thermal 58mm"
+                : "🧾 Mode: Struk Thermal 80mm"}
             </span>
           </div>
 
-          <div className="bg-muted/40 p-1.5 rounded-xl border border-border grid grid-cols-1 sm:grid-cols-3 gap-1.5">
+          <div className="bg-muted/40 p-1.5 rounded-xl border border-border grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+            {/* Format 1: A4 Dibagi 2 */}
             <button
               type="button"
               id="btn-format-continuous"
               onClick={() => setSelectedFormat("continuous")}
-              className={`py-2 px-3 rounded-lg text-xs font-bold flex items-center justify-center space-x-2 transition-all ${
+              className={`py-2 px-2.5 rounded-lg text-xs font-bold flex items-center justify-center space-x-1.5 transition-all ${
                 selectedFormat === "continuous"
                   ? "bg-blue-600 text-white shadow-sm ring-2 ring-blue-400/40"
                   : "bg-card hover:bg-muted text-muted-foreground hover:text-foreground border border-border"
               }`}
             >
-              <FileText className="h-4 w-4 shrink-0" />
-              <span className="truncate">📄 A4 Dibagi 2 (1 Rangkap)</span>
+              <FileText className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">📄 A4 Dibagi 2</span>
             </button>
 
-            {ticket && (
+            {/* Format 2: Stiker Unit 58mm */}
+            {ticket ? (
               <button
                 type="button"
                 id="btn-format-sticker"
                 onClick={() => setSelectedFormat("sticker_58mm")}
-                className={`py-2 px-3 rounded-lg text-xs font-bold flex items-center justify-center space-x-2 transition-all ${
+                className={`py-2 px-2.5 rounded-lg text-xs font-bold flex items-center justify-center space-x-1.5 transition-all ${
                   selectedFormat === "sticker_58mm"
                     ? "bg-amber-500 text-white shadow-sm ring-2 ring-amber-400/40"
                     : "bg-card hover:bg-muted text-muted-foreground hover:text-foreground border border-border"
                 }`}
               >
-                <Tag className="h-4 w-4 shrink-0 text-amber-300" />
-                <span className="truncate">🏷️ Stiker Tempel Unit</span>
+                <Tag className="h-3.5 w-3.5 shrink-0 text-amber-300" />
+                <span className="truncate">🏷️ Stiker 58mm</span>
               </button>
+            ) : (
+              <div className="hidden sm:flex items-center justify-center py-2 px-2 text-[11px] text-muted-foreground/60 border border-dashed border-border rounded-lg bg-muted/20">
+                <span className="truncate">🏷️ (Stiker Servis)</span>
+              </div>
             )}
 
+            {/* Format 3: Thermal 58mm */}
             <button
               type="button"
-              id="btn-format-thermal"
-              onClick={() => setSelectedFormat("thermal")}
-              className={`py-2 px-3 rounded-lg text-xs font-bold flex items-center justify-center space-x-2 transition-all ${
-                selectedFormat === "thermal"
+              id="btn-format-thermal-58"
+              onClick={() => setSelectedFormat("thermal_58mm")}
+              className={`py-2 px-2.5 rounded-lg text-xs font-bold flex items-center justify-center space-x-1.5 transition-all ${
+                selectedFormat === "thermal_58mm" || (selectedFormat === "thermal" && settings.defaultThermalSize !== "80mm")
                   ? "bg-blue-600 text-white shadow-sm ring-2 ring-blue-400/40"
                   : "bg-card hover:bg-muted text-muted-foreground hover:text-foreground border border-border"
               }`}
             >
-              <Receipt className="h-4 w-4 shrink-0" />
-              <span className="truncate">🧾 Struk Kasir (58/80mm)</span>
+              <Receipt className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">🧾 Struk 58mm</span>
+            </button>
+
+            {/* Format 4: Thermal 80mm */}
+            <button
+              type="button"
+              id="btn-format-thermal-80"
+              onClick={() => setSelectedFormat("thermal_80mm")}
+              className={`py-2 px-2.5 rounded-lg text-xs font-bold flex items-center justify-center space-x-1.5 transition-all ${
+                selectedFormat === "thermal_80mm" || (selectedFormat === "thermal" && settings.defaultThermalSize === "80mm")
+                  ? "bg-blue-600 text-white shadow-sm ring-2 ring-blue-400/40"
+                  : "bg-card hover:bg-muted text-muted-foreground hover:text-foreground border border-border"
+              }`}
+            >
+              <Receipt className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">🧾 Struk 80mm</span>
             </button>
           </div>
         </div>
@@ -252,11 +283,13 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
           <Info className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
           <span>
             {selectedFormat === "continuous" &&
-              "📄 NOTA A4 PORTRAIT DIBAGI 2 (1 RANGKAP): Format standar untuk Servis, Laptop Baru, dan Laptop Bekas dengan rincian spesifikasi unit / keluhan lengkap, rincian biaya & DP, masa garansi toko, tanda tangan pelanggan & teknisi, serta QR Code verifikasi online tanpa duplikasi 2 rangkap."}
+              "📄 NOTA A4 DIBAGI 2 (1 RANGKAP): Format dokumen resmi ukuran A4 portrait dibagi 2 untuk Servis, Laptop Baru & Bekas, lengkap dengan rincian biaya & DP, garansi toko, tanda tangan, dan QR Code verifikasi online tanpa duplikasi 2 rangkap."}
             {selectedFormat === "sticker_58mm" &&
-              "🏷️ STIKER TEMPEL UNIT: Label khusus berisi nomor servis, nama pemilik, keluhan, dan QR Code untuk ditempel langsung pada casing unit/laptop pelanggan."}
-            {selectedFormat === "thermal" &&
-              "🧾 STRUK KASIR POS (58mm / 80mm): Format struk thermal standar untuk transaksi sparepart, aksesoris, dan komponen PC."}
+              "🏷️ STIKER TEMPEL UNIT (58MM): Format label stiker tempel fisik casing laptop/unit, font ringkas, nomor tiket besar, dan QR Code ukuran 64px pas tanpa terpotong."}
+            {(selectedFormat === "thermal_58mm" || (selectedFormat === "thermal" && settings.defaultThermalSize !== "80mm")) &&
+              "🧾 STRUK THERMAL 58MM: Format khusus printer thermal roll mini/bluetooth 58mm (printable area 48mm-50mm, font 8.5px, QR code 64px) — hemat kertas, rapi, dan tidak terpotong di tepi."}
+            {(selectedFormat === "thermal_80mm" || (selectedFormat === "thermal" && settings.defaultThermalSize === "80mm")) &&
+              "🧾 STRUK THERMAL 80MM: Format printer thermal desktop standar 80mm (printable area 72mm-74mm, font 10px, QR code 80px) — lega, leluasa, dan sangat jelas terbaca."}
           </span>
         </div>
 
@@ -700,28 +733,28 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
             </div>
           )}
 
-          {/* FORMAT 2: STIKER TEMPEL KHUSUS DI BARANG SERVIS */}
+          {/* FORMAT 2: STIKER TEMPEL KHUSUS DI BARANG SERVIS (58MM) */}
           {selectedFormat === "sticker_58mm" && ticket && (
-            <div className="print-58mm mx-auto w-[240px] max-w-[58mm] bg-white text-zinc-950 p-2.5 rounded-xl border-2 border-dashed border-zinc-950 font-mono text-[10px] space-y-1.5 shadow-xs">
+            <div className="print-58mm print-sticker-58mm mx-auto w-[210px] max-w-[50mm] bg-white text-zinc-950 p-2 rounded-lg border-2 border-zinc-950 font-mono text-[8.5px] leading-tight space-y-1 shadow-xs">
               {/* Header Label Stiker */}
-              <div className="text-center border-b-2 border-zinc-950 pb-1">
-                <h4 className="font-black text-xs uppercase tracking-wider leading-tight text-zinc-950">
+              <div className="text-center border-b border-zinc-950 pb-1">
+                <h4 className="font-black text-[10.5px] uppercase tracking-wider leading-tight text-zinc-950">
                   {settings.storeName}
                 </h4>
-                <div className="inline-block px-1.5 py-0.2 bg-zinc-900 text-white text-[8px] font-black uppercase rounded-xs my-0.5">
+                <div className="inline-block px-1.5 py-0.5 bg-zinc-950 text-white text-[7.5px] font-black uppercase rounded-xs my-0.5">
                   ★ STIKER UNIT SERVIS ★
                 </div>
-                <span className="text-[7.5px] block text-zinc-600 font-semibold">
+                <span className="text-[7px] block text-zinc-600 font-semibold">
                   WA: {settings.whatsapp}
                 </span>
               </div>
 
               {/* Big Bold Ticket Number Box */}
-              <div className="text-center py-1 bg-zinc-100 border-2 border-zinc-950 rounded-xs">
-                <span className="text-[8px] uppercase font-bold text-zinc-700 block leading-none">
+              <div className="text-center py-1 bg-zinc-100 border border-zinc-950 rounded-xs">
+                <span className="text-[7px] uppercase font-bold text-zinc-600 block leading-none">
                   NO. TIKET SERVIS
                 </span>
-                <span className="text-sm font-black tracking-widest text-zinc-950 block font-mono">
+                <span className="text-xs font-black tracking-wider text-zinc-950 block font-mono">
                   {ticket.ticketNumber}
                 </span>
               </div>
@@ -729,46 +762,48 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
               {/* QR Code in Center with direct URL to tracking & warranty */}
               <div className="flex flex-col items-center justify-center py-1">
                 <div className="p-1 bg-white border border-zinc-950 rounded-xs">
-                  <QRCode value={getTrackingUrl(ticket.ticketNumber)} size={92} level="M" />
+                  <QRCode value={getTrackingUrl(ticket.ticketNumber)} size={64} level="M" />
                 </div>
-                <span className="text-[7.5px] text-zinc-700 font-black mt-0.5 tracking-tight text-center">
-                  SCAN QR: LACAK SERVIS & GARANSI
+                <span className="text-[7px] text-zinc-800 font-bold mt-0.5 tracking-tight text-center">
+                  SCAN: LACAK STATUS & GARANSI
                 </span>
               </div>
 
               {/* Customer & Unit Details for Sticky Identification */}
-              <div className="space-y-1 border-t border-b border-dashed border-zinc-950 py-1.5 text-[9px] leading-tight">
+              <div className="space-y-0.5 border-t border-b border-dashed border-zinc-950 py-1 text-[8.5px] leading-tight">
                 <div>
-                  <span className="text-zinc-500 text-[8px] block font-semibold">PEMILIK:</span>
-                  <span className="font-black text-[10px] text-zinc-950 block">
+                  <span className="text-zinc-500 text-[7.5px] font-semibold">Pemilik: </span>
+                  <span className="font-black text-zinc-950">
                     {ticket.customerName}
                   </span>
-                  <span className="font-bold text-zinc-800 text-[8.5px]">{ticket.customerPhone}</span>
+                  <span className="text-zinc-700 text-[7.5px] block">{ticket.customerPhone}</span>
                 </div>
 
                 <div className="pt-0.5">
-                  <span className="text-zinc-500 text-[8px] block font-semibold">UNIT PERANGKAT:</span>
-                  <span className="font-bold text-zinc-950 block text-[9.5px]">{ticket.deviceBrandModel}</span>
+                  <span className="text-zinc-500 text-[7.5px] font-semibold">Unit: </span>
+                  <span className="font-bold text-zinc-950">{ticket.deviceBrandModel}</span>
                   {ticket.serialNumber && (
-                    <span className="text-zinc-700 text-[8px] block font-mono">SN: {ticket.serialNumber}</span>
+                    <span className="text-zinc-700 text-[7.5px] block font-mono">SN: {ticket.serialNumber}</span>
                   )}
                 </div>
 
                 <div className="pt-0.5">
-                  <span className="text-zinc-500 text-[8px] block font-semibold">KELUHAN:</span>
-                  <span className="font-bold text-zinc-950 block text-[8.5px] line-clamp-2">
+                  <span className="text-zinc-500 text-[7.5px] font-semibold">Keluhan: </span>
+                  <span className="font-medium text-zinc-950 line-clamp-2">
                     {ticket.complaints}
                   </span>
                 </div>
 
-                <div className="pt-0.5">
-                  <span className="text-zinc-500 text-[8px] block font-semibold">KELENGKAPAN:</span>
-                  <span className="font-medium text-zinc-900 block text-[8.5px]">{ticket.accessories}</span>
-                </div>
+                {ticket.accessories && (
+                  <div className="pt-0.5">
+                    <span className="text-zinc-500 text-[7.5px] font-semibold">Kelengkapan: </span>
+                    <span className="text-zinc-900">{ticket.accessories}</span>
+                  </div>
+                )}
               </div>
 
               {/* Date, PIC & DP */}
-              <div className="text-[8px] space-y-0.5 text-zinc-800">
+              <div className="text-[7.5px] space-y-0.5 text-zinc-800">
                 <div className="flex justify-between">
                   <span className="text-zinc-600">Tgl Masuk:</span>
                   <span className="font-bold">{formatDateIndo(ticket.createdAt).split(",")[0]}</span>
@@ -788,15 +823,227 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
               </div>
 
               {/* Placement Guideline */}
-              <div className="text-center text-[7.5px] font-black text-zinc-700 uppercase tracking-tight pt-1 border-t-2 border-zinc-950">
-                ✂️ TEMPELKAN DI CASING / PERANGKAT ✂️
+              <div className="text-center text-[7px] font-black text-zinc-700 uppercase tracking-tight pt-1 border-t border-dashed border-zinc-950">
+                ✂️ TEMPEL DI CASING / PERANGKAT ✂️
               </div>
             </div>
           )}
 
-          {/* FORMAT 3: STRUK KASIR POS (1 RANGKAP SAJA) */}
-          {selectedFormat === "thermal" && (
-            <div className="print-thermal mx-auto max-w-[320px] bg-white text-zinc-900 p-3 sm:p-4 rounded-xl border border-zinc-400 font-mono text-xs space-y-2.5 shadow-xs overflow-hidden">
+          {/* FORMAT 3: STRUK KASIR THERMAL 58MM (ROLL KECIL / BLUETOOTH) */}
+          {(selectedFormat === "thermal_58mm" ||
+            (selectedFormat === "thermal" && settings.defaultThermalSize !== "80mm")) && (
+            <div className="print-thermal-58mm mx-auto w-[210px] max-w-[50mm] bg-white text-zinc-900 p-1.5 rounded-lg border border-zinc-400 font-mono text-[8.5px] leading-tight space-y-1.5 shadow-xs overflow-hidden">
+              {/* Header */}
+              <div className="text-center space-y-0.5 border-b border-dashed border-zinc-400 pb-1.5">
+                <h3 className="font-black text-[11px] tracking-wide text-zinc-950 uppercase">
+                  {settings.storeName}
+                </h3>
+                <p className="text-[7.5px] text-zinc-600 leading-tight">{settings.tagline}</p>
+                <p className="text-[7.5px] text-zinc-600 leading-tight">{settings.address}</p>
+                <p className="text-[7.5px] text-zinc-700 font-bold">WA: {settings.whatsapp}</p>
+              </div>
+
+              {/* Title */}
+              <div className="text-center py-0.5">
+                <span className="font-bold text-[8px] uppercase px-1.5 py-0.5 border border-zinc-800 rounded-xs">
+                  {mode === "intake_service" && "TANDA TERIMA SERVIS (58MM)"}
+                  {mode === "invoice_service" && "NOTA PELUNASAN SERVIS (58MM)"}
+                  {mode === "pos_transaction" && "STRUK PENJUALAN KASIR (58MM)"}
+                </span>
+              </div>
+
+              {/* Metadata */}
+              <div className="space-y-0.5 text-[8px] border-b border-dashed border-zinc-400 pb-1.5">
+                {ticket && (
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-zinc-500">No. Tiket:</span>
+                      <span className="font-black text-zinc-950">{ticket.ticketNumber}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-zinc-500">Tanggal:</span>
+                      <span>{formatDateIndo(ticket.createdAt).split(",")[0]}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-zinc-500">Teknisi:</span>
+                      <span className="font-bold text-zinc-950 truncate max-w-[110px]">{resolvedTechnicianName}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-zinc-500">Konsumen:</span>
+                      <span className="font-bold text-zinc-950 truncate max-w-[110px]">{ticket.customerName}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-zinc-500">No. WA:</span>
+                      <span>{ticket.customerPhone}</span>
+                    </div>
+                  </>
+                )}
+
+                {transaction && (
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-zinc-500">No. Faktur:</span>
+                      <span className="font-black text-zinc-950">{transaction.invoiceNumber}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-zinc-500">Tanggal:</span>
+                      <span>{formatDateIndo(transaction.date)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-zinc-500">Kasir:</span>
+                      <span className="font-bold text-zinc-950 truncate max-w-[110px]">{resolvedCashierName}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-zinc-500">Pelanggan:</span>
+                      <span className="font-semibold truncate max-w-[110px]">{transaction.customerName}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-zinc-500">Tipe:</span>
+                      <span className="font-bold text-zinc-950">
+                        {transaction.customerType === "reseller" ? "Reseller" : "Reguler"}
+                      </span>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Details (Service or POS Items) */}
+              {ticket && (
+                <div className="space-y-1 text-[8px] border-b border-dashed border-zinc-400 pb-1.5">
+                  <div>
+                    <span className="text-zinc-500 block">Unit Perangkat:</span>
+                    <span className="font-bold text-zinc-950">{ticket.deviceBrandModel}</span>
+                  </div>
+                  <div>
+                    <span className="text-zinc-500 block">Keluhan:</span>
+                    <span className="text-zinc-900">{ticket.complaints}</span>
+                  </div>
+                  {ticket.accessories && (
+                    <div>
+                      <span className="text-zinc-500 block">Kelengkapan:</span>
+                      <span className="text-zinc-900">{ticket.accessories}</span>
+                    </div>
+                  )}
+                  {ticket.partsUsed && ticket.partsUsed.length > 0 && (
+                    <div className="pt-1">
+                      <span className="text-zinc-500 block font-semibold mb-0.5">Part / Jasa:</span>
+                      {ticket.partsUsed.map((p, i) => (
+                        <div key={i} className="flex justify-between text-[7.5px]">
+                          <span className="truncate max-w-[120px]">{p.name}</span>
+                          <span>{formatRupiah(p.price * p.qty)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {transaction && (
+                <div className="space-y-1 text-[8px] border-b border-dashed border-zinc-400 pb-1.5">
+                  <div className="font-bold text-[7.5px] text-zinc-500 pb-0.5">DAFTAR ITEM:</div>
+                  {transaction.items.map((item, idx) => (
+                    <div key={idx} className="py-0.5 border-b border-zinc-100 last:border-none">
+                      <div className="font-bold text-zinc-950 text-[8.5px] truncate">{item.name}</div>
+                      <div className="flex justify-between items-center text-[7.5px] text-zinc-600">
+                        <span>{item.qty} x {formatRupiah(item.price)}</span>
+                        <span className="font-bold text-zinc-950">{formatRupiah(item.subtotal)}</span>
+                      </div>
+                      {item.warrantyDays !== undefined && item.warrantyDays > 0 && (
+                        <div className="text-[7px] text-zinc-700 font-semibold">
+                          🛡️ Garansi: {item.warrantyDays} Hari
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Totals */}
+              <div className="space-y-0.5 text-[8.5px] border-b border-dashed border-zinc-400 pb-1.5">
+                {ticket && (
+                  <>
+                    <div className="flex justify-between">
+                      <span>Biaya / Est:</span>
+                      <span className="font-bold">
+                        {formatRupiah(ticket.finalCost || ticket.estimatedCost)}
+                      </span>
+                    </div>
+                    {ticket.downPayment > 0 && (
+                      <div className="flex justify-between">
+                        <span>DP Masuk:</span>
+                        <span>{formatRupiah(ticket.downPayment)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between font-black text-[9px] pt-0.5 border-t border-zinc-300">
+                      <span>Sisa Pelunasan:</span>
+                      <span>
+                        {formatRupiah(
+                          Math.max(0, (ticket.finalCost || ticket.estimatedCost) - ticket.downPayment)
+                        )}
+                      </span>
+                    </div>
+                  </>
+                )}
+
+                {transaction && (
+                  <>
+                    <div className="flex justify-between">
+                      <span>Subtotal:</span>
+                      <span>{formatRupiah(transaction.subtotal)}</span>
+                    </div>
+                    {transaction.discount > 0 && (
+                      <div className="flex justify-between text-red-600 font-semibold">
+                        <span>Diskon:</span>
+                        <span>-{formatRupiah(transaction.discount)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between font-black text-[9px] pt-0.5 border-t border-zinc-300">
+                      <span>TOTAL:</span>
+                      <span>{formatRupiah(transaction.total)}</span>
+                    </div>
+                    <div className="flex justify-between text-[8px]">
+                      <span className="capitalize">Bayar ({transaction.paymentMethod}):</span>
+                      <span>{formatRupiah(transaction.amountPaid)}</span>
+                    </div>
+                    <div className="flex justify-between text-[8px]">
+                      <span>Kembalian:</span>
+                      <span>{formatRupiah(transaction.change)}</span>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* QR Code in 58mm: 64px, compact and sharp */}
+              <div className="flex flex-col items-center justify-center py-1 space-y-0.5">
+                <div className="p-1 bg-white border border-zinc-900 rounded-xs">
+                  <QRCode
+                    value={getTrackingUrl(ticket ? ticket.ticketNumber : transaction?.invoiceNumber || "")}
+                    size={64}
+                    level="M"
+                  />
+                </div>
+                <span className="text-[7px] text-zinc-600 text-center font-semibold">
+                  Scan QR: Lacak & Garansi Online
+                </span>
+              </div>
+
+              {/* Footer */}
+              <div className="text-center text-[7.5px] text-zinc-500 space-y-0.5 pt-0.5">
+                {ticket && ticket.warrantyDays > 0 && (
+                  <p className="font-bold text-zinc-800">
+                    🛡️ Garansi: {ticket.warrantyDays} Hari
+                  </p>
+                )}
+                <p className="leading-tight">{settings.receiptFooter}</p>
+                <p className="text-[7px] text-zinc-400 pt-0.5">[ 1 LEMBAR - THERMAL 58MM ]</p>
+              </div>
+            </div>
+          )}
+
+          {/* FORMAT 4: STRUK KASIR THERMAL 80MM (ROLL STANDAR POS DESKTOP) */}
+          {(selectedFormat === "thermal_80mm" ||
+            (selectedFormat === "thermal" && settings.defaultThermalSize === "80mm")) && (
+            <div className="print-80mm print-thermal-80mm print-thermal mx-auto w-[310px] max-w-[74mm] bg-white text-zinc-900 p-3 sm:p-4 rounded-xl border border-zinc-400 font-mono text-xs space-y-2.5 shadow-xs overflow-hidden">
               {/* Header */}
               <div className="text-center space-y-0.5 border-b border-dashed border-zinc-400 pb-2.5">
                 <h3 className="font-bold text-sm tracking-wide text-zinc-950 uppercase">
@@ -810,9 +1057,9 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
               {/* Mode Title */}
               <div className="text-center py-0.5">
                 <span className="font-bold text-[11px] uppercase px-2 py-0.5 border border-zinc-800 rounded-xs">
-                  {mode === "intake_service" && "TANDA TERIMA SERVIS (SPK KONSUMEN)"}
-                  {mode === "invoice_service" && "NOTA PELUNASAN SERVIS RESMI"}
-                  {mode === "pos_transaction" && "STRUK PENJUALAN KASIR"}
+                  {mode === "intake_service" && "TANDA TERIMA SERVIS (SPK KONSUMEN - 80MM)"}
+                  {mode === "invoice_service" && "NOTA PELUNASAN SERVIS RESMI (80MM)"}
+                  {mode === "pos_transaction" && "STRUK PENJUALAN KASIR POS (80MM)"}
                 </span>
               </div>
 
@@ -1017,7 +1264,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                   </p>
                 )}
                 <p>{settings.receiptFooter}</p>
-                <p className="text-[7.5px] text-zinc-400 pt-0.5">[ 1 RANGKAP ]</p>
+                <p className="text-[7.5px] text-zinc-400 pt-0.5">[ 1 LEMBAR - THERMAL 80MM ]</p>
               </div>
             </div>
           )}
@@ -1038,9 +1285,13 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
             >
               <Printer className="h-4 w-4" />
               <span>
-                Cetak {selectedFormat === "continuous" && "Nota Konsumen (1 Rangkap)"}
-                {selectedFormat === "sticker_58mm" && "Label Stiker Unit"}
-                {selectedFormat === "thermal" && "Struk Kasir POS"}
+                Cetak{" "}
+                {selectedFormat === "continuous" && "Nota Konsumen (A4 Dibagi 2)"}
+                {selectedFormat === "sticker_58mm" && "Label Stiker Unit (58mm)"}
+                {selectedFormat === "thermal_58mm" && "Struk Thermal 58mm"}
+                {selectedFormat === "thermal_80mm" && "Struk Thermal 80mm"}
+                {selectedFormat === "thermal" &&
+                  (settings.defaultThermalSize === "80mm" ? "Struk Thermal 80mm" : "Struk Thermal 58mm")}
               </span>
             </button>
 
@@ -1053,10 +1304,10 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                   setTimeout(() => window.print(), 100);
                 }}
                 className="flex items-center space-x-1.5 px-3.5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl text-xs shadow-md transition-all active:scale-95"
-                title="Langsung cetak stiker tempel untuk ditempel di fisik laptop/unit"
+                title="Langsung cetak stiker tempel untuk ditempel di fisik laptop/unit (58mm)"
               >
                 <Tag className="h-4 w-4" />
-                <span>🏷️ Cetak Stiker Unit</span>
+                <span>🏷️ Cetak Stiker 58mm</span>
               </button>
             )}
 
@@ -1069,10 +1320,10 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                   setTimeout(() => window.print(), 100);
                 }}
                 className="flex items-center space-x-1.5 px-3.5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs shadow-md transition-all active:scale-95"
-                title="Beralih dan cetak Nota SPK Konsumen"
+                title="Beralih dan cetak Nota SPK Konsumen (A4 Dibagi 2)"
               >
                 <FileText className="h-4 w-4" />
-                <span>📄 Cetak Nota SPK (1 Rangkap)</span>
+                <span>📄 Cetak Nota SPK</span>
               </button>
             )}
 

@@ -58,25 +58,19 @@
   }
 }
 
-/* Print Specific Rules for 1 Single Sheet Only (A4 Portrait Dibagi 2: 210mm x 148.5mm, Thermal POS, and 58mm Stickers) */
+/* Print Specific Rules (A4 Portrait Dibagi 2, Struk Thermal 58mm, Struk Thermal 80mm, dan Stiker Unit 58mm) */
 @media print {
   @page {
     size: auto;
-    margin: 2mm;
+    margin: 1mm;
   }
   html, body {
-    height: 100% !important;
-    max-height: 100vh !important;
-    overflow: hidden !important;
     margin: 0 !important;
     padding: 0 !important;
     background: #ffffff !important;
     color: #000000 !important;
   }
   #root {
-    height: 100% !important;
-    max-height: 100vh !important;
-    overflow: hidden !important;
     margin: 0 !important;
     padding: 0 !important;
   }
@@ -97,13 +91,12 @@
     box-shadow: none !important;
     border: none !important;
     width: 100% !important;
-    max-height: 100vh !important;
-    overflow: hidden !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
     page-break-after: avoid !important;
     break-after: avoid !important;
   }
+  /* Format A4 Portrait Dibagi 2: Tanda Terima SPK & Nota Konsumen (1 Rangkap) */
   .print-21x15, .print-continuous {
     width: 202mm !important;
     max-width: 202mm !important;
@@ -120,27 +113,46 @@
     page-break-after: avoid !important;
     break-after: avoid !important;
   }
-  .print-58mm {
-    width: 54mm !important;
-    max-width: 56mm !important;
+  /* Format 1: STIKER TEMPEL UNIT 58MM (Printable 48mm - 50mm pada Kertas Stiker Roll) */
+  .print-58mm, .print-sticker-58mm {
+    width: 48mm !important;
+    max-width: 50mm !important;
     padding: 1.5mm !important;
     font-size: 8px !important;
     line-height: 1.15 !important;
     margin: 0 auto !important;
     overflow: hidden !important;
+    box-sizing: border-box !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
     page-break-after: avoid !important;
     break-after: avoid !important;
   }
-  .print-thermal {
+  /* Format 2: STRUK KASIR THERMAL 58MM (Printable 48mm - 50mm pada Roll Kasir Mini/Bluetooth) */
+  .print-thermal-58mm {
+    width: 48mm !important;
+    max-width: 50mm !important;
+    padding: 1.5mm 1mm !important;
+    font-size: 8.2px !important;
+    line-height: 1.15 !important;
+    margin: 0 auto !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+  }
+  /* Format 3: STRUK KASIR THERMAL 80MM (Printable 72mm - 74mm pada Roll Kasir Standar Desktop) */
+  .print-80mm, .print-thermal-80mm, .print-thermal {
     width: 72mm !important;
-    max-width: 76mm !important;
-    padding: 2mm !important;
-    font-size: 9px !important;
+    max-width: 74mm !important;
+    padding: 2mm 1.5mm !important;
+    font-size: 9.5px !important;
     line-height: 1.18 !important;
     margin: 0 auto !important;
     overflow: hidden !important;
+    box-sizing: border-box !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
     page-break-after: avoid !important;

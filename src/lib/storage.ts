@@ -22,7 +22,8 @@ export const DEFAULT_SETTINGS: StoreSettings = {
   phone: "024-87654321",
   whatsapp: "6281234567890",
   receiptFooter: "Terima kasih atas kepercayaan Anda. Harap simpan nota ini sebagai bukti garansi yang sah.",
-  warrantyTerms: "Garansi servis berlaku sesuai catatan nota. Tidak berlaku untuk kerusakan fisik, terkena cairan, atau segel rusak."
+  warrantyTerms: "Garansi servis berlaku sesuai catatan nota. Tidak berlaku untuk kerusakan fisik, terkena cairan, atau segel rusak.",
+  defaultThermalSize: "58mm"
 };
 
 export const DEFAULT_CUSTOMERS: Customer[] = [
@@ -501,6 +502,7 @@ export const DEFAULT_TRANSACTIONS: Transaction[] = [
     date: "2026-08-24T15:20:00.000Z",
     customerName: "Hendro Wibowo",
     customerPhone: "081299988877",
+    customerType: "regular",
     items: [
       {
         id: "item-1",
@@ -508,7 +510,10 @@ export const DEFAULT_TRANSACTIONS: Transaction[] = [
         name: "Charger Adaptor Laptop Universal Type-C 65W GaN",
         price: 220000,
         qty: 1,
-        subtotal: 220000
+        subtotal: 220000,
+        warrantyDays: 180,
+        conditionGrade: "Baru Original 100%",
+        specsSummary: "Output 65W Smart GaN Power Delivery, Universal Type-C"
       },
       {
         id: "item-2",
@@ -516,7 +521,10 @@ export const DEFAULT_TRANSACTIONS: Transaction[] = [
         name: "Thermal Paste Thermalright TF7 2g",
         price: 75000,
         qty: 1,
-        subtotal: 75000
+        subtotal: 75000,
+        warrantyDays: 30,
+        conditionGrade: "Baru Segel 100%",
+        specsSummary: "Thermal Conductivity 12.8 W/m-k, Jarum suntik 2g"
       }
     ],
     subtotal: 295000,
@@ -527,7 +535,7 @@ export const DEFAULT_TRANSACTIONS: Transaction[] = [
     amountPaid: 280000,
     change: 0,
     cashierName: "Admin Kasir",
-    notes: "Pembelian langsung aksesoris"
+    notes: "Pembelian langsung aksesoris - Garansi Toko Resmi Aktif"
   },
   {
     id: "tx-002",
@@ -535,6 +543,7 @@ export const DEFAULT_TRANSACTIONS: Transaction[] = [
     date: "2026-08-20T10:00:00.000Z",
     customerName: "Siti Rahmawati",
     customerPhone: "081399887766",
+    customerType: "regular",
     items: [
       {
         id: "item-3",
@@ -543,7 +552,10 @@ export const DEFAULT_TRANSACTIONS: Transaction[] = [
         price: 425000,
         qty: 1,
         subtotal: 425000,
-        isService: true
+        isService: true,
+        warrantyDays: 90,
+        conditionGrade: "Pekerjaan Selesai (QC Passed)",
+        specsSummary: "Unit: Acer Aspire 3 | Part: SSD NVMe 512GB + Install Win 11"
       }
     ],
     subtotal: 425000,
@@ -554,7 +566,37 @@ export const DEFAULT_TRANSACTIONS: Transaction[] = [
     amountPaid: 450000,
     change: 25000,
     cashierName: "Admin Kasir",
-    notes: "Pelunasan sisa biaya servis setelah DP Rp 200.000"
+    notes: "Pelunasan sisa biaya servis setelah DP Rp 200.000 - Garansi Servis 90 Hari"
+  },
+  {
+    id: "tx-003",
+    invoiceNumber: "INV-202608-003",
+    date: "2026-08-25T11:30:00.000Z",
+    customerName: "Budi Santoso",
+    customerPhone: "081234567890",
+    customerType: "regular",
+    items: [
+      {
+        id: "item-4",
+        productId: "prod-laptop-new-1",
+        name: "Laptop Asus Vivobook 14 A1404ZA FHD IPS",
+        price: 7199000,
+        qty: 1,
+        subtotal: 7199000,
+        warrantyDays: 730,
+        conditionGrade: "Baru BNIB 100% Segel",
+        specsSummary: "Intel Core i3-1215U | 8GB DDR4 | 512GB NVMe SSD | 14 FHD IPS"
+      }
+    ],
+    subtotal: 7199000,
+    discount: 100000,
+    tax: 0,
+    total: 7099000,
+    paymentMethod: "transfer",
+    amountPaid: 7099000,
+    change: 0,
+    cashierName: "Maya Anggraini",
+    notes: "Pembelian laptop baru segel BNIB dengan Garansi Resmi Asus 2 Tahun (730 Hari)"
   }
 ];
 

@@ -17,17 +17,37 @@ export const QRScannerModal: React.FC<QRScannerModalProps> = ({
   const [manualCode, setManualCode] = useState("");
   const scannerRef = useRef<Html5Qrcode | null>(null);
 
-  // Helper to extract ticket code from URL or raw text
+  // Helper to extract ticket or invoice code from URL or raw text
   const cleanScannedCode = (raw: string) => {
     const trimmed = raw.trim();
-    if (trimmed.includes("track=") || trimmed.includes("ticket=") || trimmed.includes("garansi=")) {
+    if (
+      trimmed.includes("track=") ||
+      trimmed.includes("invoice=") ||
+      trimmed.includes("inv=") ||
+      trimmed.includes("ticket=") ||
+      trimmed.includes("garansi=")
+    ) {
       try {
         const url = new URL(trimmed.startsWith("http") ? trimmed : `https://dummy.com/${trimmed}`);
         const code =
           url.searchParams.get("track") ||
+          url.searchParams.get("invoice") ||
+          url.searchParams.get("inv") ||
           url.searchParams.get("ticket") ||
           url.searchParams.get("garansi");
-        if (code) return code;
+        if (code) return code.trim();
+
+        // Check hash parameters if any
+        if (url.hash) {
+          const hashParams = new URLSearchParams(url.hash.replace(/^#\/?/, ""));
+          const hashCode =
+            hashParams.get("track") ||
+            hashParams.get("invoice") ||
+            hashParams.get("inv") ||
+            hashParams.get("ticket") ||
+            hashParams.get("garansi");
+          if (hashCode) return hashCode.trim();
+        }
       } catch (e) {}
     }
     return trimmed;

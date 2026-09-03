@@ -41,7 +41,8 @@ import {
   Minus,
   Calculator,
   RotateCcw,
-  Save
+  Save,
+  UserCheck
 } from "lucide-react";
 import { ServiceTicket, ServiceStatus, Product, ServicePart, User, Customer } from "../types";
 import {
@@ -120,6 +121,7 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
     customerName: "",
     customerPhone: "",
     customerAddress: "",
+    customerType: "regular" as "regular" | "reseller",
     deviceType: "laptop" as const,
     deviceBrandModel: "",
     serialNumber: "",
@@ -221,12 +223,13 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
       ...prev,
       customerName: c.name,
       customerPhone: c.phone !== "-" ? c.phone : "",
-      customerAddress: c.address || ""
+      customerAddress: c.address || "",
+      customerType: c.type || "regular"
     }));
     setSelectedCustomerBadge(c);
     setCustomerSearchInput("");
     setIsCustomerDropdownOpen(false);
-    toast.success(`Data pelanggan "${c.name}" berhasil dipilih & dimuat.`);
+    toast.success(`Data pelanggan "${c.name}" (${c.type === "reseller" ? "Reseller" : "Reguler"}) berhasil dipilih & dimuat.`);
   };
 
   const handleResetCustomerSelection = () => {
@@ -236,7 +239,8 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
       ...prev,
       customerName: "",
       customerPhone: "",
-      customerAddress: ""
+      customerAddress: "",
+      customerType: "regular"
     }));
   };
 
@@ -266,7 +270,7 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
       name: name,
       phone: phone,
       address: address,
-      type: existing?.type || "regular",
+      type: formData.customerType || existing?.type || "regular",
       createdAt: existing?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       totalServicesCount: existing?.totalServicesCount || 0,
@@ -277,7 +281,7 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
       onSaveCustomer(custObj);
     }
     setSelectedCustomerBadge(custObj);
-    toast.success(`Data pelanggan "${name}" berhasil disimpan ke daftar CRM!`);
+    toast.success(`Data pelanggan "${name}" (${custObj.type === "reseller" ? "Reseller" : "Reguler"}) berhasil disimpan ke daftar CRM Toko!`);
   };
 
   const handleCreateSubmit = (e: React.FormEvent) => {
@@ -291,6 +295,7 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
       customerName: "",
       customerPhone: "",
       customerAddress: "",
+      customerType: "regular",
       deviceType: "laptop",
       deviceBrandModel: "",
       serialNumber: "",
@@ -938,8 +943,8 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
                   </button>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="sm:col-span-1">
                     <label className="block text-xs font-semibold text-foreground mb-1">
                       Nama Pelanggan *
                     </label>
@@ -952,7 +957,7 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
                       className="w-full px-3 py-2 text-sm bg-muted/40 border border-input rounded-lg"
                     />
                   </div>
-                  <div>
+                  <div className="sm:col-span-1">
                     <label className="block text-xs font-semibold text-foreground mb-1">
                       No. WhatsApp *
                     </label>
@@ -965,7 +970,20 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
                       className="w-full px-3 py-2 text-sm bg-muted/40 border border-input rounded-lg"
                     />
                   </div>
-                  <div className="sm:col-span-2">
+                  <div className="sm:col-span-1">
+                    <label className="block text-xs font-semibold text-foreground mb-1">
+                      Kategori Pelanggan
+                    </label>
+                    <select
+                      value={formData.customerType}
+                      onChange={(e) => setFormData({ ...formData, customerType: e.target.value as any })}
+                      className="w-full px-3 py-2 text-sm bg-muted/40 border border-input rounded-lg"
+                    >
+                      <option value="regular">Konsumen Reguler</option>
+                      <option value="reseller">Reseller / Toko Mitra</option>
+                    </select>
+                  </div>
+                  <div className="sm:col-span-3">
                     <label className="block text-xs font-semibold text-foreground mb-1">
                       Alamat Pelanggan (Opsional)
                     </label>
@@ -976,6 +994,33 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
                       onChange={(e) => setFormData({ ...formData, customerAddress: e.target.value })}
                       className="w-full px-3 py-2 text-sm bg-muted/40 border border-input rounded-lg"
                     />
+                  </div>
+
+                  {/* Customer Quick Save Bar */}
+                  <div className="sm:col-span-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/30 border border-emerald-300 dark:border-emerald-800/80 shadow-2xs">
+                    <div className="flex items-center gap-2">
+                      <UserCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                      <span className="text-xs text-emerald-950 dark:text-emerald-200">
+                        {selectedCustomerBadge ? (
+                          <>
+                            ✓ Terhubung dengan database CRM: <strong>{selectedCustomerBadge.name}</strong> ({selectedCustomerBadge.type === "reseller" ? "Reseller" : "Konsumen Reguler"})
+                          </>
+                        ) : (
+                          <>
+                            Simpan identitas pelanggan ini ke <strong>Buku Pelanggan CRM</strong> agar riwayat & garansi servis masa depan tersimpan rapi.
+                          </>
+                        )}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleSaveCustomerDirect}
+                      className="inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:scale-95 rounded-lg transition-all shadow-xs shrink-0 cursor-pointer"
+                      title="Klik untuk langsung menyimpan data pelanggan ini ke CRM"
+                    >
+                      <Save className="h-3.5 w-3.5" />
+                      <span>{selectedCustomerBadge ? "Perbarui di CRM" : "Simpan Pelanggan ke CRM"}</span>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -1132,20 +1177,32 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
                 </div>
               </div>
 
-              <div className="flex justify-end space-x-3 pt-4 border-t border-border">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-4 border-t border-border">
                 <button
                   type="button"
-                  onClick={() => setIsNewModalOpen(false)}
-                  className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground"
+                  onClick={handleSaveCustomerDirect}
+                  className="inline-flex items-center justify-center gap-1.5 px-4 py-2 text-xs sm:text-sm font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:text-emerald-300 dark:hover:bg-emerald-900/60 border border-emerald-300 dark:border-emerald-800 rounded-xl transition-all shadow-2xs active:scale-95 cursor-pointer"
+                  title="Simpan data nama & kontak pelanggan ini ke database CRM Toko"
                 >
-                  Batal
+                  <Save className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                  <span>Simpan Data Pelanggan</span>
                 </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-sm shadow-md"
-                >
-                  Simpan & Cetak Tanda Terima
-                </button>
+
+                <div className="flex items-center justify-end space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsNewModalOpen(false)}
+                    className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground cursor-pointer"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-sm shadow-md cursor-pointer"
+                  >
+                    Simpan & Cetak Tanda Terima
+                  </button>
+                </div>
               </div>
             </form>
           </div>

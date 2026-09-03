@@ -326,6 +326,59 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               className="w-full px-3 py-2 text-sm bg-muted/40 border border-input rounded-lg"
             ></textarea>
           </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-foreground mb-1">
+              Ukuran Default Printer Struk Thermal Kasir
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <label
+                className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                  (formData.defaultThermalSize || "58mm") === "58mm"
+                    ? "border-blue-600 bg-blue-50/50 dark:bg-blue-950/30 text-blue-900 dark:text-blue-200"
+                    : "border-border hover:bg-muted/40 text-foreground"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="defaultThermalSize"
+                  value="58mm"
+                  checked={(formData.defaultThermalSize || "58mm") === "58mm"}
+                  onChange={() => setFormData({ ...formData, defaultThermalSize: "58mm" })}
+                  className="mt-1"
+                />
+                <div>
+                  <div className="font-bold text-xs">Roll 58mm (Mini / Bluetooth)</div>
+                  <div className="text-[11px] text-muted-foreground mt-0.5">
+                    Lebar cetak ~48mm-50mm. Cocok untuk printer bluetooth kasir portable, Panda, Eppos, dll.
+                  </div>
+                </div>
+              </label>
+
+              <label
+                className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                  formData.defaultThermalSize === "80mm"
+                    ? "border-blue-600 bg-blue-50/50 dark:bg-blue-950/30 text-blue-900 dark:text-blue-200"
+                    : "border-border hover:bg-muted/40 text-foreground"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="defaultThermalSize"
+                  value="80mm"
+                  checked={formData.defaultThermalSize === "80mm"}
+                  onChange={() => setFormData({ ...formData, defaultThermalSize: "80mm" })}
+                  className="mt-1"
+                />
+                <div>
+                  <div className="font-bold text-xs">Roll 80mm (Standar POS Desktop)</div>
+                  <div className="text-[11px] text-muted-foreground mt-0.5">
+                    Lebar cetak ~72mm-74mm. Cocok untuk Epson TM-T82, Xprinter 80, Iware 80mm, dll.
+                  </div>
+                </div>
+              </label>
+            </div>
+          </div>
         </div>
 
         {/* Actions */}

@@ -65,7 +65,7 @@ export const CustomerLandingPage: React.FC<CustomerLandingPageProps> = ({
   prefilledTicket,
   prefilledTransaction
 }) => {
-  const [searchMode, setSearchMode] = useState<"service" | "warranty">("service");
+  const [searchMode, setSearchMode] = useState<"service" | "invoice" | "warranty">("service");
   const [query, setQuery] = useState("");
   const [searchedTicket, setSearchedTicket] = useState<ServiceTicket | null>(
     prefilledTicket || null
@@ -80,26 +80,30 @@ export const CustomerLandingPage: React.FC<CustomerLandingPageProps> = ({
   useEffect(() => {
     if (prefilledTicket) {
       setSearchedTicket(prefilledTicket);
+      setSearchedTransaction(null);
       setQuery(prefilledTicket.ticketNumber);
+      setSearchMode("service");
       setTimeout(() => {
         const resElement = document.getElementById("search-results-section");
         if (resElement) {
           resElement.scrollIntoView({ behavior: "smooth", block: "start" });
         }
-      }, 100);
+      }, 150);
     }
   }, [prefilledTicket]);
 
   useEffect(() => {
     if (prefilledTransaction) {
       setSearchedTransaction(prefilledTransaction);
+      setSearchedTicket(null);
       setQuery(prefilledTransaction.invoiceNumber);
+      setSearchMode("invoice");
       setTimeout(() => {
-        const resElement = document.getElementById("search-results-section");
+        const resElement = document.getElementById("search-invoice-results-section");
         if (resElement) {
           resElement.scrollIntoView({ behavior: "smooth", block: "start" });
         }
-      }, 100);
+      }, 150);
     }
   }, [prefilledTransaction]);
 
@@ -127,18 +131,27 @@ export const CustomerLandingPage: React.FC<CustomerLandingPageProps> = ({
       if (ticketRes || txRes) {
         setSearchedTicket(ticketRes);
         setSearchedTransaction(txRes);
-        // Scroll smoothly to results
+        if (txRes && !ticketRes) {
+          setSearchMode("invoice");
+        } else if (ticketRes && !txRes) {
+          setSearchMode("service");
+        }
+
+        // Scroll smoothly to appropriate results
         setTimeout(() => {
-          const resElement = document.getElementById("search-results-section");
+          const targetId = txRes && !ticketRes ? "search-invoice-results-section" : "search-results-section";
+          const resElement = document.getElementById(targetId);
           if (resElement) {
             resElement.scrollIntoView({ behavior: "smooth", block: "start" });
           }
-        }, 100);
+        }, 150);
       } else {
         setSearchedTicket(null);
         setSearchedTransaction(null);
         setErrorMsg(
-          searchMode === "warranty"
+          searchMode === "invoice"
+            ? `Faktur Penjualan "${q}" tidak ditemukan. Pastikan Nomor Faktur (contoh: INV-202608-001) atau No. WhatsApp Anda benar.`
+            : searchMode === "warranty"
             ? `Data garansi untuk "${q}" tidak ditemukan. Pastikan Nomor Tiket Servis (SRV-...), No. Faktur (INV-...), Serial Number, atau No. WhatsApp sudah sesuai.`
             : `Data tiket servis atau faktur penjualan "${q}" tidak ditemukan. Pastikan Nomor Tiket (misal: SRV-202508-001), No. Faktur (INV-...), atau No. WhatsApp Anda benar.`
         );
@@ -198,7 +211,8 @@ export const CustomerLandingPage: React.FC<CustomerLandingPageProps> = ({
     }
   }
 
-  const quickSampleTickets = ["SRV-202508-001", "SRV-202508-002", "SRV-202508-003"];
+  const quickSampleTickets = ["SRV-202508-001", "SRV-202508-002"];
+  const quickSampleInvoices = ["INV-202608-001", "INV-202608-002", "INV-202608-003"];
 
   const servicesList = [
     {
@@ -333,31 +347,44 @@ export const CustomerLandingPage: React.FC<CustomerLandingPageProps> = ({
           {/* Search Tabs & Box */}
           <div className="bg-card border-2 border-border/80 rounded-2xl p-4 sm:p-6 shadow-xl text-left max-w-3xl mx-auto">
             {/* Search Mode Switcher Tabs */}
-            <div className="flex items-center space-x-2 border-b border-border pb-3 mb-4 text-xs">
+            <div className="flex flex-wrap items-center gap-2 border-b border-border pb-3 mb-4 text-xs">
               <button
                 type="button"
                 onClick={() => setSearchMode("service")}
-                className={`flex items-center space-x-2 px-4 py-2 rounded-xl font-bold transition-all ${
+                className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl font-bold transition-all ${
                   searchMode === "service"
                     ? "bg-blue-600 text-white shadow-md shadow-blue-500/20"
                     : "bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted"
                 }`}
               >
                 <Wrench className="h-4 w-4" />
-                <span>🔍 Lacak Status Servis</span>
+                <span>🔍 Lacak Tiket Servis (SRV)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSearchMode("invoice")}
+                className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl font-bold transition-all ${
+                  searchMode === "invoice"
+                    ? "bg-emerald-600 text-white shadow-md shadow-emerald-500/20"
+                    : "bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted"
+                }`}
+              >
+                <Receipt className="h-4 w-4" />
+                <span>🧾 Cek Faktur POS (INV)</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setSearchMode("warranty")}
-                className={`flex items-center space-x-2 px-4 py-2 rounded-xl font-bold transition-all ${
+                className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl font-bold transition-all ${
                   searchMode === "warranty"
-                    ? "bg-emerald-600 text-white shadow-md shadow-emerald-500/20"
+                    ? "bg-purple-600 text-white shadow-md shadow-purple-500/20"
                     : "bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted"
                 }`}
               >
                 <ShieldCheck className="h-4 w-4" />
-                <span>🛡️ Cek Masa Garansi Toko</span>
+                <span>🛡️ Cek Garansi Toko</span>
               </button>
             </div>
 
@@ -368,8 +395,10 @@ export const CustomerLandingPage: React.FC<CustomerLandingPageProps> = ({
                 <input
                   type="text"
                   placeholder={
-                    searchMode === "warranty"
-                      ? "Masukkan No. Tiket, No. Seri (SN), atau No. WhatsApp..."
+                    searchMode === "invoice"
+                      ? "Masukkan No. Faktur POS (contoh: INV-202608-001) atau No. WhatsApp..."
+                      : searchMode === "warranty"
+                      ? "Masukkan No. Tiket, Faktur, No. Seri (SN), atau No. WhatsApp..."
                       : "Masukkan No. Tiket Servis (misal: SRV-202508-001) atau No. WA..."
                   }
                   value={query}
@@ -382,8 +411,8 @@ export const CustomerLandingPage: React.FC<CustomerLandingPageProps> = ({
               <button
                 type="button"
                 onClick={onOpenQRScanner}
-                className="flex items-center justify-center space-x-2 px-4 py-3.5 bg-muted hover:bg-muted/80 text-foreground font-bold rounded-xl text-xs sm:text-sm transition-colors border border-border shadow-2xs shrink-0"
-                title="Pindai QR Code Tiket / SPK dengan Kamera HP"
+                className="flex items-center justify-center space-x-2 px-4 py-3.5 bg-muted hover:bg-muted/80 text-foreground font-bold rounded-xl text-xs sm:text-sm transition-colors border border-border shadow-2xs shrink-0 cursor-pointer"
+                title="Pindai QR Code Tiket / Faktur POS dengan Kamera HP"
               >
                 <QrCode className="h-4 w-4 text-blue-600" />
                 <span>Scan QR</span>
@@ -393,9 +422,11 @@ export const CustomerLandingPage: React.FC<CustomerLandingPageProps> = ({
               <button
                 type="submit"
                 disabled={loading}
-                className={`flex items-center justify-center space-x-2 px-6 py-3.5 text-white font-bold rounded-xl text-sm transition-all shadow-md active:scale-95 disabled:opacity-50 shrink-0 ${
-                  searchMode === "warranty"
+                className={`flex items-center justify-center space-x-2 px-6 py-3.5 text-white font-bold rounded-xl text-sm transition-all shadow-md active:scale-95 disabled:opacity-50 shrink-0 cursor-pointer ${
+                  searchMode === "invoice"
                     ? "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/20"
+                    : searchMode === "warranty"
+                    ? "bg-purple-600 hover:bg-purple-700 shadow-purple-500/20"
                     : "bg-blue-600 hover:bg-blue-700 shadow-blue-500/20"
                 }`}
               >
@@ -406,29 +437,54 @@ export const CustomerLandingPage: React.FC<CustomerLandingPageProps> = ({
                   </>
                 ) : (
                   <>
-                    <span>{searchMode === "warranty" ? "Cek Garansi" : "Lacak Servis"}</span>
+                    <span>
+                      {searchMode === "invoice"
+                        ? "Cek Faktur POS"
+                        : searchMode === "warranty"
+                        ? "Cek Garansi"
+                        : "Lacak Servis"}
+                    </span>
                     <ArrowRight className="h-4 w-4" />
                   </>
                 )}
               </button>
             </form>
 
-            {/* Quick Sample Tiket Suggestions */}
+            {/* Quick Sample Tiket & Invoice Suggestions */}
             <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-border text-xs text-muted-foreground">
-              <span className="font-semibold text-[11px]">Contoh Tiket Demo:</span>
-              {quickSampleTickets.map((tNum) => (
-                <button
-                  key={tNum}
-                  type="button"
-                  onClick={() => {
-                    setQuery(tNum);
-                    handleSearch(undefined, tNum);
-                  }}
-                  className="px-2 py-0.5 bg-muted hover:bg-blue-100 hover:text-blue-700 dark:hover:bg-blue-950/60 dark:hover:text-blue-300 rounded-md font-mono text-[11px] border border-border transition-colors font-medium"
-                >
-                  {tNum}
-                </button>
-              ))}
+              <span className="font-semibold text-[11px]">Contoh Demo Cepat:</span>
+              <div className="flex flex-wrap items-center gap-1.5">
+                {quickSampleTickets.map((tNum) => (
+                  <button
+                    key={tNum}
+                    type="button"
+                    onClick={() => {
+                      setQuery(tNum);
+                      setSearchMode("service");
+                      handleSearch(undefined, tNum);
+                    }}
+                    className="px-2 py-0.5 bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:hover:bg-blue-900/60 dark:text-blue-300 rounded-md font-mono text-[11px] border border-blue-200 dark:border-blue-800 transition-colors font-semibold cursor-pointer"
+                    title="Cek Sampel Tiket Servis"
+                  >
+                    {tNum}
+                  </button>
+                ))}
+                {quickSampleInvoices.map((invNum) => (
+                  <button
+                    key={invNum}
+                    type="button"
+                    onClick={() => {
+                      setQuery(invNum);
+                      setSearchMode("invoice");
+                      handleSearch(undefined, invNum);
+                    }}
+                    className="px-2 py-0.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/60 dark:text-emerald-300 rounded-md font-mono text-[11px] border border-emerald-200 dark:border-emerald-800 transition-colors font-semibold cursor-pointer"
+                    title="Cek Sampel Faktur POS & Garansi"
+                  >
+                    {invNum}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Error Message if not found */}
@@ -788,20 +844,24 @@ export const CustomerLandingPage: React.FC<CustomerLandingPageProps> = ({
 
               <div className="space-y-3">
                 {searchedTransaction.items.map((item, idx) => {
-                  const wDays = item.warrantyDays || 0;
-                  let isItemWarrantyActive = false;
-                  let itemDaysLeft = 0;
-                  let itemExpiryDate = "";
+                  // Ensure a smart fallback warranty if not explicitly defined
+                  const wDays = (item.warrantyDays && item.warrantyDays > 0)
+                    ? item.warrantyDays
+                    : item.isService
+                    ? 90
+                    : (item.name.toLowerCase().includes("laptop") || item.name.toLowerCase().includes("notebook") || item.name.toLowerCase().includes("pc"))
+                    ? 730
+                    : (item.name.toLowerCase().includes("adaptor") || item.name.toLowerCase().includes("charger") || item.name.toLowerCase().includes("baterai"))
+                    ? 180
+                    : 30;
 
-                  if (wDays > 0) {
-                    const baseDate = new Date(searchedTransaction.date || Date.now());
-                    itemExpiryDate = new Date(baseDate.getTime() + wDays * 86400000).toISOString().split("T")[0];
-                    const today = new Date();
-                    const until = new Date(itemExpiryDate);
-                    const diffTime = until.getTime() - today.getTime();
-                    itemDaysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                    isItemWarrantyActive = itemDaysLeft >= 0;
-                  }
+                  const baseDate = new Date(searchedTransaction.date || Date.now());
+                  const itemExpiryDate = new Date(baseDate.getTime() + wDays * 86400000).toISOString().split("T")[0];
+                  const today = new Date();
+                  const until = new Date(itemExpiryDate);
+                  const diffTime = until.getTime() - today.getTime();
+                  const itemDaysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                  const isItemWarrantyActive = itemDaysLeft >= 0;
 
                   return (
                     <div

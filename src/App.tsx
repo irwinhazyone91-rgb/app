@@ -416,9 +416,10 @@ export function App() {
 
         if (matchTicket) {
           setPrefilledTicketForTracking(matchTicket);
-        }
-        if (matchTx) {
+          setPrefilledTransactionForTracking(null);
+        } else if (matchTx) {
           setPrefilledTransactionForTracking(matchTx);
+          setPrefilledTicketForTracking(null);
         }
 
         if (!matchTicket && !matchTx) {
@@ -426,8 +427,13 @@ export function App() {
           handleSearchTracking(cleanCode)
             .then((res) => {
               if (res) {
-                if (res.ticket) setPrefilledTicketForTracking(res.ticket);
-                if (res.transaction) setPrefilledTransactionForTracking(res.transaction);
+                if (res.ticket) {
+                  setPrefilledTicketForTracking(res.ticket);
+                  setPrefilledTransactionForTracking(null);
+                } else if (res.transaction) {
+                  setPrefilledTransactionForTracking(res.transaction);
+                  setPrefilledTicketForTracking(null);
+                }
               }
             })
             .catch(() => {});
@@ -1156,6 +1162,7 @@ export function App() {
       if (result && (result.ticket || result.transaction)) {
         setPrefilledTicketForTracking(result.ticket || null);
         setPrefilledTransactionForTracking(result.transaction || null);
+        setIsCustomerTrackingDirect(true);
         setCurrentTab("tracking");
         if (result.transaction) {
           toast.success(`Faktur ${result.transaction.invoiceNumber} berhasil dideteksi dari QR Code!`);
@@ -1186,7 +1193,7 @@ export function App() {
 
   // Helper to determine print format automatically for transactions:
   // - Laptop Baru, Laptop Bekas, & Servis -> continuous (Form Continuous 1 Rangkap)
-  // - Sparepart & Aksesoris -> thermal (Struk Kasir POS 58mm / 80mm)
+  // - Sparepart & Aksesoris -> thermal_58mm / thermal_80mm (sesuai setting default thermal printer)
   const getFormatForTransaction = (tx: Transaction): PrintFormat => {
     const hasLaptopOrService = tx.items.some((item) => {
       if (item.isService || item.serviceTicketId || item.conditionGrade) return true;
@@ -1204,7 +1211,8 @@ export function App() {
       }
       return false;
     });
-    return hasLaptopOrService ? "continuous" : "thermal";
+    const defaultThermal = settings.defaultThermalSize === "80mm" ? "thermal_80mm" : "thermal_58mm";
+    return hasLaptopOrService ? "continuous" : defaultThermal;
   };
 
   // VIEW MODE 1: DEDICATED CUSTOMER LANDING PAGE FOR SERVICE & WARRANTY TRACKING (WITHOUT LOGIN)

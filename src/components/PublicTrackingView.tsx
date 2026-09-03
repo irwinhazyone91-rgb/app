@@ -158,7 +158,7 @@ export const PublicTrackingView: React.FC<PublicTrackingViewProps> = ({
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
             <input
               type="text"
-              placeholder="Masukkan Nomor Tiket (misal: SRV-202508-001) atau No. WhatsApp..."
+              placeholder="Masukkan No. Tiket (SRV-...), No. Faktur (INV-...), atau No. WhatsApp..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="w-full pl-11 pr-4 py-3 text-sm bg-muted/40 border border-input rounded-xl focus:outline-hidden focus:ring-2 focus:ring-blue-500"
@@ -168,21 +168,52 @@ export const PublicTrackingView: React.FC<PublicTrackingViewProps> = ({
           <button
             type="button"
             onClick={onOpenQRScanner}
-            className="flex items-center justify-center space-x-2 px-4 py-3 bg-muted hover:bg-muted/80 text-foreground font-semibold rounded-xl text-sm transition-colors border border-border"
-            title="Scan QR Code Tiket Servis dengan Kamera"
+            className="flex items-center justify-center space-x-2 px-4 py-3 bg-muted hover:bg-muted/80 text-foreground font-semibold rounded-xl text-sm transition-colors border border-border cursor-pointer"
+            title="Scan QR Code Tiket / Faktur POS dengan Kamera"
           >
-            <QrCode className="h-4 w-4" />
+            <QrCode className="h-4 w-4 text-blue-600" />
             <span className="hidden sm:inline">Scan QR</span>
           </button>
 
           <button
             type="submit"
             disabled={loading}
-            className="flex items-center justify-center space-x-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-sm transition-all shadow-md active:scale-95 disabled:opacity-50"
+            className="flex items-center justify-center space-x-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-sm transition-all shadow-md active:scale-95 disabled:opacity-50 cursor-pointer"
           >
             <span>{loading ? "Mencari..." : "Lacak Status"}</span>
           </button>
         </form>
+
+        {/* Quick Demo Suggestions */}
+        <div className="flex flex-wrap items-center gap-1.5 mt-3 pt-3 border-t border-border text-xs text-muted-foreground">
+          <span className="font-semibold text-[11px]">Sampel Cepat:</span>
+          {["SRV-202508-001", "INV-202608-001", "INV-202608-002", "INV-202608-003"].map((code) => (
+            <button
+              key={code}
+              type="button"
+              onClick={() => {
+                setQuery(code);
+                if (onSearchTracking) {
+                  setLoading(true);
+                  onSearchTracking(code).then((res) => {
+                    if (res) {
+                      setSearchedTicket(res.ticket || null);
+                      setSearchedTransaction(res.transaction || null);
+                    }
+                    setLoading(false);
+                  });
+                }
+              }}
+              className={`px-2 py-0.5 rounded-md font-mono text-[11px] border transition-colors font-semibold cursor-pointer ${
+                code.startsWith("INV")
+                  ? "bg-emerald-50 hover:bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800"
+                  : "bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border-blue-200 dark:border-blue-800"
+              }`}
+            >
+              {code}
+            </button>
+          ))}
+        </div>
 
         {errorMsg && (
           <div className="mt-4 p-3 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 rounded-xl text-xs flex items-center gap-2 border border-rose-200 dark:border-rose-900">
@@ -404,20 +435,23 @@ export const PublicTrackingView: React.FC<PublicTrackingViewProps> = ({
 
             <div className="space-y-2.5">
               {searchedTransaction.items.map((item, idx) => {
-                const wDays = item.warrantyDays || 0;
-                let isItemWarrantyActive = false;
-                let itemDaysLeft = 0;
-                let itemExpiryDate = "";
+                const wDays = (item.warrantyDays && item.warrantyDays > 0)
+                  ? item.warrantyDays
+                  : item.isService
+                  ? 90
+                  : (item.name.toLowerCase().includes("laptop") || item.name.toLowerCase().includes("notebook") || item.name.toLowerCase().includes("pc"))
+                  ? 730
+                  : (item.name.toLowerCase().includes("adaptor") || item.name.toLowerCase().includes("charger") || item.name.toLowerCase().includes("baterai"))
+                  ? 180
+                  : 30;
 
-                if (wDays > 0) {
-                  const baseDate = new Date(searchedTransaction.date || Date.now());
-                  itemExpiryDate = new Date(baseDate.getTime() + wDays * 86400000).toISOString().split("T")[0];
-                  const today = new Date();
-                  const until = new Date(itemExpiryDate);
-                  const diffTime = until.getTime() - today.getTime();
-                  itemDaysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                  isItemWarrantyActive = itemDaysLeft >= 0;
-                }
+                const baseDate = new Date(searchedTransaction.date || Date.now());
+                const itemExpiryDate = new Date(baseDate.getTime() + wDays * 86400000).toISOString().split("T")[0];
+                const today = new Date();
+                const until = new Date(itemExpiryDate);
+                const diffTime = until.getTime() - today.getTime();
+                const itemDaysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                const isItemWarrantyActive = itemDaysLeft >= 0;
 
                 return (
                   <div
