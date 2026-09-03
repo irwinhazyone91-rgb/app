@@ -58,11 +58,11 @@
   }
 }
 
-/* Print Specific Rules (A4 Portrait Dibagi 2, Struk Thermal 58mm, Struk Thermal 80mm, dan Stiker Unit 58mm) */
+/* Print Specific Rules (A4 Portrait Dibagi 2, Struk Thermal 58mm MP58, Struk Thermal 80mm, dan Stiker Unit 58mm) */
 @media print {
   @page {
     size: auto;
-    margin: 1mm;
+    margin: 0mm !important;
   }
   html, body {
     margin: 0 !important;
@@ -84,7 +84,7 @@
     position: absolute !important;
     left: 0 !important;
     top: 0 !important;
-    margin: 0 auto !important;
+    margin: 0 !important;
     padding: 0 !important;
     background: #ffffff !important;
     color: #000000 !important;
@@ -113,35 +113,65 @@
     page-break-after: avoid !important;
     break-after: avoid !important;
   }
-  /* Format 1: STIKER TEMPEL UNIT 58MM (Printable 48mm - 50mm pada Kertas Stiker Roll) */
+  /* Format 1: STIKER TEMPEL UNIT 58MM (Printable 44mm - 48mm pada Kertas Stiker Roll MP58) */
   .print-58mm, .print-sticker-58mm {
-    width: 48mm !important;
-    max-width: 50mm !important;
-    padding: 1.5mm !important;
+    width: var(--thermal-58-width, 44mm) !important;
+    max-width: var(--thermal-58-width, 44mm) !important;
+    margin: 0 !important;
+    margin-left: var(--thermal-58-offset, 0mm) !important;
+    margin-right: auto !important;
+    padding: 1mm 0.5mm !important;
     font-size: 8px !important;
     line-height: 1.15 !important;
-    margin: 0 auto !important;
-    overflow: hidden !important;
+    font-family: 'Courier New', Courier, monospace !important;
+    font-weight: 700 !important;
+    overflow: visible !important;
     box-sizing: border-box !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
     page-break-after: avoid !important;
     break-after: avoid !important;
+    color: #000000 !important;
+    background: #ffffff !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
-  /* Format 2: STRUK KASIR THERMAL 58MM (Printable 48mm - 50mm pada Roll Kasir Mini/Bluetooth) */
+  .print-58mm *, .print-sticker-58mm * {
+    color: #000000 !important;
+    border-color: #000000 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  /* Format 2: STRUK KASIR THERMAL 58MM (Dikalibrasi Khusus Printer MP58 EcoPrint & Mini Bluetooth) */
   .print-thermal-58mm {
-    width: 48mm !important;
-    max-width: 50mm !important;
-    padding: 1.5mm 1mm !important;
-    font-size: 8.2px !important;
-    line-height: 1.15 !important;
-    margin: 0 auto !important;
-    overflow: hidden !important;
+    width: var(--thermal-58-width, 44mm) !important;
+    max-width: var(--thermal-58-width, 44mm) !important;
+    margin: 0 !important;
+    margin-left: var(--thermal-58-offset, 0mm) !important;
+    margin-right: auto !important;
+    padding: 0 0.5mm 2mm 0.5mm !important;
+    font-size: 8.8px !important;
+    line-height: 1.22 !important;
+    font-family: 'Courier New', Courier, monospace !important;
+    font-weight: 700 !important;
+    overflow: visible !important;
+    word-break: break-word !important;
     box-sizing: border-box !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
     page-break-after: avoid !important;
     break-after: avoid !important;
+    color: #000000 !important;
+    background: #ffffff !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .print-thermal-58mm * {
+    color: #000000 !important;
+    border-color: #000000 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    text-shadow: none !important;
   }
   /* Format 3: STRUK KASIR THERMAL 80MM (Printable 72mm - 74mm pada Roll Kasir Standar Desktop) */
   .print-80mm, .print-thermal-80mm, .print-thermal {

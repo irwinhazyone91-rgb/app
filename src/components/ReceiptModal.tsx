@@ -15,7 +15,9 @@ import {
   Sparkles,
   Info,
   Layers,
-  Scissors
+  Scissors,
+  Sliders,
+  Check
 } from "lucide-react";
 import { ServiceTicket, Transaction, StoreSettings, User, Product, PrintFormat } from "../types";
 import {
@@ -83,6 +85,37 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
   const [selectedFormat, setSelectedFormat] = useState<PrintFormat>(() =>
     resolvePrintFormat(defaultFormat)
   );
+
+  // Thermal 58mm calibration state (remembered in localStorage for MP58 and other mini thermal printers)
+  const [thermal58Width, setThermal58Width] = useState<"44mm" | "45mm" | "46mm" | "48mm">(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("servisku_thermal58_width");
+      if (saved === "44mm" || saved === "45mm" || saved === "46mm" || saved === "48mm") return saved;
+    }
+    return "44mm";
+  });
+
+  const [thermal58Offset, setThermal58Offset] = useState<"0mm" | "1mm" | "2mm">(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("servisku_thermal58_offset");
+      if (saved === "0mm" || saved === "1mm" || saved === "2mm") return saved;
+    }
+    return "0mm";
+  });
+
+  const handleWidthChange = (val: "44mm" | "45mm" | "46mm" | "48mm") => {
+    setThermal58Width(val);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("servisku_thermal58_width", val);
+    }
+  };
+
+  const handleOffsetChange = (val: "0mm" | "1mm" | "2mm") => {
+    setThermal58Offset(val);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("servisku_thermal58_offset", val);
+    }
+  };
 
   useEffect(() => {
     setSelectedFormat(resolvePrintFormat(defaultFormat));
@@ -285,18 +318,95 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
             {selectedFormat === "continuous" &&
               "📄 NOTA A4 DIBAGI 2 (1 RANGKAP): Format dokumen resmi ukuran A4 portrait dibagi 2 untuk Servis, Laptop Baru & Bekas, lengkap dengan rincian biaya & DP, garansi toko, tanda tangan, dan QR Code verifikasi online tanpa duplikasi 2 rangkap."}
             {selectedFormat === "sticker_58mm" &&
-              "🏷️ STIKER TEMPEL UNIT (58MM): Format label stiker tempel fisik casing laptop/unit, font ringkas, nomor tiket besar, dan QR Code ukuran 64px pas tanpa terpotong."}
+              "🏷️ STIKER TEMPEL UNIT (58MM): Format label stiker tempel fisik casing laptop/unit, font ringkas, nomor tiket besar, dan QR Code pas tanpa terpotong."}
             {(selectedFormat === "thermal_58mm" || (selectedFormat === "thermal" && settings.defaultThermalSize !== "80mm")) &&
-              "🧾 STRUK THERMAL 58MM: Format khusus printer thermal roll mini/bluetooth 58mm (printable area 48mm-50mm, font 8.5px, QR code 64px) — hemat kertas, rapi, dan tidak terpotong di tepi."}
+              "🧾 STRUK THERMAL 58MM (MP58 OPTIMIZED): Format khusus printer thermal roll mini bluetooth MP58 — font solid hitam pekat, kontras tinggi, batas cetak aman 44mm, dan tidak terpotong di tepi kanan."}
             {(selectedFormat === "thermal_80mm" || (selectedFormat === "thermal" && settings.defaultThermalSize === "80mm")) &&
               "🧾 STRUK THERMAL 80MM: Format printer thermal desktop standar 80mm (printable area 72mm-74mm, font 10px, QR code 80px) — lega, leluasa, dan sangat jelas terbaca."}
           </span>
         </div>
 
+        {/* MP58 & 58mm Thermal Calibration Toolbar (No-Print) */}
+        {(selectedFormat === "thermal_58mm" ||
+          selectedFormat === "sticker_58mm" ||
+          (selectedFormat === "thermal" && settings.defaultThermalSize !== "80mm")) && (
+          <div className="no-print bg-zinc-900 text-zinc-100 rounded-xl p-3 border border-zinc-700 shadow-md space-y-2.5 text-xs">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800 pb-2">
+              <div className="flex items-center space-x-2 font-bold text-amber-400">
+                <Sliders className="h-4 w-4 text-amber-400" />
+                <span>Kalibrasi Khusus Thermal Printer MP58 (Anti-Terpotong & Hitam Pekat)</span>
+              </div>
+              <div className="flex items-center space-x-1.5 text-[11px] bg-emerald-950/80 text-emerald-300 font-bold px-2 py-0.5 rounded-full border border-emerald-600/60">
+                <Check className="h-3 w-3 text-emerald-400" />
+                <span>Format MP58 Aktif: {thermal58Width} / Offset {thermal58Offset}</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div>
+                <label className="block text-[11px] font-bold text-zinc-300 mb-1">
+                  Lebar Area Cetak (Print Width):
+                </label>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {(["44mm", "46mm", "48mm"] as const).map((w) => (
+                    <button
+                      key={w}
+                      type="button"
+                      onClick={() => handleWidthChange(w)}
+                      className={`py-1.5 px-2 rounded-lg text-xs font-bold text-center border transition-all ${
+                        thermal58Width === w
+                          ? "bg-amber-500 text-zinc-950 border-amber-400 shadow-sm"
+                          : "bg-zinc-800 text-zinc-300 border-zinc-700 hover:bg-zinc-700"
+                      }`}
+                    >
+                      {w} {w === "44mm" && "(MP58 Pas)"}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[10px] text-zinc-400 mt-1">
+                  *Pilih <strong>44mm</strong> agar teks sebelah kanan (00, nama, harga) tidak terpotong oleh head printer MP58.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-zinc-300 mb-1">
+                  Margin Kiri (Head Offset):
+                </label>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {(["0mm", "1mm", "2mm"] as const).map((off) => (
+                    <button
+                      key={off}
+                      type="button"
+                      onClick={() => handleOffsetChange(off)}
+                      className={`py-1.5 px-2 rounded-lg text-xs font-bold text-center border transition-all ${
+                        thermal58Offset === off
+                          ? "bg-amber-500 text-zinc-950 border-amber-400 shadow-sm"
+                          : "bg-zinc-800 text-zinc-300 border-zinc-700 hover:bg-zinc-700"
+                      }`}
+                    >
+                      {off} {off === "0mm" && "(Rata Kiri)"}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[10px] text-zinc-400 mt-1">
+                  *Pilih <strong>0mm</strong> agar cetakan tepat di tepi awal roll thermal tanpa tergeser ke kanan.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ================================================================
             PRINTABLE CONTENT AREA (1 RANGKAP SAJA)
             ================================================================ */}
-        <div ref={printAreaRef} className="print-area">
+        <div
+          ref={printAreaRef}
+          className="print-area"
+          style={{
+            ["--thermal-58-width" as any]: thermal58Width,
+            ["--thermal-58-offset" as any]: thermal58Offset,
+          }}
+        >
           {/* FORMAT 1: DOKUMEN NOTA KONSUMEN / SPK SERVIS (1 RANGKAP SAJA) */}
           {selectedFormat === "continuous" && ticket && (
             <div className="print-21x15 print-continuous bg-white text-zinc-950 p-2.5 sm:p-3 rounded-lg border border-zinc-500 font-mono text-[9px] leading-tight space-y-1.5 shadow-xs max-w-[202mm] mx-auto overflow-hidden">
@@ -735,171 +845,185 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
 
           {/* FORMAT 2: STIKER TEMPEL KHUSUS DI BARANG SERVIS (58MM) */}
           {selectedFormat === "sticker_58mm" && ticket && (
-            <div className="print-58mm print-sticker-58mm mx-auto w-[210px] max-w-[50mm] bg-white text-zinc-950 p-2 rounded-lg border-2 border-zinc-950 font-mono text-[8.5px] leading-tight space-y-1 shadow-xs">
+            <div
+              style={{
+                width: thermal58Width,
+                maxWidth: thermal58Width,
+                marginLeft: thermal58Offset,
+              }}
+              className="print-58mm print-sticker-58mm mx-auto bg-white text-black p-1.5 rounded-none border-2 border-black font-mono text-[8.5px] leading-tight space-y-1 shadow-xs overflow-visible"
+            >
               {/* Header Label Stiker */}
-              <div className="text-center border-b border-zinc-950 pb-1">
-                <h4 className="font-black text-[10.5px] uppercase tracking-wider leading-tight text-zinc-950">
+              <div className="text-center border-b-2 border-black pb-1">
+                <h4 className="font-black text-[11px] uppercase tracking-tight leading-tight text-black">
                   {settings.storeName}
                 </h4>
-                <div className="inline-block px-1.5 py-0.5 bg-zinc-950 text-white text-[7.5px] font-black uppercase rounded-xs my-0.5">
+                <div className="inline-block px-1.5 py-0.5 bg-black text-white text-[7.5px] font-black uppercase my-0.5">
                   ★ STIKER UNIT SERVIS ★
                 </div>
-                <span className="text-[7px] block text-zinc-600 font-semibold">
+                <span className="text-[7.5px] block text-black font-bold">
                   WA: {settings.whatsapp}
                 </span>
               </div>
 
               {/* Big Bold Ticket Number Box */}
-              <div className="text-center py-1 bg-zinc-100 border border-zinc-950 rounded-xs">
-                <span className="text-[7px] uppercase font-bold text-zinc-600 block leading-none">
+              <div className="text-center py-1 bg-white border-2 border-black">
+                <span className="text-[7.5px] uppercase font-bold text-black block leading-none">
                   NO. TIKET SERVIS
                 </span>
-                <span className="text-xs font-black tracking-wider text-zinc-950 block font-mono">
+                <span className="text-xs font-black tracking-wider text-black block font-mono">
                   {ticket.ticketNumber}
                 </span>
               </div>
 
               {/* QR Code in Center with direct URL to tracking & warranty */}
-              <div className="flex flex-col items-center justify-center py-1">
-                <div className="p-1 bg-white border border-zinc-950 rounded-xs">
-                  <QRCode value={getTrackingUrl(ticket.ticketNumber)} size={64} level="M" />
+              <div className="flex flex-col items-center justify-center py-1 space-y-0.5">
+                <div className="p-1 bg-white border-2 border-black">
+                  <QRCode value={getTrackingUrl(ticket.ticketNumber)} size={60} level="M" />
                 </div>
-                <span className="text-[7px] text-zinc-800 font-bold mt-0.5 tracking-tight text-center">
+                <span className="text-[7.5px] text-black font-black mt-0.5 tracking-tight text-center uppercase">
                   SCAN: LACAK STATUS & GARANSI
                 </span>
               </div>
 
               {/* Customer & Unit Details for Sticky Identification */}
-              <div className="space-y-0.5 border-t border-b border-dashed border-zinc-950 py-1 text-[8.5px] leading-tight">
+              <div className="space-y-0.5 border-t-2 border-b-2 border-dashed border-black py-1 text-[8.5px] leading-tight text-black">
                 <div>
-                  <span className="text-zinc-500 text-[7.5px] font-semibold">Pemilik: </span>
-                  <span className="font-black text-zinc-950">
+                  <span className="text-[7.5px] font-bold">Pemilik: </span>
+                  <span className="font-black">
                     {ticket.customerName}
                   </span>
-                  <span className="text-zinc-700 text-[7.5px] block">{ticket.customerPhone}</span>
+                  <span className="text-[7.5px] font-semibold block">{ticket.customerPhone}</span>
                 </div>
 
                 <div className="pt-0.5">
-                  <span className="text-zinc-500 text-[7.5px] font-semibold">Unit: </span>
-                  <span className="font-bold text-zinc-950">{ticket.deviceBrandModel}</span>
+                  <span className="text-[7.5px] font-bold">Unit: </span>
+                  <span className="font-black">{ticket.deviceBrandModel}</span>
                   {ticket.serialNumber && (
-                    <span className="text-zinc-700 text-[7.5px] block font-mono">SN: {ticket.serialNumber}</span>
+                    <span className="text-[7.5px] block font-mono font-semibold">SN: {ticket.serialNumber}</span>
                   )}
                 </div>
 
                 <div className="pt-0.5">
-                  <span className="text-zinc-500 text-[7.5px] font-semibold">Keluhan: </span>
-                  <span className="font-medium text-zinc-950 line-clamp-2">
+                  <span className="text-[7.5px] font-bold">Keluhan: </span>
+                  <span className="font-medium line-clamp-2 leading-tight">
                     {ticket.complaints}
                   </span>
                 </div>
 
                 {ticket.accessories && (
                   <div className="pt-0.5">
-                    <span className="text-zinc-500 text-[7.5px] font-semibold">Kelengkapan: </span>
-                    <span className="text-zinc-900">{ticket.accessories}</span>
+                    <span className="text-[7.5px] font-bold">Kelengkapan: </span>
+                    <span className="font-medium leading-tight">{ticket.accessories}</span>
                   </div>
                 )}
               </div>
 
               {/* Date, PIC & DP */}
-              <div className="text-[7.5px] space-y-0.5 text-zinc-800">
-                <div className="flex justify-between">
-                  <span className="text-zinc-600">Tgl Masuk:</span>
-                  <span className="font-bold">{formatDateIndo(ticket.createdAt).split(",")[0]}</span>
+              <div className="text-[7.8px] space-y-0.5 text-black font-bold">
+                <div className="flex justify-between items-baseline">
+                  <span>Tgl Masuk:</span>
+                  <span className="font-black">{formatDateIndo(ticket.createdAt).split(",")[0]}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-zinc-600">Teknisi PIC:</span>
-                  <span className="font-bold text-zinc-950">{resolvedTechnicianName}</span>
+                <div className="flex justify-between items-baseline">
+                  <span>Teknisi PIC:</span>
+                  <span className="font-black">{resolvedTechnicianName}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-zinc-600">DP:</span>
-                  <span className="font-bold text-zinc-950">{formatRupiah(ticket.downPayment)}</span>
+                <div className="flex justify-between items-baseline">
+                  <span>DP Masuk:</span>
+                  <span className="font-black">{formatRupiah(ticket.downPayment)}</span>
                 </div>
-                <div className="flex justify-between font-black text-zinc-950 border-t border-zinc-400 pt-0.5">
+                <div className="flex justify-between items-baseline font-black border-t border-black pt-0.5">
                   <span>Est. Biaya:</span>
                   <span>{formatRupiah(ticket.finalCost || ticket.estimatedCost)}</span>
                 </div>
               </div>
 
               {/* Placement Guideline */}
-              <div className="text-center text-[7px] font-black text-zinc-700 uppercase tracking-tight pt-1 border-t border-dashed border-zinc-950">
-                ✂️ TEMPEL DI CASING / PERANGKAT ✂️
+              <div className="text-center text-[7.5px] font-black text-black uppercase tracking-tight pt-1 border-t-2 border-dashed border-black">
+                ✂️ TEMPEL DI CASING / UNIT ✂️
               </div>
             </div>
           )}
 
-          {/* FORMAT 3: STRUK KASIR THERMAL 58MM (ROLL KECIL / BLUETOOTH) */}
+          {/* FORMAT 3: STRUK KASIR THERMAL 58MM (DIKALIBRASI KHUSUS MP58 & ROLL 58MM) */}
           {(selectedFormat === "thermal_58mm" ||
             (selectedFormat === "thermal" && settings.defaultThermalSize !== "80mm")) && (
-            <div className="print-thermal-58mm mx-auto w-[210px] max-w-[50mm] bg-white text-zinc-900 p-1.5 rounded-lg border border-zinc-400 font-mono text-[8.5px] leading-tight space-y-1.5 shadow-xs overflow-hidden">
-              {/* Header */}
-              <div className="text-center space-y-0.5 border-b border-dashed border-zinc-400 pb-1.5">
-                <h3 className="font-black text-[11px] tracking-wide text-zinc-950 uppercase">
+            <div
+              style={{
+                width: thermal58Width,
+                maxWidth: thermal58Width,
+                marginLeft: thermal58Offset,
+              }}
+              className="print-thermal-58mm mx-auto bg-white text-black p-1 rounded-none border border-black font-mono text-[8.8px] leading-tight space-y-1 shadow-xs overflow-visible"
+            >
+              {/* Header Toko */}
+              <div className="text-center space-y-0.5 border-b-2 border-dashed border-black pb-1">
+                <h3 className="font-black text-[12px] tracking-tight text-black uppercase leading-tight">
                   {settings.storeName}
                 </h3>
-                <p className="text-[7.5px] text-zinc-600 leading-tight">{settings.tagline}</p>
-                <p className="text-[7.5px] text-zinc-600 leading-tight">{settings.address}</p>
-                <p className="text-[7.5px] text-zinc-700 font-bold">WA: {settings.whatsapp}</p>
+                <p className="text-[8px] text-black font-bold leading-tight">{settings.tagline}</p>
+                <p className="text-[7.8px] text-black font-semibold leading-tight break-words">{settings.address}</p>
+                <p className="text-[8.5px] text-black font-black leading-tight">WA: {settings.whatsapp}</p>
               </div>
 
-              {/* Title */}
-              <div className="text-center py-0.5">
-                <span className="font-bold text-[8px] uppercase px-1.5 py-0.5 border border-zinc-800 rounded-xs">
+              {/* Title Dokumen */}
+              <div className="text-center py-0.5 my-0.5">
+                <span className="font-black text-[8.5px] uppercase px-1.5 py-0.5 border-2 border-black inline-block text-black">
                   {mode === "intake_service" && "TANDA TERIMA SERVIS (58MM)"}
                   {mode === "invoice_service" && "NOTA PELUNASAN SERVIS (58MM)"}
-                  {mode === "pos_transaction" && "STRUK PENJUALAN KASIR (58MM)"}
+                  {mode === "pos_transaction" && "STRUK TRANSAKSI KASIR (58MM)"}
                 </span>
               </div>
 
-              {/* Metadata */}
-              <div className="space-y-0.5 text-[8px] border-b border-dashed border-zinc-400 pb-1.5">
+              {/* Metadata Transaksi / Servis */}
+              <div className="space-y-0.5 text-[8.5px] border-b-2 border-dashed border-black pb-1 text-black">
                 {ticket && (
                   <>
-                    <div className="flex justify-between">
-                      <span className="text-zinc-500">No. Tiket:</span>
-                      <span className="font-black text-zinc-950">{ticket.ticketNumber}</span>
+                    <div className="flex justify-between items-baseline gap-1">
+                      <span className="font-bold shrink-0">No. Tiket:</span>
+                      <span className="font-black text-right truncate">{ticket.ticketNumber}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-zinc-500">Tanggal:</span>
-                      <span>{formatDateIndo(ticket.createdAt).split(",")[0]}</span>
+                    <div className="flex justify-between items-baseline gap-1">
+                      <span className="font-bold shrink-0">Tanggal:</span>
+                      <span className="font-semibold text-right">{formatDateIndo(ticket.createdAt).split(",")[0]}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-zinc-500">Teknisi:</span>
-                      <span className="font-bold text-zinc-950 truncate max-w-[110px]">{resolvedTechnicianName}</span>
+                    <div className="flex justify-between items-baseline gap-1">
+                      <span className="font-bold shrink-0">Teknisi:</span>
+                      <span className="font-black text-right truncate">{resolvedTechnicianName}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-zinc-500">Konsumen:</span>
-                      <span className="font-bold text-zinc-950 truncate max-w-[110px]">{ticket.customerName}</span>
+                    <div className="flex justify-between items-baseline gap-1">
+                      <span className="font-bold shrink-0">Konsumen:</span>
+                      <span className="font-black text-right truncate">{ticket.customerName}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-zinc-500">No. WA:</span>
-                      <span>{ticket.customerPhone}</span>
+                    <div className="flex justify-between items-baseline gap-1">
+                      <span className="font-bold shrink-0">No. WA:</span>
+                      <span className="font-semibold text-right truncate">{ticket.customerPhone}</span>
                     </div>
                   </>
                 )}
 
                 {transaction && (
                   <>
-                    <div className="flex justify-between">
-                      <span className="text-zinc-500">No. Faktur:</span>
-                      <span className="font-black text-zinc-950">{transaction.invoiceNumber}</span>
+                    <div className="flex justify-between items-baseline gap-1">
+                      <span className="font-bold shrink-0">No. Faktur:</span>
+                      <span className="font-black text-right truncate">{transaction.invoiceNumber}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-zinc-500">Tanggal:</span>
-                      <span>{formatDateIndo(transaction.date)}</span>
+                    <div className="flex justify-between items-baseline gap-1">
+                      <span className="font-bold shrink-0">Tanggal:</span>
+                      <span className="font-semibold text-right">{formatDateIndo(transaction.date)}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-zinc-500">Kasir:</span>
-                      <span className="font-bold text-zinc-950 truncate max-w-[110px]">{resolvedCashierName}</span>
+                    <div className="flex justify-between items-baseline gap-1">
+                      <span className="font-bold shrink-0">Kasir:</span>
+                      <span className="font-black text-right truncate">{resolvedCashierName}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-zinc-500">Pelanggan:</span>
-                      <span className="font-semibold truncate max-w-[110px]">{transaction.customerName}</span>
+                    <div className="flex justify-between items-baseline gap-1">
+                      <span className="font-bold shrink-0">Pelanggan:</span>
+                      <span className="font-black text-right truncate">{transaction.customerName}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-zinc-500">Tipe:</span>
-                      <span className="font-bold text-zinc-950">
+                    <div className="flex justify-between items-baseline gap-1">
+                      <span className="font-bold shrink-0">Tipe:</span>
+                      <span className="font-black text-right">
                         {transaction.customerType === "reseller" ? "Reseller" : "Reguler"}
                       </span>
                     </div>
@@ -909,28 +1033,28 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
 
               {/* Details (Service or POS Items) */}
               {ticket && (
-                <div className="space-y-1 text-[8px] border-b border-dashed border-zinc-400 pb-1.5">
+                <div className="space-y-0.5 text-[8.5px] border-b-2 border-dashed border-black pb-1 text-black">
                   <div>
-                    <span className="text-zinc-500 block">Unit Perangkat:</span>
-                    <span className="font-bold text-zinc-950">{ticket.deviceBrandModel}</span>
+                    <span className="font-bold text-[8px] block">Unit Perangkat:</span>
+                    <span className="font-black block">{ticket.deviceBrandModel}</span>
                   </div>
                   <div>
-                    <span className="text-zinc-500 block">Keluhan:</span>
-                    <span className="text-zinc-900">{ticket.complaints}</span>
+                    <span className="font-bold text-[8px] block">Keluhan:</span>
+                    <span className="font-medium block leading-tight">{ticket.complaints}</span>
                   </div>
                   {ticket.accessories && (
                     <div>
-                      <span className="text-zinc-500 block">Kelengkapan:</span>
-                      <span className="text-zinc-900">{ticket.accessories}</span>
+                      <span className="font-bold text-[8px] block">Kelengkapan:</span>
+                      <span className="font-medium block leading-tight">{ticket.accessories}</span>
                     </div>
                   )}
                   {ticket.partsUsed && ticket.partsUsed.length > 0 && (
-                    <div className="pt-1">
-                      <span className="text-zinc-500 block font-semibold mb-0.5">Part / Jasa:</span>
+                    <div className="pt-0.5">
+                      <span className="font-black block text-[8px] border-b border-black pb-0.5">Part / Jasa:</span>
                       {ticket.partsUsed.map((p, i) => (
-                        <div key={i} className="flex justify-between text-[7.5px]">
-                          <span className="truncate max-w-[120px]">{p.name}</span>
-                          <span>{formatRupiah(p.price * p.qty)}</span>
+                        <div key={i} className="flex justify-between items-baseline text-[8px] py-0.5">
+                          <span className="truncate pr-1">{p.name}</span>
+                          <span className="font-bold shrink-0">{formatRupiah(p.price * p.qty)}</span>
                         </div>
                       ))}
                     </div>
@@ -939,18 +1063,22 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
               )}
 
               {transaction && (
-                <div className="space-y-1 text-[8px] border-b border-dashed border-zinc-400 pb-1.5">
-                  <div className="font-bold text-[7.5px] text-zinc-500 pb-0.5">DAFTAR ITEM:</div>
+                <div className="space-y-1 text-[8.5px] border-b-2 border-dashed border-black pb-1 text-black">
+                  <div className="font-black text-[8px] border-b border-black pb-0.5 uppercase tracking-tight">
+                    DAFTAR ITEM:
+                  </div>
                   {transaction.items.map((item, idx) => (
-                    <div key={idx} className="py-0.5 border-b border-zinc-100 last:border-none">
-                      <div className="font-bold text-zinc-950 text-[8.5px] truncate">{item.name}</div>
-                      <div className="flex justify-between items-center text-[7.5px] text-zinc-600">
+                    <div key={idx} className="py-0.5 border-b border-dotted border-black/30 last:border-none">
+                      <div className="font-black text-[8.8px] leading-tight break-words text-black">
+                        {item.name}
+                      </div>
+                      <div className="flex justify-between items-baseline text-[8.5px] font-bold text-black mt-0.5">
                         <span>{item.qty} x {formatRupiah(item.price)}</span>
-                        <span className="font-bold text-zinc-950">{formatRupiah(item.subtotal)}</span>
+                        <span className="font-black text-right shrink-0">{formatRupiah(item.subtotal)}</span>
                       </div>
                       {item.warrantyDays !== undefined && item.warrantyDays > 0 && (
-                        <div className="text-[7px] text-zinc-700 font-semibold">
-                          🛡️ Garansi: {item.warrantyDays} Hari
+                        <div className="text-[7.5px] font-black text-black">
+                          [Garansi: {item.warrantyDays} Hari]
                         </div>
                       )}
                     </div>
@@ -958,23 +1086,23 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                 </div>
               )}
 
-              {/* Totals */}
-              <div className="space-y-0.5 text-[8.5px] border-b border-dashed border-zinc-400 pb-1.5">
+              {/* Totals Section */}
+              <div className="space-y-0.5 text-[8.8px] border-b-2 border-dashed border-black pb-1 text-black font-bold">
                 {ticket && (
                   <>
-                    <div className="flex justify-between">
+                    <div className="flex justify-between items-baseline">
                       <span>Biaya / Est:</span>
-                      <span className="font-bold">
+                      <span className="font-black">
                         {formatRupiah(ticket.finalCost || ticket.estimatedCost)}
                       </span>
                     </div>
                     {ticket.downPayment > 0 && (
-                      <div className="flex justify-between">
+                      <div className="flex justify-between items-baseline">
                         <span>DP Masuk:</span>
-                        <span>{formatRupiah(ticket.downPayment)}</span>
+                        <span className="font-bold">{formatRupiah(ticket.downPayment)}</span>
                       </div>
                     )}
-                    <div className="flex justify-between font-black text-[9px] pt-0.5 border-t border-zinc-300">
+                    <div className="flex justify-between items-baseline font-black text-[10px] pt-1 mt-0.5 border-t-2 border-black">
                       <span>Sisa Pelunasan:</span>
                       <span>
                         {formatRupiah(
@@ -987,55 +1115,55 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
 
                 {transaction && (
                   <>
-                    <div className="flex justify-between">
+                    <div className="flex justify-between items-baseline">
                       <span>Subtotal:</span>
-                      <span>{formatRupiah(transaction.subtotal)}</span>
+                      <span className="font-bold">{formatRupiah(transaction.subtotal)}</span>
                     </div>
                     {transaction.discount > 0 && (
-                      <div className="flex justify-between text-red-600 font-semibold">
+                      <div className="flex justify-between items-baseline">
                         <span>Diskon:</span>
-                        <span>-{formatRupiah(transaction.discount)}</span>
+                        <span className="font-bold">-{formatRupiah(transaction.discount)}</span>
                       </div>
                     )}
-                    <div className="flex justify-between font-black text-[9px] pt-0.5 border-t border-zinc-300">
+                    <div className="flex justify-between items-baseline font-black text-[10.5px] pt-1 mt-0.5 border-t-2 border-b-2 border-black py-0.5">
                       <span>TOTAL:</span>
                       <span>{formatRupiah(transaction.total)}</span>
                     </div>
-                    <div className="flex justify-between text-[8px]">
+                    <div className="flex justify-between items-baseline text-[8.5px] pt-0.5">
                       <span className="capitalize">Bayar ({transaction.paymentMethod}):</span>
-                      <span>{formatRupiah(transaction.amountPaid)}</span>
+                      <span className="font-bold">{formatRupiah(transaction.amountPaid)}</span>
                     </div>
-                    <div className="flex justify-between text-[8px]">
+                    <div className="flex justify-between items-baseline text-[8.5px]">
                       <span>Kembalian:</span>
-                      <span>{formatRupiah(transaction.change)}</span>
+                      <span className="font-black">{formatRupiah(transaction.change)}</span>
                     </div>
                   </>
                 )}
               </div>
 
-              {/* QR Code in 58mm: 64px, compact and sharp */}
+              {/* QR Code in 58mm: 60px, solid black high contrast for 203 DPI thermal printers */}
               <div className="flex flex-col items-center justify-center py-1 space-y-0.5">
-                <div className="p-1 bg-white border border-zinc-900 rounded-xs">
+                <div className="p-1 bg-white border-2 border-black">
                   <QRCode
                     value={getTrackingUrl(ticket ? ticket.ticketNumber : transaction?.invoiceNumber || "")}
-                    size={64}
+                    size={60}
                     level="M"
                   />
                 </div>
-                <span className="text-[7px] text-zinc-600 text-center font-semibold">
-                  Scan QR: Lacak & Garansi Online
+                <span className="text-[7.5px] text-black text-center font-black tracking-tight uppercase mt-0.5">
+                  SCAN QR: LACAK & GARANSI ONLINE
                 </span>
               </div>
 
               {/* Footer */}
-              <div className="text-center text-[7.5px] text-zinc-500 space-y-0.5 pt-0.5">
+              <div className="text-center text-[7.8px] text-black space-y-0.5 pt-0.5 font-bold leading-tight">
                 {ticket && ticket.warrantyDays > 0 && (
-                  <p className="font-bold text-zinc-800">
-                    🛡️ Garansi: {ticket.warrantyDays} Hari
+                  <p className="font-black text-black">
+                    🛡️ GARANSI: {ticket.warrantyDays} HARI
                   </p>
                 )}
-                <p className="leading-tight">{settings.receiptFooter}</p>
-                <p className="text-[7px] text-zinc-400 pt-0.5">[ 1 LEMBAR - THERMAL 58MM ]</p>
+                <p className="leading-tight font-semibold">{settings.receiptFooter}</p>
+                <p className="text-[7px] font-black text-black pt-0.5">[ 1 LEMBAR - THERMAL 58MM MP58 ]</p>
               </div>
             </div>
           )}
