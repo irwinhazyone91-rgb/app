@@ -316,20 +316,33 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
     const prod = products.find((p) => p.id === selectedSparepartId);
     if (!prod) return;
 
-    const qtyToAdd = Math.max(1, Number(inventoryPartQty) || 1);
+    if (prod.stock <= 0) {
+      toast.error(`Stok "${prod.name}" sedang kosong (0 ${prod.unit || "unit"}).`);
+      return;
+    }
 
-    const existingIndex = partsList.findIndex((p) => p.id === prod.id || p.name === prod.name);
+    const qtyToAdd = Math.max(1, Number(inventoryPartQty) || 1);
+    const existingIndex = partsList.findIndex((p) => (p.productId || p.id) === prod.id || p.name === prod.name);
+    const currentQty = existingIndex >= 0 ? partsList[existingIndex].qty : 0;
+
+    if (currentQty + qtyToAdd > prod.stock) {
+      toast.error(`Total kebutuhan (${currentQty + qtyToAdd}) melebihi stok yang ada (${prod.stock} ${prod.unit || "unit"}).`);
+      return;
+    }
+
     let updatedParts: ServicePart[];
     if (existingIndex >= 0) {
       updatedParts = partsList.map((p, idx) =>
-        idx === existingIndex ? { ...p, qty: p.qty + qtyToAdd } : p
+        idx === existingIndex ? { ...p, qty: p.qty + qtyToAdd, productId: prod.id } : p
       );
     } else {
       const newPart: ServicePart = {
         id: prod.id,
+        productId: prod.id,
         name: prod.name,
         price: prod.sellPrice,
-        qty: qtyToAdd
+        qty: qtyToAdd,
+        stockDeducted: false
       };
       updatedParts = [...partsList, newPart];
     }
@@ -1573,8 +1586,8 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
                               {products
                                 .filter((p) => p.category !== "jasa")
                                 .map((p) => (
-                                  <option key={p.id} value={p.id}>
-                                    {p.name} — Stok: {p.stock} unit | {formatRupiah(p.sellPrice)}
+                                  <option key={p.id} value={p.id} disabled={p.stock <= 0}>
+                                    {p.name} — {p.stock > 0 ? `Stok: ${p.stock} ${p.unit || 'unit'}` : "[HABIS - STOK 0]"} | {formatRupiah(p.sellPrice)}
                                   </option>
                                 ))}
                             </select>
@@ -1726,6 +1739,17 @@ export const ServiceManagementView: React.FC<ServiceManagementViewProps> = ({
                                   >
                                     {isInventoryItem ? "Stok Toko" : "Manual"}
                                   </span>
+                                  {isInventoryItem && (
+                                    <span
+                                      className={`text-[9px] px-1.5 py-0.5 rounded font-semibold ${
+                                        part.stockDeducted
+                                          ? "bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
+                                          : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700"
+                                      }`}
+                                    >
+                                      {part.stockDeducted ? `✓ Stok Terpotong (-${part.qty})` : `⏳ Potong Stok Saat Disimpan / Kasir`}
+                                    </span>
+                                  )}
                                 </div>
                                 <div className="text-xs text-muted-foreground">
                                   Harga Satuan: {formatRupiah(part.price)}

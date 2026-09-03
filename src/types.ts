@@ -26,9 +26,11 @@ export type ServiceStatus =
 
 export interface ServicePart {
   id: string;
+  productId?: string;
   name: string;
   price: number;
   qty: number;
+  stockDeducted?: boolean;
 }
 
 export interface ServiceTicket {
@@ -49,6 +51,7 @@ export interface ServiceTicket {
   finalCost: number;
   downPayment: number;
   partsUsed: ServicePart[];
+  partsStockDeducted?: boolean;
   warrantyDays: number;
   warrantyUntil?: string;
   createdAt: string;

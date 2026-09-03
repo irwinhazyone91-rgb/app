@@ -252,6 +252,10 @@ export const POSView: React.FC<POSViewProps> = ({
       (ticket.finalCost || ticket.estimatedCost) - ticket.downPayment
     );
 
+    const partsSummary = ticket.partsUsed && ticket.partsUsed.length > 0
+      ? ` | Part: ${ticket.partsUsed.map((p) => `${p.name} (${p.qty}x)`).join(", ")}`
+      : "";
+
     setCustomerName(ticket.customerName);
     setCustomerPhone(ticket.customerPhone);
 
@@ -269,7 +273,7 @@ export const POSView: React.FC<POSViewProps> = ({
         subtotal: remaining,
         isService: true,
         warrantyDays: ticket.warrantyDays || 14,
-        specsSummary: `Unit: ${ticket.deviceBrandModel} | Keluhan: ${ticket.complaints}`
+        specsSummary: `Unit: ${ticket.deviceBrandModel} | Keluhan: ${ticket.complaints}${partsSummary}`
       }
     ]);
     toast.success(`Tiket servis #${ticket.ticketNumber} berhasil ditambahkan ke keranjang.`);

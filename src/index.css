@@ -152,7 +152,7 @@
     padding: 0 0.5mm 3mm 0.5mm !important;
     font-size: 9px !important;
     line-height: 1.25 !important;
-    font-family: var(--thermal-58-font-family, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif) !important;
+    font-family: var(--thermal-58-font-family, 'Courier New', Courier, Monaco, 'Lucida Console', monospace) !important;
     font-weight: 700 !important;
     overflow: visible !important;
     word-break: break-word !important;

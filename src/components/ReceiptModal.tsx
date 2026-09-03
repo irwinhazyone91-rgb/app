@@ -103,12 +103,12 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
     return "0mm";
   });
 
-  const [thermal58Font, setThermal58Font] = useState<"sans" | "mono">(() => {
+  const [thermal58Font, setThermal58Font] = useState<"mono" | "sans">(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("servisku_thermal58_font");
       if (saved === "sans" || saved === "mono") return saved;
     }
-    return "sans";
+    return "mono";
   });
 
   const handleWidthChange = (val: "48mm" | "50mm" | "52mm" | "54mm") => {
@@ -136,11 +136,34 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
     setSelectedFormat(resolvePrintFormat(defaultFormat));
   }, [defaultFormat, mode, isOpen, hasLaptopOrService, settings.defaultThermalSize]);
 
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      document.documentElement.style.setProperty("--thermal-58-width", thermal58Width);
+      document.documentElement.style.setProperty("--thermal-58-offset", thermal58Offset);
+      document.documentElement.style.setProperty(
+        "--thermal-58-font-family",
+        thermal58Font === "sans"
+          ? "system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+          : "'Courier New', Courier, Monaco, 'Lucida Console', monospace"
+      );
+    }
+  }, [thermal58Width, thermal58Offset, thermal58Font]);
+
   const printAreaRef = useRef<HTMLDivElement>(null);
 
   if (!isOpen) return null;
 
   const handlePrint = () => {
+    if (typeof document !== "undefined") {
+      document.documentElement.style.setProperty("--thermal-58-width", thermal58Width);
+      document.documentElement.style.setProperty("--thermal-58-offset", thermal58Offset);
+      document.documentElement.style.setProperty(
+        "--thermal-58-font-family",
+        thermal58Font === "sans"
+          ? "system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+          : "'Courier New', Courier, Monaco, 'Lucida Console', monospace"
+      );
+    }
     window.print();
   };
 
@@ -392,17 +415,6 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                 <div className="grid grid-cols-2 gap-1.5">
                   <button
                     type="button"
-                    onClick={() => handleFontChange("sans")}
-                    className={`py-1.5 px-2 rounded-lg text-xs font-bold text-center border transition-all ${
-                      thermal58Font === "sans"
-                        ? "bg-amber-500 text-zinc-950 border-amber-400 shadow-sm"
-                        : "bg-zinc-800 text-zinc-300 border-zinc-700 hover:bg-zinc-700"
-                    }`}
-                  >
-                    Modern (Tebal & Jelas)
-                  </button>
-                  <button
-                    type="button"
                     onClick={() => handleFontChange("mono")}
                     className={`py-1.5 px-2 rounded-lg text-xs font-bold text-center border transition-all ${
                       thermal58Font === "mono"
@@ -410,11 +422,22 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                         : "bg-zinc-800 text-zinc-300 border-zinc-700 hover:bg-zinc-700"
                     }`}
                   >
-                    Monospace (Klasik)
+                    Monospaced (Standar Kasir)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleFontChange("sans")}
+                    className={`py-1.5 px-2 rounded-lg text-xs font-bold text-center border transition-all ${
+                      thermal58Font === "sans"
+                        ? "bg-amber-500 text-zinc-950 border-amber-400 shadow-sm"
+                        : "bg-zinc-800 text-zinc-300 border-zinc-700 hover:bg-zinc-700"
+                    }`}
+                  >
+                    Modern Sans-Serif
                   </button>
                 </div>
                 <p className="text-[10px] text-zinc-400 mt-1">
-                  *Gunakan <strong>Modern</strong> untuk cetakan hitam pekat, tebal, dan sangat mudah dibaca.
+                  *Gunakan <strong>Monospaced</strong> untuk tampilan huruf struk kasir rapi lurus per kolom.
                 </p>
               </div>
 
@@ -905,98 +928,104 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                 width: thermal58Width,
                 maxWidth: thermal58Width,
                 marginLeft: thermal58Offset,
+                fontFamily:
+                  thermal58Font === "sans"
+                    ? "system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+                    : "'Courier New', Courier, monospace",
               }}
-              className="print-58mm print-sticker-58mm mx-auto bg-white text-black p-1.5 rounded-none border-2 border-black font-mono text-[8.5px] leading-tight space-y-1 shadow-xs overflow-visible"
+              className={`print-thermal-58mm print-sticker-58mm mx-auto bg-white text-black py-1 px-0.5 border-none leading-tight space-y-1 overflow-visible ${
+                thermal58Font === "sans" ? "font-sans font-bold text-[9px]" : "font-mono font-bold text-[8.8px]"
+              }`}
             >
-              {/* Header Label Stiker */}
-              <div className="text-center border-b-2 border-black pb-1">
-                <h4 className="font-black text-[11px] uppercase tracking-tight leading-tight text-black">
+              {/* Header Toko - Disamakan Persis dengan Struk Kasir POS */}
+              <div className="text-center space-y-0.5 border-b border-dashed border-black pb-1.5 mb-1">
+                <h3 className="font-black text-[13px] tracking-tight text-black uppercase leading-tight">
                   {settings.storeName}
-                </h4>
-                <div className="inline-block px-1.5 py-0.5 bg-black text-white text-[7.5px] font-black uppercase my-0.5">
-                  ★ STIKER UNIT SERVIS ★
+                </h3>
+                {settings.tagline && (
+                  <p className="text-[8.5px] text-black font-semibold leading-tight">{settings.tagline}</p>
+                )}
+                <p className="text-[8px] text-black font-medium leading-tight break-words px-1">{settings.address}</p>
+                <p className="text-[8.8px] text-black font-black leading-tight">WA: {settings.whatsapp}</p>
+              </div>
+
+              {/* Title Header - Gaya Garis Putus Kasir */}
+              <div className="text-center py-1 my-0.5 border-y border-dashed border-black">
+                <span className="font-black text-[9.5px] uppercase tracking-wider text-black">
+                  ★ STIKER TEMPEL UNIT SERVIS ★
+                </span>
+              </div>
+
+              {/* Metadata Tiket & Pelanggan */}
+              <div className="space-y-0.5 text-[8.8px] border-b border-dashed border-black pb-1 text-black">
+                <div className="flex justify-between items-baseline gap-1">
+                  <span className="font-bold shrink-0">No. Tiket:</span>
+                  <span className="font-black text-right tracking-wider text-[10.5px] font-mono">{ticket.ticketNumber}</span>
                 </div>
-                <span className="text-[7.5px] block text-black font-bold">
-                  WA: {settings.whatsapp}
-                </span>
-              </div>
-
-              {/* Big Bold Ticket Number Box */}
-              <div className="text-center py-1 bg-white border-2 border-black">
-                <span className="text-[7.5px] uppercase font-bold text-black block leading-none">
-                  NO. TIKET SERVIS
-                </span>
-                <span className="text-xs font-black tracking-wider text-black block font-mono">
-                  {ticket.ticketNumber}
-                </span>
-              </div>
-
-              {/* QR Code in Center with direct URL to tracking & warranty */}
-              <div className="flex flex-col items-center justify-center py-1 space-y-0.5">
-                <div className="p-1 bg-white border-2 border-black">
-                  <QRCode value={getTrackingUrl(ticket.ticketNumber)} size={60} level="M" />
+                <div className="flex justify-between items-baseline gap-1">
+                  <span className="font-bold shrink-0">Tanggal:</span>
+                  <span className="font-semibold text-right">{formatDateIndo(ticket.createdAt).split(",")[0]}</span>
                 </div>
-                <span className="text-[7.5px] text-black font-black mt-0.5 tracking-tight text-center uppercase">
-                  SCAN: LACAK STATUS & GARANSI
-                </span>
+                <div className="flex justify-between items-baseline gap-1">
+                  <span className="font-bold shrink-0">Teknisi PIC:</span>
+                  <span className="font-black text-right truncate">{resolvedTechnicianName}</span>
+                </div>
+                <div className="flex justify-between items-baseline gap-1">
+                  <span className="font-bold shrink-0">Pelanggan:</span>
+                  <span className="font-black text-right truncate">{ticket.customerName}</span>
+                </div>
+                <div className="flex justify-between items-baseline gap-1">
+                  <span className="font-bold shrink-0">No. WA:</span>
+                  <span className="font-semibold text-right truncate">{ticket.customerPhone}</span>
+                </div>
               </div>
 
-              {/* Customer & Unit Details for Sticky Identification */}
-              <div className="space-y-0.5 border-t-2 border-b-2 border-dashed border-black py-1 text-[8.5px] leading-tight text-black">
+              {/* Identitas Unit & Keluhan */}
+              <div className="space-y-0.5 text-[8.8px] border-b border-dashed border-black pb-1 text-black">
                 <div>
-                  <span className="text-[7.5px] font-bold">Pemilik: </span>
-                  <span className="font-black">
-                    {ticket.customerName}
-                  </span>
-                  <span className="text-[7.5px] font-semibold block">{ticket.customerPhone}</span>
-                </div>
-
-                <div className="pt-0.5">
-                  <span className="text-[7.5px] font-bold">Unit: </span>
-                  <span className="font-black">{ticket.deviceBrandModel}</span>
+                  <span className="font-bold text-[8px] block">Unit Perangkat:</span>
+                  <span className="font-black block">{ticket.deviceBrandModel}</span>
                   {ticket.serialNumber && (
-                    <span className="text-[7.5px] block font-mono font-semibold">SN: {ticket.serialNumber}</span>
+                    <span className="text-[7.8px] font-mono font-bold block">SN: {ticket.serialNumber}</span>
                   )}
                 </div>
-
                 <div className="pt-0.5">
-                  <span className="text-[7.5px] font-bold">Keluhan: </span>
-                  <span className="font-medium line-clamp-2 leading-tight">
-                    {ticket.complaints}
-                  </span>
+                  <span className="font-bold text-[8px] block">Keluhan:</span>
+                  <span className="font-medium block leading-tight">{ticket.complaints}</span>
                 </div>
-
                 {ticket.accessories && (
                   <div className="pt-0.5">
-                    <span className="text-[7.5px] font-bold">Kelengkapan: </span>
-                    <span className="font-medium leading-tight">{ticket.accessories}</span>
+                    <span className="font-bold text-[8px] block">Kelengkapan:</span>
+                    <span className="font-medium block leading-tight">{ticket.accessories}</span>
                   </div>
                 )}
               </div>
 
-              {/* Date, PIC & DP */}
-              <div className="text-[7.8px] space-y-0.5 text-black font-bold">
-                <div className="flex justify-between items-baseline">
-                  <span>Tgl Masuk:</span>
-                  <span className="font-black">{formatDateIndo(ticket.createdAt).split(",")[0]}</span>
-                </div>
-                <div className="flex justify-between items-baseline">
-                  <span>Teknisi PIC:</span>
-                  <span className="font-black">{resolvedTechnicianName}</span>
-                </div>
+              {/* Biaya & DP */}
+              <div className="space-y-0.5 text-[8.8px] border-b border-dashed border-black pb-1 text-black font-bold">
                 <div className="flex justify-between items-baseline">
                   <span>DP Masuk:</span>
-                  <span className="font-black">{formatRupiah(ticket.downPayment)}</span>
+                  <span>{formatRupiah(ticket.downPayment)}</span>
                 </div>
-                <div className="flex justify-between items-baseline font-black border-t border-black pt-0.5">
+                <div className="flex justify-between items-baseline font-black text-[9.5px] border-t border-dashed border-black pt-0.5">
                   <span>Est. Biaya:</span>
                   <span>{formatRupiah(ticket.finalCost || ticket.estimatedCost)}</span>
                 </div>
               </div>
 
-              {/* Placement Guideline */}
-              <div className="text-center text-[7.5px] font-black text-black uppercase tracking-tight pt-1 border-t-2 border-dashed border-black">
-                ✂️ TEMPEL DI CASING / UNIT ✂️
+              {/* QR Code Lacak & Garansi */}
+              <div className="flex flex-col items-center justify-center py-1 border-b border-dashed border-black space-y-0.5">
+                <div className="p-1 bg-white">
+                  <QRCode value={getTrackingUrl(ticket.ticketNumber)} size={64} level="M" />
+                </div>
+                <span className="text-[7.8px] text-black text-center font-black tracking-tight uppercase mt-0.5">
+                  SCAN QR: LACAK STATUS & GARANSI
+                </span>
+              </div>
+
+              {/* Label Instruksi Penempelan */}
+              <div className="text-center text-[7.8px] text-black font-black uppercase tracking-tight pt-0.5 leading-tight">
+                ✂️ TEMPEL PADA CASING / UNIT SERVIS ✂️
               </div>
             </div>
           )}

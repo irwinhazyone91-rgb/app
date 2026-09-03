@@ -28,9 +28,11 @@ function ensureDataDir() {
 // In-Memory Data Models
 export interface ServicePart {
   id: string;
+  productId?: string;
   name: string;
   price: number;
   qty: number;
+  stockDeducted?: boolean;
 }
 
 export type ServiceStatus = 
@@ -60,6 +62,7 @@ export interface ServiceTicket {
   finalCost: number;
   downPayment: number;
   partsUsed: ServicePart[];
+  partsStockDeducted?: boolean;
   warrantyDays: number;
   warrantyUntil?: string;
   createdAt: string;
@@ -1079,6 +1082,19 @@ app.post("/api/services", (req: Request, res: Response) => {
     updatedAt: req.body.updatedAt || now.toISOString()
   };
 
+  // Deduct inventory stock if partsUsed are included in new ticket
+  if (Array.isArray(newTicket.partsUsed) && newTicket.partsUsed.length > 0 && newTicket.status !== "cancelled") {
+    newTicket.partsUsed = newTicket.partsUsed.map((part) => {
+      const pIdx = products.findIndex((p) => p.id === (part.productId || part.id) || p.name === part.name);
+      if (pIdx !== -1 && products[pIdx].category !== "jasa" && !part.stockDeducted) {
+        products[pIdx].stock = Math.max(0, products[pIdx].stock - (part.qty || 1));
+        return { ...part, productId: products[pIdx].id, stockDeducted: true };
+      }
+      return part;
+    });
+    newTicket.partsStockDeducted = true;
+  }
+
   // Auto upsert customer to customers database
   if (newTicket.customerName && newTicket.customerName.trim() !== "") {
     const cleanPhone = (newTicket.customerPhone || "").replace(/[^0-9]/g, "");
@@ -1184,15 +1200,75 @@ app.put("/api/services/:id", (req: Request, res: Response) => {
     return res.status(404).json({ error: "Tiket servis tidak ditemukan" });
   }
 
+  const oldTicket = serviceTickets[index];
+  const oldParts: ServicePart[] = oldTicket.partsUsed || [];
+  const incomingParts: ServicePart[] | undefined = req.body.partsUsed;
+  const newStatus = req.body.status || oldTicket.status;
+  const isCancelled = newStatus === "cancelled";
+  const wasCancelled = oldTicket.status === "cancelled";
+
   const updated = {
-    ...serviceTickets[index],
+    ...oldTicket,
     ...req.body,
-    estimatedCost: Number(req.body.estimatedCost ?? serviceTickets[index].estimatedCost),
-    finalCost: Number(req.body.finalCost ?? serviceTickets[index].finalCost),
-    downPayment: Number(req.body.downPayment ?? serviceTickets[index].downPayment),
-    warrantyDays: Number(req.body.warrantyDays ?? serviceTickets[index].warrantyDays),
+    estimatedCost: Number(req.body.estimatedCost ?? oldTicket.estimatedCost),
+    finalCost: Number(req.body.finalCost ?? oldTicket.finalCost),
+    downPayment: Number(req.body.downPayment ?? oldTicket.downPayment),
+    warrantyDays: Number(req.body.warrantyDays ?? oldTicket.warrantyDays),
     updatedAt: new Date().toISOString()
   };
+
+  // Stock synchronization logic
+  if (incomingParts !== undefined || req.body.status !== undefined) {
+    const partsToProcess = incomingParts !== undefined ? incomingParts : oldParts;
+
+    if (isCancelled && !wasCancelled) {
+      // Return deducted parts to inventory
+      for (const part of oldParts) {
+        if (part.stockDeducted) {
+          const pIdx = products.findIndex((p) => p.id === (part.productId || part.id) || p.name === part.name);
+          if (pIdx !== -1 && products[pIdx].category !== "jasa") {
+            products[pIdx].stock += (part.qty || 1);
+          }
+        }
+      }
+      updated.partsUsed = partsToProcess.map((p) => ({ ...p, stockDeducted: false }));
+      updated.partsStockDeducted = false;
+    } else if (!isCancelled && wasCancelled) {
+      // Re-deduct parts from inventory
+      updated.partsUsed = partsToProcess.map((part) => {
+        const pIdx = products.findIndex((p) => p.id === (part.productId || part.id) || p.name === part.name);
+        if (pIdx !== -1 && products[pIdx].category !== "jasa") {
+          products[pIdx].stock = Math.max(0, products[pIdx].stock - (part.qty || 1));
+          return { ...part, productId: products[pIdx].id, stockDeducted: true };
+        }
+        return part;
+      });
+      updated.partsStockDeducted = true;
+    } else if (!isCancelled && incomingParts !== undefined) {
+      // Calculate delta per product
+      for (const prod of products) {
+        if (prod.category === "jasa") continue;
+        const oldP = oldParts.find((op) => (op.productId || op.id) === prod.id || op.name === prod.name);
+        const oldQty = oldP && oldP.stockDeducted ? (oldP.qty || 1) : 0;
+
+        const newP = incomingParts.find((np) => (np.productId || np.id) === prod.id || np.name === prod.name);
+        const newQty = newP ? (newP.qty || 1) : 0;
+
+        const delta = newQty - oldQty;
+        if (delta !== 0) {
+          prod.stock = Math.max(0, prod.stock - delta);
+        }
+      }
+      updated.partsUsed = incomingParts.map((part) => {
+        const pIdx = products.findIndex((p) => p.id === (part.productId || part.id) || p.name === part.name);
+        if (pIdx !== -1 && products[pIdx].category !== "jasa") {
+          return { ...part, productId: products[pIdx].id, stockDeducted: true };
+        }
+        return part;
+      });
+      updated.partsStockDeducted = true;
+    }
+  }
 
   if (req.body.status === "completed" && !updated.completedAt) {
     updated.completedAt = new Date().toISOString();
@@ -1210,6 +1286,18 @@ app.put("/api/services/:id", (req: Request, res: Response) => {
 
 app.delete("/api/services/:id", (req: Request, res: Response) => {
   const { id } = req.params;
+  const targetTicket = serviceTickets.find((s) => s.id === id || s.ticketNumber === id);
+  if (targetTicket && targetTicket.status !== "completed" && targetTicket.partsUsed) {
+    for (const part of targetTicket.partsUsed) {
+      if (part.stockDeducted) {
+        const pIdx = products.findIndex((p) => p.id === (part.productId || part.id) || p.name === part.name);
+        if (pIdx !== -1 && products[pIdx].category !== "jasa") {
+          products[pIdx].stock += (part.qty || 1);
+        }
+      }
+    }
+  }
+
   serviceTickets = serviceTickets.filter((s) => s.id !== id && s.ticketNumber !== id);
   saveToDisk();
   res.json({ success: true, message: "Tiket servis berhasil dihapus" });
@@ -1246,6 +1334,20 @@ app.post("/api/transactions", (req: Request, res: Response) => {
           const expDate = new Date();
           expDate.setDate(expDate.getDate() + serviceTickets[sIndex].warrantyDays);
           serviceTickets[sIndex].warrantyUntil = expDate.toISOString().split("T")[0];
+        }
+        // Deduct spare parts used on this service ticket if not already deducted
+        if (serviceTickets[sIndex].partsUsed && serviceTickets[sIndex].partsUsed.length > 0) {
+          serviceTickets[sIndex].partsUsed = serviceTickets[sIndex].partsUsed.map((part) => {
+            const pIdx = products.findIndex((p) => p.id === (part.productId || part.id) || p.name === part.name);
+            if (pIdx !== -1 && products[pIdx].category !== "jasa") {
+              if (!part.stockDeducted) {
+                products[pIdx].stock = Math.max(0, products[pIdx].stock - (part.qty || 1));
+              }
+              return { ...part, productId: products[pIdx].id, stockDeducted: true };
+            }
+            return part;
+          });
+          serviceTickets[sIndex].partsStockDeducted = true;
         }
       }
     }

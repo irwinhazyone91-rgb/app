@@ -3,6 +3,7 @@ import { Toaster, toast } from "sonner";
 import axios from "axios";
 import {
   ServiceTicket,
+  ServicePart,
   Product,
   Transaction,
   StoreSettings,
@@ -529,6 +530,34 @@ export function App() {
     const count = tickets.length + 1;
     const ticketNumber = `SRV-${yearMonth}-${String(count).padStart(3, "0")}`;
 
+    // Deduct stock for parts used if any
+    let updatedProducts = [...products];
+    const modifiedProducts: Product[] = [];
+    let initialParts: ServicePart[] = ticketData.partsUsed ? [...ticketData.partsUsed] : [];
+
+    if (initialParts.length > 0 && (ticketData.status || "received") !== "cancelled") {
+      initialParts = initialParts.map((part) => {
+        const pIndex = updatedProducts.findIndex((p) => p.id === (part.productId || part.id) || p.name === part.name);
+        if (pIndex !== -1 && updatedProducts[pIndex].category !== "jasa" && !part.stockDeducted) {
+          updatedProducts[pIndex] = {
+            ...updatedProducts[pIndex],
+            stock: Math.max(0, updatedProducts[pIndex].stock - (part.qty || 1))
+          };
+          modifiedProducts.push(updatedProducts[pIndex]);
+          return { ...part, productId: updatedProducts[pIndex].id, stockDeducted: true };
+        }
+        return part;
+      });
+      if (modifiedProducts.length > 0) {
+        setProducts(updatedProducts);
+        savePersistentProducts(updatedProducts);
+        for (const mp of modifiedProducts) {
+          firestoreService.saveProduct(mp).catch(() => null);
+          axios.put(`/api/products/${mp.id}`, mp).catch(() => null);
+        }
+      }
+    }
+
     const newTicket: ServiceTicket = {
       id: `srv-${Date.now()}`,
       ticketNumber,
@@ -546,7 +575,8 @@ export function App() {
       estimatedCost: Number(ticketData.estimatedCost) || 0,
       finalCost: Number(ticketData.finalCost) || 0,
       downPayment: Number(ticketData.downPayment) || 0,
-      partsUsed: ticketData.partsUsed || [],
+      partsUsed: initialParts,
+      partsStockDeducted: modifiedProducts.length > 0,
       warrantyDays: Number(ticketData.warrantyDays) || 30,
       createdAt: now.toISOString(),
       updatedAt: now.toISOString()
@@ -575,7 +605,7 @@ export function App() {
       firestoreService.saveCustomer(targetCustomer).catch(() => null);
     }
 
-    refreshStats(updated, products, transactions, updatedCustomerList.length);
+    refreshStats(updated, updatedProducts, transactions, updatedCustomerList.length);
 
     toast.success(`Tiket servis ${newTicket.ticketNumber} berhasil didaftarkan! Pelanggan tersimpan.`);
 
@@ -600,11 +630,99 @@ export function App() {
 
   const handleUpdateTicket = async (id: string, ticketData: Partial<ServiceTicket>) => {
     let savedTicket: ServiceTicket | null = null;
+    const oldTicket = tickets.find((t) => t.id === id || t.ticketNumber === id);
+    const oldParts: ServicePart[] = oldTicket?.partsUsed || [];
+    const incomingParts: ServicePart[] | undefined = ticketData.partsUsed;
+    const newStatus = ticketData.status || oldTicket?.status || "received";
+    const isCancelled = newStatus === "cancelled";
+    const wasCancelled = oldTicket?.status === "cancelled";
+
+    let updatedProducts = [...products];
+    const modifiedProducts: Product[] = [];
+    let processedParts: ServicePart[] | undefined = incomingParts;
+
+    if (incomingParts !== undefined || ticketData.status !== undefined) {
+      const partsToProcess = incomingParts !== undefined ? incomingParts : oldParts;
+
+      if (isCancelled && !wasCancelled) {
+        // Return deducted parts to inventory
+        for (const part of oldParts) {
+          if (part.stockDeducted) {
+            const pIdx = updatedProducts.findIndex((p) => p.id === (part.productId || part.id) || p.name === part.name);
+            if (pIdx !== -1 && updatedProducts[pIdx].category !== "jasa") {
+              updatedProducts[pIdx] = {
+                ...updatedProducts[pIdx],
+                stock: updatedProducts[pIdx].stock + (part.qty || 1)
+              };
+              if (!modifiedProducts.some((mp) => mp.id === updatedProducts[pIdx].id)) {
+                modifiedProducts.push(updatedProducts[pIdx]);
+              }
+            }
+          }
+        }
+        processedParts = partsToProcess.map((p) => ({ ...p, stockDeducted: false }));
+      } else if (!isCancelled && wasCancelled) {
+        // Re-deduct parts from inventory
+        processedParts = partsToProcess.map((part) => {
+          const pIdx = updatedProducts.findIndex((p) => p.id === (part.productId || part.id) || p.name === part.name);
+          if (pIdx !== -1 && updatedProducts[pIdx].category !== "jasa") {
+            updatedProducts[pIdx] = {
+              ...updatedProducts[pIdx],
+              stock: Math.max(0, updatedProducts[pIdx].stock - (part.qty || 1))
+            };
+            if (!modifiedProducts.some((mp) => mp.id === updatedProducts[pIdx].id)) {
+              modifiedProducts.push(updatedProducts[pIdx]);
+            }
+            return { ...part, productId: updatedProducts[pIdx].id, stockDeducted: true };
+          }
+          return part;
+        });
+      } else if (!isCancelled && incomingParts !== undefined) {
+        // Calculate delta per product
+        for (let i = 0; i < updatedProducts.length; i++) {
+          const prod = updatedProducts[i];
+          if (prod.category === "jasa") continue;
+          const oldP = oldParts.find((op) => (op.productId || op.id) === prod.id || op.name === prod.name);
+          const oldQty = oldP && oldP.stockDeducted ? (oldP.qty || 1) : 0;
+
+          const newP = incomingParts.find((np) => (np.productId || np.id) === prod.id || np.name === prod.name);
+          const newQty = newP ? (newP.qty || 1) : 0;
+
+          const delta = newQty - oldQty;
+          if (delta !== 0) {
+            updatedProducts[i] = {
+              ...prod,
+              stock: Math.max(0, prod.stock - delta)
+            };
+            modifiedProducts.push(updatedProducts[i]);
+          }
+        }
+        processedParts = incomingParts.map((part) => {
+          const pIdx = updatedProducts.findIndex((p) => p.id === (part.productId || part.id) || p.name === part.name);
+          if (pIdx !== -1 && updatedProducts[pIdx].category !== "jasa") {
+            return { ...part, productId: updatedProducts[pIdx].id, stockDeducted: true };
+          }
+          return part;
+        });
+      }
+
+      if (modifiedProducts.length > 0) {
+        setProducts(updatedProducts);
+        savePersistentProducts(updatedProducts);
+        for (const mp of modifiedProducts) {
+          firestoreService.saveProduct(mp).catch(() => null);
+          axios.put(`/api/products/${mp.id}`, mp).catch(() => null);
+        }
+      }
+    }
+
     const updated = tickets.map((t) => {
       if (t.id === id || t.ticketNumber === id) {
-        const mod = {
+        const mod: ServiceTicket = {
           ...t,
           ...ticketData,
+          partsUsed: processedParts !== undefined ? processedParts : t.partsUsed,
+          partsStockDeducted: !isCancelled,
           updatedAt: new Date().toISOString()
         };
         if (ticketData.status === "completed" && !mod.completedAt) {
@@ -623,13 +741,17 @@ export function App() {
 
     setTickets(updated);
     savePersistentTickets(updated);
-    refreshStats(updated, products, transactions);
-    toast.success("Status tiket servis berhasil diperbarui!");
+    refreshStats(updated, updatedProducts, transactions);
+    if (modifiedProducts.length > 0) {
+      toast.success("Status tiket & stok sparepart di inventaris berhasil disesuaikan.");
+    } else {
+      toast.success("Status tiket servis berhasil diperbarui!");
+    }
 
     if (savedTicket) {
       try {
         await Promise.all([
-          axios.put(`/api/services/${id}`, ticketData).catch(() => null),
+          axios.put(`/api/services/${id}`, savedTicket).catch(() => null),
           firestoreService.saveTicket(savedTicket).catch(() => null)
         ]);
       } catch (e) {
@@ -639,6 +761,32 @@ export function App() {
   };
 
   const handleDeleteTicket = async (id: string) => {
+    const targetTicket = tickets.find((t) => t.id === id || t.ticketNumber === id);
+    if (targetTicket && targetTicket.status !== "completed" && targetTicket.partsUsed) {
+      const updatedProducts = [...products];
+      const modifiedProducts: Product[] = [];
+      for (const part of targetTicket.partsUsed) {
+        if (part.stockDeducted) {
+          const pIdx = updatedProducts.findIndex((p) => p.id === (part.productId || part.id) || p.name === part.name);
+          if (pIdx !== -1 && updatedProducts[pIdx].category !== "jasa") {
+            updatedProducts[pIdx] = {
+              ...updatedProducts[pIdx],
+              stock: updatedProducts[pIdx].stock + (part.qty || 1)
+            };
+            modifiedProducts.push(updatedProducts[pIdx]);
+          }
+        }
+      }
+      if (modifiedProducts.length > 0) {
+        setProducts(updatedProducts);
+        savePersistentProducts(updatedProducts);
+        for (const mp of modifiedProducts) {
+          firestoreService.saveProduct(mp).catch(() => null);
+          axios.put(`/api/products/${mp.id}`, mp).catch(() => null);
+        }
+      }
+    }
+
     const updated = tickets.filter((t) => t.id !== id && t.ticketNumber !== id);
     setTickets(updated);
     savePersistentTickets(updated);
@@ -786,12 +934,36 @@ export function App() {
             const warrantyUntil = new Date(
               now.getTime() + warrantyDays * 24 * 60 * 60 * 1000
             ).toISOString();
+
+            // Deduct any spare parts used in this service ticket that haven't been deducted yet
+            let partsToKeep = t.partsUsed || [];
+            if (partsToKeep.length > 0) {
+              partsToKeep = partsToKeep.map((part) => {
+                if (!part.stockDeducted) {
+                  const pIndex = updatedProducts.findIndex((p) => p.id === (part.productId || part.id) || p.name === part.name);
+                  if (pIndex !== -1 && updatedProducts[pIndex].category !== "jasa") {
+                    updatedProducts[pIndex] = {
+                      ...updatedProducts[pIndex],
+                      stock: Math.max(0, updatedProducts[pIndex].stock - (part.qty || 1))
+                    };
+                    if (!modifiedProducts.some((mp) => mp.id === updatedProducts[pIndex].id)) {
+                      modifiedProducts.push(updatedProducts[pIndex]);
+                    }
+                  }
+                  return { ...part, productId: (part.productId || part.id), stockDeducted: true };
+                }
+                return part;
+              });
+            }
+
             const completed: ServiceTicket = {
               ...t,
               status: "completed" as const,
               completedAt: now.toISOString(),
               pickupDate: now.toISOString().split("T")[0],
               finalCost: item.subtotal,
+              partsUsed: partsToKeep,
+              partsStockDeducted: true,
               warrantyDays: warrantyDays,
               warrantyUntil: warrantyUntil
             };
@@ -804,6 +976,15 @@ export function App() {
     }
     setTickets(updatedTickets);
     savePersistentTickets(updatedTickets);
+
+    setProducts(updatedProducts);
+    savePersistentProducts(updatedProducts);
+    if (modifiedProducts.length > 0) {
+      for (const mp of modifiedProducts) {
+        firestoreService.saveProduct(mp).catch(() => null);
+        axios.put(`/api/products/${mp.id}`, mp).catch(() => null);
+      }
+    }
 
     const newTx: Transaction = {
       id: `tx-${Date.now()}`,
